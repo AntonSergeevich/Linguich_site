@@ -1,0 +1,119 @@
+{% extends 'linguich/base.html' %}
+{% load static %}
+{% block content %}
+
+{% include 'linguich/header.html' %}
+{% include 'linguich/navbar.html' %}
+<section class="container section-video ">
+    <h1>О Лингвич</h1>
+    <div class="content">
+        <p>Иностранный язык - ключ от дверей ко всему миру" А. Линкольн.<br>
+            Индивидуальные и групповые занятия. Занятия с носителями языка.
+            Курсы: английский, немецкий, французский, китайский, корейский, чешский, турецкий.
+            Индивидуальные программы обучения, которые подходят именно вам:</p>
+
+        <ol>
+            <li>язык от А до Я;</li>
+            <li>общий (базовый) курс;</li>
+            <li>разговорная практика; грамматика, практика письма</li>
+            <li>деловой английский и другие.</li>
+        </ol>
+        <p> В школе действуют программы лояльности к клиентам: "приведи друга и получи скидку на абонемент"!
+            Разговорный клуб, театр для самых маленьких и многое другое вы найдете у нас!</p>
+        <a href="">Читать дальше</a>
+    </div>
+    <div class="video" data-src="https://www.youtube.com/embed/tjJCwj1yD1I?si=UQKLps0YI-lRmzCW?autoplay=1">
+        <i class="fa fa-play"></i>
+    </div>
+</section>
+<section class=" section-test ">
+    <div class="custom-shape-divider-top-1699971034">
+        <svg data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 120" preserveAspectRatio="none">
+            <path d="M321.39,56.44c58-10.79,114.16-30.13,172-41.86,82.39-16.72,168.19-17.73,250.45-.39C823.78,31,906.67,72,985.66,92.83c70.05,18.48,146.53,26.09,214.34,3V0H0V27.35A600.21,600.21,0,0,0,321.39,56.44Z"
+                  class="shape-fill"></path>
+        </svg>
+    </div>
+    <h1 class="text-center mb-5">Пройдите тестирование на уровень знания английского языка</h1>
+    {% include 'linguich/test.html' %}
+    <div class="custom-shape-divider-bottom-1700073549">
+        <svg data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 120" preserveAspectRatio="none">
+            <path d="M321.39,56.44c58-10.79,114.16-30.13,172-41.86,82.39-16.72,168.19-17.73,250.45-.39C823.78,31,906.67,72,985.66,92.83c70.05,18.48,146.53,26.09,214.34,3V0H0V27.35A600.21,600.21,0,0,0,321.39,56.44Z"
+                  class="shape-fill"></path>
+        </svg>
+    </div>
+</section>
+
+<section id="contact">
+    <h1 class="text-center mt-5">Запишитесь на пробный урок и мы Вам перезвоним</h1>
+    <div class="contact-wrapper">
+
+        <!-- Left contact page -->
+        <div class="block-form">
+
+            <div class="wrapper centered">
+                <form class="letter">
+                    <div class="side">
+                        <h1>Написать нам</h1>
+                        <p>
+                            <textarea name="desc" required placeholder="Ваше сообщение"></textarea>
+                        </p>
+                    </div>
+                    <div class="side">
+                        <p>
+                            <input type="text" name="name" required placeholder="Ваше имя">
+                        </p>
+                        <p>
+                            <input type="phone" name="phone" required placeholder="Ваш телефон">
+                        </p>
+                        <p>
+                            <button class="button-send" type="submit" id="sendLetter">Отправить</button>
+                        </p>
+                    </div>
+                </form>
+                <div class="envelope front"></div>
+                <div class="envelope back"></div>
+            </div>
+            <p class="result-message centered">Птичка отправила нам сообщение, мы его уже получили и скоро Вам
+                перезвоним ☺</p>
+        </div>
+
+        <!-- Left contact page -->
+
+        <div class="direct-contact-container">
+
+            <ul class="contact-list">
+                <li class="list-item"><i class="fa fa-map-marker fa-2x"><span
+                        class="contact-text place">ул. Обороны 3, Красноярск </span></i></li>
+                <li class="list-item"><i class="fa fa-map-marker fa-2x"><span
+                        class="contact-text place">ул. Московская 178, Емельяново</span></i></li>
+
+                <li class="list-item"><i class="fa fa-phone fa-2x"><span class="contact-text phone"><a
+                        href="tel:214-73-03" title="Нажми, чтобы позвонить">214-73-03</a></span></i></li>
+
+                <li class="list-item"><i class="fa fa-envelope fa-2x"><span class="contact-text gmail"><a
+                        href="linguich@ya.ru" title="Отправить email">linguich@ya.ru</a></span></i></li>
+
+            </ul>
+
+            <hr>
+            <ul class="social-media-list">
+                <li><a href="#" target="_blank" class="contact-icon">
+                    <i class="fa fa-vk" aria-hidden="true"></i></a>
+                </li>
+                <li><a href="#" target="_blank" class="contact-icon">
+                    <i class="fa fa-instagram" aria-hidden="true"></i></a>
+                </li>
+                <li><a href="#" target="_blank" class="contact-icon">
+                    <i class="fa fa-whatsapp" aria-hidden="true"></i></a>
+                </li>
+                <li><a href="#" target="_blank" class="contact-icon">
+                    <i class="fa fa-telegram" aria-hidden="true"></i></a>
+                </li>
+            </ul>
+            <hr>
+        </div>
+
+    </div>
+</section>
+
+{% endblock %}

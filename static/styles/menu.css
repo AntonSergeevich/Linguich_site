@@ -1,0 +1,176 @@
+@import url('https://fonts.googleapis.com/css?family=Ubuntu+Condensed');
+
+
+/* header */
+
+.header {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    width: 100%;
+}
+
+.header ul {
+    list-style: none;
+}
+
+.menu {
+    display: flex;
+    flex-wrap: wrap;
+    list-style: none;
+    text-align: center;
+    justify-content: center;
+    padding: 0;
+}
+.menu li{
+    margin: 5px;
+}
+
+
+/* menu icon */
+
+.header .menu-icon {
+    cursor: pointer;
+    float: right;
+    padding: 25px 20px;
+    position: relative;
+    user-select: none;
+}
+
+/* menu-button */
+
+.glow-on-hover {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 220px;
+    height: 35px;
+    border: none;
+    outline: none;
+    color: #D17400;
+    background: #424242;
+    cursor: pointer;
+    position: relative;
+    z-index: 0;
+    border-radius: 10px;
+    background-size: 100%;
+    font-weight: bolder;
+    transition: all .3s ease;
+}
+
+
+
+.glow-on-hover:before {
+    content: '';
+    background: linear-gradient(45deg, #D14F00, #D18F00, #008BD1, #294452, #00D18E, #D1CA00, #D10015, #D18F00, #D14F00);
+    position: absolute;
+    top: -2px;
+    left:-2px;
+    background-size: 400%;
+    z-index: -1;
+    filter: blur(5px);
+    width: calc(100% + 4px);
+    height: calc(100% + 4px);
+    animation: glowing 20s linear infinite;
+    opacity: 0;
+    transition: opacity .3s ease-in-out;
+    border-radius: 10px;
+}
+
+.glow-on-hover:active {
+    color: #000;
+}
+
+.glow-on-hover:active:after {
+    background: transparent;
+}
+
+.glow-on-hover:hover:before {
+    opacity: 1;
+}
+
+.glow-on-hover:after {
+    z-index: -1;
+    content: '';
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 139, 209, 0.58);
+    left: 0;
+    top: 0;
+    border-radius: 10px;
+}
+
+/* HOVER BUTTON  SUBMENU*/
+.topmenu > li {
+    display: inline-block;
+    position: relative;
+}
+.topmenu > li:last-child {
+    margin-right: 0;
+}
+
+.topmenu li{
+    overflow: visible;
+}
+
+.submenu {
+    position: absolute;
+    text-align: left;
+    top: 100%;
+    left: 0;
+    width: 100%;
+    z-index: 100;
+    padding: 5px;
+    -webkit-transition: 0.5s ease-in-out;
+    -moz-transition: 0.5s ease-in-out;
+    -o-transition: 0.5s ease-in-out;
+    border-radius: 0 0 30px 30px;
+    transition: 0.5s ease-in-out;
+}
+
+.submenu li {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.39);
+  color: white;
+}
+
+.four .submenu {
+    -webkit-transform: scaleY(0);
+    -ms-transform: scaleY(0);
+    transform: scaleY(0);
+    -webkit-transform-origin: 0 0;
+    -ms-transform-origin: 0 0;
+    transform-origin: 0 0;
+    background: #008BD1;
+}
+.four ul li:hover .submenu {
+    -webkit-transform: scaleY(1);
+    -ms-transform: scaleY(1);
+    transform: scaleY(1);
+}
+
+.submenu a {
+    display: inline-block;
+    color: var(--white-color);
+    text-decoration: none;
+    font-weight: bold;
+    margin-left: 16%;
+    width: 50%;
+}
+
+/* END HOVER BUTTON SUBMENU*/
+
+
+.english-button{
+    background-image: url("../images/icons/gb.svg");
+}
+
+@keyframes glowing {
+    0% { background-position: 0 0; }
+    50% { background-position: 400% 0; }
+    100% { background-position: 0 0; }
+}
+
+
+
