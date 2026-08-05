@@ -1,0 +1,92 @@
+{% extends 'cabinet/base.html' %}
+{% block page_title %}Окна для записи{% endblock %}
+{% block page_sub %}<p class="cab-top__sub">Ученики видят эти интервалы и записываются сами</p>{% endblock %}
+
+{% block cabinet %}
+<div class="grid grid-2" style="align-items:start">
+  <div class="card">
+    <h3>Недельные окна</h3>
+    <p class="tiny muted">Слоты нарезаются автоматически и исчезают из сетки,
+      как только время занято уроком.</p>
+
+    {% for window in windows %}
+      <div class="lesson-row" style="grid-template-columns:minmax(0,1fr) auto">
+        <div style="min-width:0">
+          <div class="lesson-row__title">{{ window.get_weekday_display }}</div>
+          <div class="lesson-row__meta">
+            <span class="tabnum">{{ window.start_time|time:"H:i" }}–{{ window.end_time|time:"H:i" }}</span>
+            <span>слот {{ window.slot_minutes }} мин</span>
+            <span>{{ window.get_mode_display }}</span>
+          </div>
+        </div>
+        <div class="lesson-row__actions">
+          <button class="btn btn--danger btn--sm"
+                  data-action="{% url 'cabinet:teacher_availability_delete' window.pk %}" data-reload
+                  data-confirm="Удалить это окно?">Удалить</button>
+        </div>
+      </div>
+    {% empty %}
+      <div class="empty">
+        <div class="empty__icon"><svg class="icon icon--lg"><use href="#i-clock"/></svg></div>
+        <h4>Окон нет</h4>
+        <p>Пока вы не добавите интервалы, ученики не смогут записаться самостоятельно.</p>
+      </div>
+    {% endfor %}
+
+    <h4 class="mt-6">Добавить окно</h4>
+    <form data-async method="post" action="{% url 'cabinet:teacher_availability_create' %}">
+      {% csrf_token %}
+      <div class="form-grid">
+        <label class="field"><span class="label">День недели</span>
+          <select name="weekday">
+            {% for value, label in weekdays %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+          </select></label>
+        <label class="field"><span class="label">Формат</span>
+          <select name="mode">
+            {% for value, label in modes %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+          </select></label>
+        <label class="field"><span class="label">С</span>
+          <input type="time" name="start_time" value="16:00" required></label>
+        <label class="field"><span class="label">До</span>
+          <input type="time" name="end_time" value="20:00" required></label>
+        <label class="field"><span class="label">Длина слота, мин</span>
+          <input type="number" name="slot_minutes" value="60" min="30" max="180" step="15"></label>
+      </div>
+      <button class="btn btn--block" type="submit">Добавить окно</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <h3>Недоступность</h3>
+    <p class="tiny muted">Отпуск, больничный, разовая занятость — на это время слоты
+      исчезнут из сетки записи.</p>
+
+    {% for period in time_off %}
+      <div class="lesson-row" style="grid-template-columns:minmax(0,1fr)">
+        <div>
+          <div class="lesson-row__title tabnum">
+            {{ period.starts_at|date:"d.m H:i" }} — {{ period.ends_at|date:"d.m H:i" }}
+          </div>
+          <div class="lesson-row__meta"><span>{{ period.reason|default:"без причины" }}</span></div>
+        </div>
+      </div>
+    {% empty %}
+      <p class="muted tiny">Периодов недоступности нет.</p>
+    {% endfor %}
+
+    <h4 class="mt-6">Добавить период</h4>
+    <form data-async method="post" action="{% url 'cabinet:teacher_timeoff_create' %}">
+      {% csrf_token %}
+      <div class="form-grid">
+        <label class="field"><span class="label">С</span>
+          <input type="datetime-local" name="starts_at" required></label>
+        <label class="field"><span class="label">До</span>
+          <input type="datetime-local" name="ends_at" required></label>
+        <label class="field field--full"><span class="label">Причина</span>
+          <input type="text" name="reason" placeholder="Отпуск"></label>
+      </div>
+      <button class="btn btn--ghost btn--block" type="submit">Отметить</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

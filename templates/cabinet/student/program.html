@@ -1,0 +1,49 @@
+{% extends 'cabinet/base.html' %}
+{% block page_title %}Моя программа{% endblock %}
+{% block page_sub %}<p class="cab-top__sub">Что уже пройдено и что впереди</p>{% endblock %}
+
+{% block cabinet %}
+{% for block in blocks %}
+  <div class="card">
+    <div class="card-head">
+      <div>
+        <h3 class="mb-1">{{ block.program.title }}</h3>
+        <p class="tiny muted mb-0">{{ block.group.name }} · {{ block.group.teacher.short_name }}</p>
+      </div>
+      <div class="text-right">
+        <strong class="tabnum" style="font-size:var(--step-2)">{{ block.percent }}%</strong>
+        <div class="tiny muted">{{ block.done }} из {{ block.total }} тем</div>
+      </div>
+    </div>
+    <div class="progress mb-6"><div class="progress__bar" style="width:{{ block.percent }}%"></div></div>
+
+    {% for module in block.modules %}
+      <div class="module-block">
+        <div class="module-block__head">
+          <h4>{{ module.module.title }}</h4>
+          <span class="badge">{{ module.done }}/{{ module.total }}</span>
+        </div>
+        {% for item in module.units %}
+          <div class="unit-row">
+            <span class="unit-row__num" {% if item.done %}style="background:var(--ok-bg);color:var(--ok)"{% endif %}>
+              {% if item.done %}<svg class="icon icon--sm"><use href="#i-check"/></svg>{% else %}{{ forloop.counter }}{% endif %}
+            </span>
+            <span class="unit-row__title">{{ item.unit.title }}</span>
+            {% if item.unit.materials.exists %}
+              <span class="badge">{{ item.unit.materials.count }} материал(ов)</span>
+            {% endif %}
+            {% if item.done %}<span class="badge badge--ok">пройдено</span>{% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    {% endfor %}
+  </div>
+{% empty %}
+  <div class="empty">
+    <div class="empty__icon"><svg class="icon icon--lg"><use href="#i-globe"/></svg></div>
+    <h4>Программа ещё не назначена</h4>
+    <p>Как только преподаватель привяжет программу к вашей группе, она появится здесь
+      вместе с прогрессом по темам.</p>
+  </div>
+{% endfor %}
+{% endblock %}

@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+{% load humanize %}
+{% block title %}{{ language.name }} язык — Лингвич{% endblock %}
+
+{% block content %}
+<section class="section section--tight">
+  <div class="container">
+    <div class="section-head">
+      <div class="eyebrow">{{ language.flag_emoji }} Направление</div>
+      <h1>{{ language.name }} язык</h1>
+      <p class="lead">{{ language.short_pitch }}</p>
+    </div>
+    {% if language.description %}<div class="card card--flat mb-6">{{ language.description|linebreaks }}</div>{% endif %}
+
+    <h2>Курсы</h2>
+    <div class="grid grid-3 mb-6">
+      {% for course in courses %}
+        <a class="course-card" href="{{ course.get_absolute_url }}">
+          <div class="course-card__top"><h3 class="mb-0">{{ course.title }}</h3></div>
+          <div class="course-card__body">
+            <p class="muted tiny">{{ course.summary }}</p>
+            <div class="course-card__price">{{ course.price_per_lesson|floatformat:0|intcomma }} ₽ <small>/ занятие</small></div>
+            <div class="course-card__meta"><span>{{ course.get_format_display }}</span><span>{{ course.level_range }}</span></div>
+          </div>
+        </a>
+      {% empty %}
+        <div class="empty"><h4>Курсы скоро появятся</h4><p>Оставьте заявку — соберём группу под ваш запрос.</p></div>
+      {% endfor %}
+    </div>
+
+    {% if teachers %}
+      <h2>Преподаватели</h2>
+      <div class="grid grid-4 mb-6">
+        {% for teacher in teachers %}
+          <div class="card teacher-card">
+            {% if teacher.avatar %}<img class="avatar avatar--lg" src="{{ teacher.avatar.url }}" alt="{{ teacher.full_name }}">
+            {% else %}<span class="avatar avatar--lg">{{ teacher.initials }}</span>{% endif %}
+            <h4>{{ teacher.short_name }}</h4>
+            <div class="teacher-card__role">{{ teacher.teacher_profile.headline }}</div>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    <div class="card card--pad-lg" style="max-width:640px">
+      <h3>Записаться на {{ language.name|lower }}</h3>
+      {% include 'components/lead_form.html' with form=lead_form source='course' compact=1 %}
+    </div>
+  </div>
+</section>
+{% endblock %}

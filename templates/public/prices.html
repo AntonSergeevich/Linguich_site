@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+{% load humanize %}
+{% block title %}Цены и абонементы — Лингвич{% endblock %}
+
+{% block content %}
+<section class="section section--tight">
+  <div class="container">
+    <div class="section-head section-head--center">
+      <div class="eyebrow" style="justify-content:center">Прозрачно</div>
+      <h1>Цены и абонементы</h1>
+      <p class="lead">Платите абонементами — так занятие выходит дешевле, а баланс
+        всегда виден в личном кабинете.</p>
+    </div>
+
+    <div class="grid grid-4 mb-8">
+      {% for tariff in tariffs %}
+        <div class="card card--pad-lg reveal {% if forloop.counter == 2 %}card--accent{% endif %}">
+          {% if forloop.counter == 2 %}<span class="badge badge--accent mb-3">выбирают чаще всего</span>{% endif %}
+          <h3>{{ tariff.name }}</h3>
+          <div class="course-card__price mb-3">{{ tariff.price|floatformat:0|intcomma }} ₽</div>
+          <p class="tiny muted">
+            {{ tariff.lessons_count }} занятие{{ tariff.lessons_count|pluralize:",я,й" }}
+            · {{ tariff.price_per_lesson|floatformat:0 }} ₽ за урок
+            {% if tariff.validity_days %}<br>Действует {{ tariff.validity_days }} дней{% endif %}
+          </p>
+          {% if tariff.description %}<p class="tiny">{{ tariff.description }}</p>{% endif %}
+          <a class="btn btn--soft btn--block mt-4" href="{% url 'school:signup' %}">Выбрать</a>
+        </div>
+      {% endfor %}
+    </div>
+
+    <h2>Стоимость по курсам</h2>
+    <div class="table-wrap mb-6">
+      <table class="table">
+        <thead><tr><th>Курс</th><th>Формат</th><th>Уровень</th><th class="num">За занятие</th></tr></thead>
+        <tbody>
+          {% for course in courses %}
+            <tr>
+              <td><a href="{{ course.get_absolute_url }}"><strong>{{ course.title }}</strong></a><br>
+                <span class="tiny muted">{{ course.language.name }}</span></td>
+              <td>{{ course.get_format_display }}</td>
+              <td>{{ course.level_range }}</td>
+              <td class="num"><strong>{{ course.price_per_lesson|floatformat:0|intcomma }} ₽</strong></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="grid grid-2" style="align-items:start">
+      <div class="alert">
+        <svg class="icon icon--lg"><use href="#i-check"/></svg>
+        <div>
+          <strong>Первое занятие бесплатно</strong>
+          Пробный урок ни к чему не обязывает: знакомимся, определяем уровень, предлагаем программу.
+        </div>
+      </div>
+      <div class="card card--pad-lg">
+        <h4>Подобрать тариф</h4>
+        {% include 'components/lead_form.html' with form=lead_form source='trial' compact=1 button="Получить расчёт" %}
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

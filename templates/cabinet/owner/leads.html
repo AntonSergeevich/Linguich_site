@@ -1,0 +1,109 @@
+{% extends 'cabinet/base.html' %}
+{% block page_title %}Заявки{% endblock %}
+{% block page_actions %}
+  <div class="segmented">
+    <a href="?view=board" class="{% if view != 'list' %}is-active{% endif %}">Доска</a>
+    <a href="?view=list" class="{% if view == 'list' %}is-active{% endif %}">Список</a>
+  </div>
+{% endblock %}
+
+{% block cabinet %}
+
+{% if view == 'list' %}
+  <form class="crm-filters" method="get">
+    <input type="hidden" name="view" value="list">
+    <label class="field" style="flex:2 1 240px">
+      <span class="label">Поиск</span>
+      <input type="search" name="q" value="{{ search }}" placeholder="Имя или телефон">
+    </label>
+    <label class="field">
+      <span class="label">Статус</span>
+      <select name="status">
+        <option value="">Все</option>
+        {% for value, label in statuses %}
+          <option value="{{ value }}" {% if active_status == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <button class="btn" type="submit">Применить</button>
+  </form>
+
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th>Заявка</th><th>Источник</th><th>Уровень</th><th>Создана</th><th>Статус</th><th></th></tr></thead>
+      <tbody>
+        {% for lead in leads %}
+          <tr>
+            <td>
+              <strong>{{ lead.name }}</strong>
+              <div class="tiny muted"><a href="tel:{{ lead.phone }}">{{ lead.phone }}</a></div>
+              {% if lead.message %}<div class="tiny muted">{{ lead.message|truncatechars:70 }}</div>{% endif %}
+            </td>
+            <td class="muted tiny">{{ lead.get_source_display }}
+              {% if lead.language %}<br>{{ lead.language.name }}{% endif %}</td>
+            <td>{% if lead.placement_level %}<span class="badge badge--brand">{{ lead.placement_level }}</span>
+              {% else %}<span class="muted">—</span>{% endif %}</td>
+            <td class="muted tabnum tiny">{{ lead.created_at|date:"d.m.Y H:i" }}</td>
+            <td>
+              <select class="tiny" style="min-height:32px;padding:4px 8px"
+                      onchange="Linguich.api('/cabinet/crm/leads/{{ lead.pk }}/update/',{method:'POST',json:{status:this.value}}).then(function(){Linguich.toast('Статус обновлён','ok')})">
+                {% for value, label in statuses %}
+                  <option value="{{ value }}" {% if lead.status == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            </td>
+            <td class="num">
+              {% if not lead.converted_user %}
+                <button class="btn btn--soft btn--sm"
+                        data-action="{% url 'cabinet:crm_lead_convert' lead.pk %}"
+                        data-confirm="Создать ученика из этой заявки?">В ученики</button>
+              {% else %}
+                <a class="btn btn--quiet btn--sm" href="{% url 'cabinet:crm_student' lead.converted_user.pk %}">Карточка</a>
+              {% endif %}
+            </td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="6"><div class="empty"><h4>Заявок нет</h4></div></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+{% else %}
+  <div class="kanban">
+    {% for column in columns %}
+      <div class="kanban__col">
+        <h5>{{ column.label }} <span>{{ column.count }}</span></h5>
+        {% for lead in column.items %}
+          <div class="kanban__card">
+            <strong>{{ lead.name }}</strong>
+            <small><a href="tel:{{ lead.phone }}">{{ lead.phone }}</a></small>
+            <div class="row row--between mt-3" style="gap:var(--s-2)">
+              <span class="tiny muted">{{ lead.created_at|date:"d.m" }}</span>
+              {% if lead.placement_level %}<span class="badge badge--brand">{{ lead.placement_level }}</span>{% endif %}
+            </div>
+            <div class="row mt-3" style="gap:var(--s-2)">
+              <select class="tiny" style="min-height:30px;padding:3px 6px;flex:1"
+                      onchange="Linguich.api('/cabinet/crm/leads/{{ lead.pk }}/update/',{method:'POST',json:{status:this.value}}).then(function(){location.reload()})">
+                {% for value, label in statuses %}
+                  <option value="{{ value }}" {% if lead.status == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+              {% if not lead.converted_user %}
+                <button class="btn btn--soft btn--sm" title="Создать ученика"
+                        data-action="{% url 'cabinet:crm_lead_convert' lead.pk %}"
+                        data-confirm="Создать ученика из этой заявки?">
+                  <svg class="icon icon--sm"><use href="#i-user"/></svg>
+                </button>
+              {% endif %}
+            </div>
+          </div>
+        {% empty %}
+          <p class="tiny muted" style="padding:var(--s-3)">Пусто</p>
+        {% endfor %}
+      </div>
+    {% endfor %}
+  </div>
+{% endif %}
+
+{% endblock %}

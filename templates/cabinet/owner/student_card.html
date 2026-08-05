@@ -1,0 +1,245 @@
+{% extends 'cabinet/base.html' %}
+{% load humanize %}
+{% block page_title %}{{ student.full_name }}{% endblock %}
+{% block page_sub %}
+  <p class="cab-top__sub">
+    {{ student.phone|default:student.email }}
+    {% if profile.age %} · {{ profile.age }} лет{% endif %}
+    {% if profile.started_at %} · учится с {{ profile.started_at|date:"d.m.Y" }}{% endif %}
+  </p>
+{% endblock %}
+{% block page_actions %}
+  <button class="btn btn--sm" type="button" data-modal-open="#payment-modal">
+    <svg class="icon icon--sm"><use href="#i-card"/></svg> Платёж
+  </button>
+  <button class="btn btn--ghost btn--sm" type="button" data-modal-open="#package-modal">Абонемент</button>
+{% endblock %}
+
+{% block cabinet %}
+<div class="grid grid-4">
+  <div class="stat"><div class="stat__label">Баланс</div>
+    <div class="stat__value {% if account.balance > 0 %}money-pos{% else %}money-neg{% endif %}">
+      {{ account.balance|floatformat:0|intcomma }} ₽</div>
+    <div class="stat__meta">{% if account.balance > 0 %}должен{% else %}задолженности нет{% endif %}</div></div>
+  <div class="stat"><div class="stat__label">Осталось занятий</div>
+    <div class="stat__value">{{ account.lessons_left }}</div>
+    <div class="stat__meta">из {{ account.lessons_purchased }}</div></div>
+  <div class="stat"><div class="stat__label">Посещаемость</div>
+    <div class="stat__value">{{ attendance.attended }}</div>
+    <div class="stat__meta">пропусков: {{ attendance.absent }}</div></div>
+  <div class="stat"><div class="stat__label">Оплачено всего</div>
+    <div class="stat__value">{{ account.paid|floatformat:0|intcomma }} ₽</div></div>
+</div>
+
+<div class="grid grid-aside">
+  <div class="stack">
+    <div class="card">
+      <h3>Абонементы</h3>
+      <div class="table-wrap">
+        <table class="table" style="min-width:0">
+          <thead><tr><th>Выдан</th><th>Тариф</th><th class="num">Уроков</th><th class="num">Сумма</th><th>Статус</th></tr></thead>
+          <tbody>
+            {% for package in packages %}
+              <tr>
+                <td class="tabnum">{{ package.issued_on|date:"d.m.Y" }}</td>
+                <td>{{ package.tariff.name|default:"—" }}</td>
+                <td class="num">{{ package.lessons_left }}/{{ package.lessons_total }}</td>
+                <td class="num">{{ package.price|floatformat:0|intcomma }} ₽</td>
+                <td>
+                  {% if package.status == 'active' %}<span class="badge badge--ok">активен</span>
+                  {% elif package.status == 'exhausted' %}<span class="badge">израсходован</span>
+                  {% elif package.status == 'expired' %}<span class="badge badge--warn">истёк</span>
+                  {% else %}<span class="badge badge--err">аннулирован</span>{% endif %}
+                </td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="5" class="muted">Абонементов нет.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Платежи</h3>
+      <div class="table-wrap">
+        <table class="table" style="min-width:0">
+          <thead><tr><th>Дата</th><th>Способ</th><th class="num">Сумма</th><th>Комментарий</th></tr></thead>
+          <tbody>
+            {% for payment in payments %}
+              <tr>
+                <td class="tabnum">{{ payment.paid_on|date:"d.m.Y" }}</td>
+                <td class="muted">{{ payment.get_method_display }}</td>
+                <td class="num money-neg">+{{ payment.amount|floatformat:0|intcomma }} ₽</td>
+                <td class="muted tiny">{{ payment.comment|default:"—" }}</td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="4" class="muted">Платежей не было.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Занятия</h3>
+      {% for lesson in upcoming %}
+        <div class="lesson-row">
+          <div class="lesson-row__time">
+            <strong>{{ lesson.starts_at|date:"H:i" }}</strong><span>{{ lesson.starts_at|date:"d.m" }}</span>
+          </div>
+          <div style="min-width:0">
+            <div class="lesson-row__title">{{ lesson.title }}</div>
+            <div class="lesson-row__meta"><span>{{ lesson.teacher.short_name }}</span></div>
+          </div>
+          <div class="lesson-row__actions">
+            <a class="btn btn--quiet btn--sm" href="{% url 'cabinet:teacher_lesson' lesson.pk %}">Журнал</a>
+          </div>
+        </div>
+      {% empty %}
+        <p class="muted tiny">Занятий не запланировано.</p>
+      {% endfor %}
+
+      {% if history %}
+        <h4 class="mt-5">История</h4>
+        <div class="table-wrap">
+          <table class="table" style="min-width:0">
+            <thead><tr><th>Дата</th><th>Тема</th><th>Преподаватель</th><th>Статус</th></tr></thead>
+            <tbody>
+              {% for lesson in history %}
+                <tr>
+                  <td class="tabnum">{{ lesson.starts_at|date:"d.m.Y" }}</td>
+                  <td>{{ lesson.topic|default:lesson.title|truncatechars:30 }}</td>
+                  <td class="muted">{{ lesson.teacher.short_name }}</td>
+                  <td>
+                    {% if lesson.status == 'completed' %}<span class="badge badge--ok">проведён</span>
+                    {% elif lesson.status == 'cancelled' %}<span class="badge badge--err">отменён</span>
+                    {% else %}<span class="badge badge--warn">не отмечен</span>{% endif %}
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <aside class="stack">
+    <div class="card">
+      <h3>Карточка</h3>
+      <form data-async method="post" action="{% url 'cabinet:crm_student_update' student.pk %}"
+            data-success="Карточка обновлена">
+        {% csrf_token %}
+        <label class="field"><span class="label">Статус</span>
+          <select name="status">
+            {% for value, label in statuses %}
+              <option value="{{ value }}" {% if profile.status == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select></label>
+        <label class="field"><span class="label">Уровень</span>
+          <select name="level">
+            <option value="">—</option>
+            <option value="A0" {% if profile.level == 'A0' %}selected{% endif %}>A0</option>
+            <option value="A1" {% if profile.level == 'A1' %}selected{% endif %}>A1</option>
+            <option value="A2" {% if profile.level == 'A2' %}selected{% endif %}>A2</option>
+            <option value="B1" {% if profile.level == 'B1' %}selected{% endif %}>B1</option>
+            <option value="B2" {% if profile.level == 'B2' %}selected{% endif %}>B2</option>
+            <option value="C1" {% if profile.level == 'C1' %}selected{% endif %}>C1</option>
+            <option value="C2" {% if profile.level == 'C2' %}selected{% endif %}>C2</option>
+          </select></label>
+        <label class="field"><span class="label">Заметки (не видны ученику)</span>
+          <textarea name="internal_notes" rows="5">{{ profile.internal_notes }}</textarea></label>
+        <button class="btn btn--block" type="submit">Сохранить</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <h3>Группы</h3>
+      {% for enrollment in enrollments %}
+        <div class="unit-row">
+          <span class="unit-row__num">{{ forloop.counter }}</span>
+          <span class="unit-row__title">{{ enrollment.group.name }}<br>
+            <span class="tiny muted">{{ enrollment.group.teacher.short_name }}</span></span>
+          {% if enrollment.is_active %}<span class="badge badge--ok">активно</span>{% endif %}
+        </div>
+      {% empty %}
+        <p class="muted tiny">Не записан ни в одну группу.</p>
+      {% endfor %}
+
+      <form data-async method="post" action="{% url 'cabinet:crm_enroll' student.pk %}" class="mt-4">
+        {% csrf_token %}
+        <label class="field"><span class="label">Добавить в группу</span>
+          <select name="group">
+            {% for group in groups %}
+              <option value="{{ group.pk }}">{{ group.name }} ({{ group.seats_left }} мест)</option>
+            {% endfor %}
+          </select></label>
+        <button class="btn btn--ghost btn--block" type="submit">Записать</button>
+      </form>
+    </div>
+  </aside>
+</div>
+
+<div class="modal" id="payment-modal">
+  <div class="modal__panel">
+    <div class="card-head"><h3>Внести платёж</h3>
+      <button class="btn btn--quiet btn--icon btn--sm" data-modal-close type="button">
+        <svg class="icon"><use href="#i-x"/></svg></button></div>
+    <form data-async method="post" action="{% url 'cabinet:crm_payment_create' %}" data-success="Платёж записан">
+      {% csrf_token %}
+      <input type="hidden" name="student" value="{{ student.pk }}">
+      <div class="form-grid">
+        <label class="field"><span class="label">Сумма, ₽ *</span>
+          <input type="text" name="amount" required inputmode="decimal" placeholder="7600"></label>
+        <label class="field"><span class="label">Способ</span>
+          <select name="method">
+            {% for value, label in methods %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+          </select></label>
+        <label class="field"><span class="label">Дата</span>
+          <input type="date" name="paid_on"></label>
+        <label class="field"><span class="label">Сразу выдать абонемент</span>
+          <select name="tariff">
+            <option value="">Не выдавать</option>
+            {% for tariff in tariffs %}
+              <option value="{{ tariff.pk }}">{{ tariff.name }} — {{ tariff.price|floatformat:0 }} ₽</option>
+            {% endfor %}
+          </select></label>
+        <label class="field field--full"><span class="label">Комментарий</span>
+          <input type="text" name="comment" placeholder="Например: доплата за сентябрь"></label>
+      </div>
+      <button class="btn btn--block btn--lg" type="submit">Записать платёж</button>
+    </form>
+  </div>
+</div>
+
+<div class="modal" id="package-modal">
+  <div class="modal__panel">
+    <div class="card-head"><h3>Выдать абонемент</h3>
+      <button class="btn btn--quiet btn--icon btn--sm" data-modal-close type="button">
+        <svg class="icon"><use href="#i-x"/></svg></button></div>
+    <p class="tiny muted">Выдача абонемента создаёт начисление. Если оплаты ещё не было —
+      сумма попадёт в задолженность.</p>
+    <form data-async method="post" action="{% url 'cabinet:crm_package_create' %}" data-success="Абонемент выдан">
+      {% csrf_token %}
+      <input type="hidden" name="student" value="{{ student.pk }}">
+      <label class="field"><span class="label">Тариф</span>
+        <select name="tariff">
+          <option value="">Свой вариант</option>
+          {% for tariff in tariffs %}
+            <option value="{{ tariff.pk }}">{{ tariff.name }} — {{ tariff.lessons_count }} зан., {{ tariff.price|floatformat:0 }} ₽</option>
+          {% endfor %}
+        </select></label>
+      <div class="form-grid">
+        <label class="field"><span class="label">Занятий (если свой)</span>
+          <input type="number" name="lessons_total" min="1" placeholder="8"></label>
+        <label class="field"><span class="label">Стоимость, ₽</span>
+          <input type="text" name="price" inputmode="decimal" placeholder="7600"></label>
+      </div>
+      <label class="field"><span class="label">Комментарий</span>
+        <input type="text" name="comment"></label>
+      <button class="btn btn--block btn--lg" type="submit">Выдать</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

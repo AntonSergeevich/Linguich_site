@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+{% load humanize %}
+{% block title %}Курсы — Лингвич{% endblock %}
+
+{% block content %}
+<section class="section section--tight">
+  <div class="container">
+    <div class="section-head">
+      <div class="eyebrow">Каталог</div>
+      <h1>Курсы и форматы</h1>
+      <p class="lead">Группы, пары, индивидуально и онлайн. Не уверены, что подойдёт —
+        пройдите <a href="{% url 'placement:test' %}">тест уровня</a> или оставьте заявку.</p>
+    </div>
+
+    <div class="chip-row mb-6">
+      <a class="chip {% if not active_language %}is-active{% endif %}" href="{% url 'school:courses' %}">Все языки</a>
+      {% for language in languages %}
+        <a class="chip {% if active_language == language.slug %}is-active{% endif %}"
+           href="?language={{ language.slug }}">{{ language.flag_emoji }} {{ language.name }}</a>
+      {% endfor %}
+    </div>
+
+    <div class="grid grid-3">
+      {% for course in courses %}
+        <a class="course-card reveal" href="{{ course.get_absolute_url }}">
+          <div class="course-card__top">
+            <span class="badge badge--brand">{{ course.language.flag_emoji }} {{ course.language.name }}</span>
+            <h3 class="mt-4 mb-0">{{ course.title }}</h3>
+          </div>
+          <div class="course-card__body">
+            <p class="muted tiny">{{ course.summary }}</p>
+            <div class="course-card__price">
+              {{ course.price_per_lesson|floatformat:0|intcomma }} ₽ <small>/ занятие</small>
+            </div>
+            <div class="course-card__meta">
+              <span>{{ course.get_format_display }}</span>
+              <span>{{ course.level_range }}</span>
+              <span>{{ course.lessons_per_week }} раза в неделю</span>
+            </div>
+          </div>
+        </a>
+      {% empty %}
+        <div class="empty">
+          <h4>По этому фильтру курсов нет</h4>
+          <p>Попробуйте выбрать другой язык или посмотрите все курсы.</p>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endblock %}

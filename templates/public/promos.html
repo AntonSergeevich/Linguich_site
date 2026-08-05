@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+{% block title %}Акции — Лингвич{% endblock %}
+
+{% block content %}
+<section class="section section--tight">
+  <div class="container">
+    <div class="section-head">
+      <div class="eyebrow">Выгода</div>
+      <h1>Акции и программы лояльности</h1>
+    </div>
+
+    <div class="grid grid-2">
+      {% for promo in promos %}
+        <div class="card card--pad-lg card--accent reveal">
+          {% if promo.badge %}<span class="badge badge--accent">{{ promo.badge }}</span>{% endif %}
+          <h3 class="mt-3">{{ promo.title }}</h3>
+          {% if promo.subtitle %}<p class="lead">{{ promo.subtitle }}</p>{% endif %}
+          {% if promo.description %}<p class="muted tiny">{{ promo.description }}</p>{% endif %}
+          {% if promo.ends_at %}
+            <p class="tiny muted mb-4">Действует до {{ promo.ends_at|date:"d.m.Y" }}</p>
+          {% endif %}
+          <a class="btn btn--soft" href="{% url 'school:signup' %}">Воспользоваться</a>
+        </div>
+      {% empty %}
+        <div class="empty">
+          <h4>Сейчас активных акций нет</h4>
+          <p>Загляните позже или подпишитесь на наш Telegram — там сообщаем первыми.</p>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endblock %}

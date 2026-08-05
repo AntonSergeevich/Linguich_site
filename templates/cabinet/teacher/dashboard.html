@@ -1,0 +1,155 @@
+{% extends 'cabinet/base.html' %}
+{% block page_title %}Обзор{% endblock %}
+{% block page_sub %}<p class="cab-top__sub">{{ request.user.full_name }} · преподаватель</p>{% endblock %}
+{% block page_actions %}
+  <a class="btn btn--sm" href="{% url 'cabinet:teacher_schedule' %}">Расписание</a>
+{% endblock %}
+
+{% block cabinet %}
+
+{% if next_lesson %}
+  <div class="next-lesson">
+    <div style="flex:1;min-width:220px">
+      <span class="next-lesson__countdown" data-countdown="{{ next_lesson.starts_at|date:'c' }}">скоро</span>
+      <div class="next-lesson__when mt-3">{{ next_lesson.starts_at|date:"d.m, H:i" }}</div>
+      <h3 class="mt-2">{{ next_lesson.title }}</h3>
+      <div class="next-lesson__meta">
+        {{ next_lesson.active_participants.count }} учеников · {{ next_lesson.duration_minutes }} мин
+      </div>
+    </div>
+    <div class="btn-group">
+      {% if next_lesson.join_url %}
+        <a class="btn btn--white" href="{{ next_lesson.join_url }}" target="_blank" rel="noopener">
+          <svg class="icon"><use href="#i-video"/></svg> Начать урок
+        </a>
+      {% endif %}
+      <a class="btn btn--ghost" style="--btn-fg:#fff;--btn-bd:rgba(255,255,255,.45)"
+         href="{% url 'cabinet:teacher_lesson' next_lesson.pk %}">Открыть журнал</a>
+    </div>
+  </div>
+{% endif %}
+
+<div class="grid grid-4">
+  <div class="stat">
+    <div class="stat__label">Занятий на неделе</div>
+    <div class="stat__value">{{ lessons_this_week }}</div>
+  </div>
+  <div class="stat">
+    <div class="stat__label">Учеников</div>
+    <div class="stat__value">{{ student_count }}</div>
+  </div>
+  <div class="stat">
+    <div class="stat__label">Работ на проверке</div>
+    <div class="stat__value">{{ to_review|length }}</div>
+    <div class="stat__meta">ждут вашего ответа</div>
+  </div>
+  <div class="stat">
+    <div class="stat__label">Не отмечено</div>
+    <div class="stat__value">{{ unmarked|length }}</div>
+    <div class="stat__meta">прошедших уроков</div>
+  </div>
+</div>
+
+{% if unmarked %}
+  <div class="card card--accent">
+    <div class="card-head">
+      <h3>Уроки без отметок</h3>
+      <span class="badge badge--warn">нужно закрыть</span>
+    </div>
+    <p class="tiny muted">Пока урок не отмечен, занятие не списывается с абонемента и не попадает в отчёты.</p>
+    {% for lesson in unmarked %}
+      <div class="lesson-row">
+        <div class="lesson-row__time">
+          <strong>{{ lesson.starts_at|date:"H:i" }}</strong>
+          <span>{{ lesson.starts_at|date:"d.m" }}</span>
+        </div>
+        <div style="min-width:0">
+          <div class="lesson-row__title">{{ lesson.title }}</div>
+          <div class="lesson-row__meta"><span>{{ lesson.active_participants.count }} учеников</span></div>
+        </div>
+        <div class="lesson-row__actions">
+          <a class="btn btn--soft btn--sm" href="{% url 'cabinet:teacher_lesson' lesson.pk %}">Отметить</a>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+{% endif %}
+
+<div class="grid grid-2">
+  <div class="card">
+    <div class="card-head"><h3>Сегодня</h3><span class="badge">{{ today|length }}</span></div>
+    {% for lesson in today %}
+      <div class="lesson-row {% if lesson.is_live_now %}is-live{% endif %}">
+        <div class="lesson-row__time">
+          <strong>{{ lesson.starts_at|date:"H:i" }}</strong>
+          <span>{{ lesson.duration_minutes }} мин</span>
+        </div>
+        <div style="min-width:0">
+          <div class="lesson-row__title">{{ lesson.title }}</div>
+          <div class="lesson-row__meta">
+            <span>{{ lesson.active_participants.count }} чел.</span>
+            <span>{% if lesson.mode == 'online' %}онлайн{% else %}{{ lesson.location.name|default:"класс" }}{% endif %}</span>
+          </div>
+        </div>
+        <div class="lesson-row__actions">
+          <a class="btn btn--soft btn--sm" href="{% url 'cabinet:teacher_lesson' lesson.pk %}">Журнал</a>
+        </div>
+      </div>
+    {% empty %}
+      <div class="empty"><h4>Сегодня занятий нет</h4><p>Хороший день, чтобы обновить программу.</p></div>
+    {% endfor %}
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <h3>Работы на проверке</h3>
+      <a class="btn btn--quiet btn--sm" href="{% url 'cabinet:teacher_review' %}">Все</a>
+    </div>
+    {% for submission in to_review %}
+      <div class="lesson-row" style="grid-template-columns:44px minmax(0,1fr) auto">
+        <span class="avatar avatar--sm">{{ submission.student.initials }}</span>
+        <div style="min-width:0">
+          <div class="lesson-row__title">{{ submission.student.short_name }}</div>
+          <div class="lesson-row__meta"><span>{{ submission.assignment.title|truncatechars:40 }}</span></div>
+        </div>
+        <div class="lesson-row__actions">
+          <span class="tiny muted nowrap">{{ submission.submitted_at|date:"d.m" }}</span>
+          <a class="btn btn--soft btn--sm" href="{% url 'cabinet:teacher_submission' submission.pk %}">Проверить</a>
+        </div>
+      </div>
+    {% empty %}
+      <div class="empty">
+        <div class="empty__icon"><svg class="icon icon--lg"><use href="#i-check"/></svg></div>
+        <h4>Очередь пуста</h4><p>Все работы проверены.</p>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+
+{% if groups %}
+  <div class="card">
+    <h3>Мои группы</h3>
+    <div class="table-wrap">
+      <table class="table">
+        <thead><tr><th>Группа</th><th>Курс</th><th>Расписание</th><th class="num">Учеников</th><th>Программа</th></tr></thead>
+        <tbody>
+          {% for group in groups %}
+            <tr>
+              <td><strong>{{ group.name }}</strong></td>
+              <td class="muted">{{ group.course.title }}</td>
+              <td class="muted tiny">{{ group.schedule_summary|default:"—" }}</td>
+              <td class="num">{{ group.students }}/{{ group.capacity }}</td>
+              <td>
+                {% if group.program %}
+                  <a href="{% url 'cabinet:teacher_program' group.program.pk %}">{{ group.program.title }}</a>
+                {% else %}<span class="muted tiny">не назначена</span>{% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+{% endif %}
+
+{% endblock %}

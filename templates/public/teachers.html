@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+{% block title %}Преподаватели — Лингвич{% endblock %}
+
+{% block content %}
+<section class="section section--tight">
+  <div class="container">
+    <div class="section-head section-head--center">
+      <div class="eyebrow" style="justify-content:center">Команда</div>
+      <h1>Преподаватели школы</h1>
+      <p class="lead">Каждый ведёт свой язык и свой формат — от первых слов до делового общения.</p>
+    </div>
+
+    <div class="grid grid-3">
+      {% for teacher in teachers %}
+        <div class="card card--pad-lg reveal">
+          <div class="row row--top mb-4">
+            {% if teacher.avatar %}
+              <img class="avatar avatar--lg" src="{{ teacher.avatar.url }}" alt="{{ teacher.full_name }}">
+            {% else %}<span class="avatar avatar--lg">{{ teacher.initials }}</span>{% endif %}
+            <div style="min-width:0">
+              <h4 class="mb-0">{{ teacher.full_name }}</h4>
+              <div class="teacher-card__role">{{ teacher.teacher_profile.headline }}</div>
+            </div>
+          </div>
+          <div class="chip-row mb-4">
+            {% for language in teacher.teacher_profile.languages.all %}
+              <span class="badge">{{ language.flag_emoji }} {{ language.name }}</span>
+            {% endfor %}
+            {% if teacher.teacher_profile.is_native %}<span class="badge badge--accent">носитель</span>{% endif %}
+            {% if teacher.teacher_profile.years_of_experience %}
+              <span class="badge badge--brand">{{ teacher.teacher_profile.years_of_experience }} лет опыта</span>
+            {% endif %}
+          </div>
+          {% if teacher.teacher_profile.bio %}<p class="tiny muted">{{ teacher.teacher_profile.bio }}</p>{% endif %}
+          {% if teacher.teacher_profile.accepts_new_students %}
+            <a class="btn btn--soft btn--sm" href="{% url 'school:signup' %}">Записаться</a>
+          {% else %}
+            <span class="badge">группы укомплектованы</span>
+          {% endif %}
+        </div>
+      {% empty %}
+        <div class="empty"><h4>Скоро добавим команду</h4></div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endblock %}

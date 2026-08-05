@@ -1,0 +1,124 @@
+{% extends 'cabinet/base.html' %}
+{% load humanize %}
+{% block page_title %}Оплаты и абонемент{% endblock %}
+
+{% block cabinet %}
+<div class="grid grid-4">
+  <div class="stat">
+    <div class="stat__label">Осталось занятий</div>
+    <div class="stat__value">{{ account.lessons_left }}</div>
+    <div class="stat__meta">из {{ account.lessons_purchased }}</div>
+  </div>
+  <div class="stat">
+    <div class="stat__label">Оплачено всего</div>
+    <div class="stat__value">{{ account.paid|floatformat:0|intcomma }} ₽</div>
+  </div>
+  <div class="stat">
+    <div class="stat__label">Начислено</div>
+    <div class="stat__value">{{ account.billed|floatformat:0|intcomma }} ₽</div>
+  </div>
+  <div class="stat">
+    <div class="stat__label">Баланс</div>
+    {% if account.balance > 0 %}
+      <div class="stat__value money-pos">−{{ account.balance|floatformat:0|intcomma }} ₽</div>
+      <div class="stat__meta stat__meta--down">к оплате</div>
+    {% else %}
+      <div class="stat__value money-neg">0 ₽</div>
+      <div class="stat__meta stat__meta--up">задолженности нет</div>
+    {% endif %}
+  </div>
+</div>
+
+{% if account.balance > 0 %}
+  <div class="alert alert--warn">
+    <svg class="icon icon--lg"><use href="#i-card"/></svg>
+    <div>
+      <strong>К оплате {{ account.balance|floatformat:0|intcomma }} ₽</strong>
+      Оплатить можно в школе или переводом — реквизиты подскажет администратор
+      по телефону {{ site.phone }}.
+    </div>
+  </div>
+{% endif %}
+
+<div class="grid grid-2">
+  <div class="card">
+    <h3>Абонементы</h3>
+    {% for package in packages %}
+      <div class="lesson-row">
+        <div class="lesson-row__time">
+          <strong>{{ package.lessons_left }}</strong>
+          <span>из {{ package.lessons_total }}</span>
+        </div>
+        <div style="min-width:0">
+          <div class="lesson-row__title">{{ package.tariff.name|default:"Абонемент" }}</div>
+          <div class="lesson-row__meta">
+            <span>выдан {{ package.issued_on|date:"d.m.Y" }}</span>
+            {% if package.expires_on %}<span>до {{ package.expires_on|date:"d.m.Y" }}</span>{% endif %}
+            <span>{{ package.price|floatformat:0|intcomma }} ₽</span>
+          </div>
+        </div>
+        <div class="lesson-row__actions">
+          {% if package.status == 'active' %}<span class="badge badge--ok">активен</span>
+          {% elif package.status == 'exhausted' %}<span class="badge">израсходован</span>
+          {% elif package.status == 'expired' %}<span class="badge badge--warn">истёк</span>
+          {% else %}<span class="badge badge--err">аннулирован</span>{% endif %}
+        </div>
+      </div>
+    {% empty %}
+      <div class="empty"><h4>Абонементов пока нет</h4>
+        <p>Их оформляет администратор школы после первого занятия.</p></div>
+    {% endfor %}
+
+    {% if tariffs %}
+      <h4 class="mt-6">Доступные тарифы</h4>
+      <div class="stack-sm">
+        {% for tariff in tariffs %}
+          <div class="row row--between tiny" style="padding-bottom:var(--s-2);border-bottom:1px solid var(--line-soft)">
+            <span>{{ tariff.name }} · {{ tariff.lessons_count }} зан.</span>
+            <strong class="tabnum">{{ tariff.price|floatformat:0|intcomma }} ₽</strong>
+          </div>
+        {% endfor %}
+      </div>
+      <p class="tiny muted mt-3 mb-0">Чтобы продлить — скажите администратору или напишите нам.</p>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h3>История платежей</h3>
+    <div class="table-wrap">
+      <table class="table" style="min-width:0">
+        <thead><tr><th>Дата</th><th>Способ</th><th class="num">Сумма</th></tr></thead>
+        <tbody>
+          {% for payment in payments %}
+            <tr>
+              <td class="tabnum">{{ payment.paid_on|date:"d.m.Y" }}</td>
+              <td class="muted">{{ payment.get_method_display }}</td>
+              <td class="num"><strong>{{ payment.amount|floatformat:0|intcomma }} ₽</strong></td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="3" class="muted">Платежей пока не было.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <h4 class="mt-6">Списанные занятия</h4>
+    <div class="table-wrap">
+      <table class="table" style="min-width:0">
+        <thead><tr><th>Дата</th><th>Занятие</th></tr></thead>
+        <tbody>
+          {% for charge in charges %}
+            <tr>
+              <td class="tabnum">{{ charge.charged_at|date:"d.m.Y" }}</td>
+              <td class="muted">{{ charge.participant.lesson.title|truncatechars:34 }}
+                {% if charge.note %}<span class="badge badge--warn">{{ charge.note }}</span>{% endif %}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="2" class="muted">Списаний пока нет.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,173 @@
+/* ==========================================================================
+   Лингвич — design tokens
+   Единственный файл, который нужно тронуть, чтобы перекрасить весь сайт.
+   ========================================================================== */
+
+:root {
+  /* --- Brand -------------------------------------------------------------
+     Глубокий сине-зелёный — эволюция прежнего голубого логотипа:
+     та же семья, но взрослее и дороже. */
+  --brand-50:  #EAF6FA;
+  --brand-100: #CDE9F2;
+  --brand-200: #9BD2E5;
+  --brand-300: #5FB4D0;
+  --brand-400: #2A90B4;
+  --brand-500: #10718F;
+  --brand-600: #0B5A74;
+  --brand-700: #08475D;
+  --brand-800: #063546;
+  --brand-900: #04242F;
+
+  /* --- Accent: тёплая терракота, «человеческий» контраст к холодному бренду */
+  --accent-50:  #FDF1EB;
+  --accent-100: #FADDD0;
+  --accent-200: #F4BBA1;
+  --accent-300: #EE9873;
+  --accent-400: #E67C50;
+  --accent-500: #D9603B;
+  --accent-600: #BC4A29;
+  --accent-700: #96391F;
+
+  /* --- Neutrals: тёплая бумага вместо стерильного белого */
+  --paper:      #FCFAF7;
+  --paper-alt:  #F6F1EA;
+  --sand:       #EFE6DA;
+  --line:       #E2D9CD;
+  --line-soft:  #EDE6DC;
+  --surface:    #FFFFFF;
+  --surface-2:  #FAF7F3;
+
+  --ink:        #14202A;
+  --ink-2:      #33454F;
+  --muted:      #6B7B87;
+  --muted-2:    #93A1AB;
+
+  /* --- Status */
+  --ok-bg:   #E6F5EE;  --ok:   #147A54;
+  --warn-bg: #FDF2DF;  --warn: #96650A;
+  --err-bg:  #FCEBED;  --err:  #B3283C;
+  --info-bg: #E9F2FB;  --info: #1F5FA8;
+
+  /* --- Typography */
+  --font-sans: "Inter", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --font-display: "OfficinaSansBold", "Inter", system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+
+  --step--2: clamp(0.71rem, 0.70rem + 0.05vw, 0.75rem);
+  --step--1: clamp(0.83rem, 0.81rem + 0.10vw, 0.88rem);
+  --step-0:  clamp(0.97rem, 0.95rem + 0.12vw, 1.05rem);
+  --step-1:  clamp(1.15rem, 1.10rem + 0.25vw, 1.32rem);
+  --step-2:  clamp(1.38rem, 1.28rem + 0.48vw, 1.75rem);
+  --step-3:  clamp(1.65rem, 1.47rem + 0.88vw, 2.35rem);
+  --step-4:  clamp(1.98rem, 1.66rem + 1.55vw, 3.15rem);
+  --step-5:  clamp(2.38rem, 1.83rem + 2.65vw, 4.25rem);
+
+  /* --- Space (8pt) */
+  --s-1: 0.25rem;  --s-2: 0.5rem;   --s-3: 0.75rem;  --s-4: 1rem;
+  --s-5: 1.5rem;   --s-6: 2rem;     --s-7: 3rem;     --s-8: 4rem;
+  --s-9: 6rem;     --s-10: 8rem;
+
+  /* --- Radii */
+  --r-sm: 8px;  --r-md: 14px;  --r-lg: 20px;  --r-xl: 28px;  --r-full: 999px;
+
+  /* --- Elevation: мягкие, тёплые тени, без «серых пятен» */
+  --sh-1: 0 1px 2px rgba(20, 32, 42, 0.05), 0 1px 3px rgba(20, 32, 42, 0.04);
+  --sh-2: 0 2px 4px rgba(20, 32, 42, 0.04), 0 6px 16px -6px rgba(20, 32, 42, 0.10);
+  --sh-3: 0 4px 8px rgba(20, 32, 42, 0.05), 0 16px 40px -12px rgba(20, 32, 42, 0.16);
+  --sh-4: 0 8px 16px rgba(20, 32, 42, 0.06), 0 32px 64px -20px rgba(20, 32, 42, 0.22);
+  --ring: 0 0 0 3px var(--brand-100);
+
+  /* --- Motion */
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --t-fast: 140ms;
+  --t-mid: 240ms;
+  --t-slow: 420ms;
+
+  /* --- Layout */
+  --container: 1200px;
+  --container-narrow: 780px;
+  --header-h: 72px;
+}
+
+/* --- Dark theme ---------------------------------------------------------
+   Не инверсия, а отдельная сборка: тёплые нейтрали уходят в сине-графитовые,
+   акцент чуть светлеет, чтобы держать контраст на тёмном. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper:     #0D141A;
+    --paper-alt: #111A21;
+    --sand:      #17222B;
+    --line:      #24333E;
+    --line-soft: #1C2932;
+    --surface:   #131D25;
+    --surface-2: #18242D;
+
+    --ink:    #E9EFF3;
+    --ink-2:  #C3D0D9;
+    --muted:  #8B9BA7;
+    --muted-2:#697A87;
+
+    --brand-50:  #072A38;
+    --brand-100: #0A3A4C;
+    --brand-200: #0F5670;
+    --brand-300: #1B7E9F;
+    --brand-400: #35A0C2;
+    --brand-500: #56BADA;
+    --brand-600: #7FCEE7;
+    --brand-700: #A6DFF0;
+
+    --accent-500: #F0855E;
+    --accent-600: #E5714A;
+
+    --ok-bg:   #0E2C22;  --ok:   #58D3A2;
+    --warn-bg: #2E2413;  --warn: #E8B75A;
+    --err-bg:  #2E1519;  --err:  #F08096;
+    --info-bg: #10233A;  --info: #77B0EA;
+
+    --sh-1: 0 1px 2px rgba(0, 0, 0, 0.35);
+    --sh-2: 0 2px 4px rgba(0, 0, 0, 0.3), 0 6px 16px -6px rgba(0, 0, 0, 0.5);
+    --sh-3: 0 4px 8px rgba(0, 0, 0, 0.3), 0 16px 40px -12px rgba(0, 0, 0, 0.6);
+    --sh-4: 0 8px 16px rgba(0, 0, 0, 0.35), 0 32px 64px -20px rgba(0, 0, 0, 0.7);
+    --ring: 0 0 0 3px rgba(53, 160, 194, 0.35);
+  }
+}
+
+/* Явный выбор темы переключателем — должен побеждать в обе стороны. */
+:root[data-theme="dark"] {
+  --paper:     #0D141A;
+  --paper-alt: #111A21;
+  --sand:      #17222B;
+  --line:      #24333E;
+  --line-soft: #1C2932;
+  --surface:   #131D25;
+  --surface-2: #18242D;
+
+  --ink:    #E9EFF3;
+  --ink-2:  #C3D0D9;
+  --muted:  #8B9BA7;
+  --muted-2:#697A87;
+
+  --brand-50:  #072A38;
+  --brand-100: #0A3A4C;
+  --brand-200: #0F5670;
+  --brand-300: #1B7E9F;
+  --brand-400: #35A0C2;
+  --brand-500: #56BADA;
+  --brand-600: #7FCEE7;
+  --brand-700: #A6DFF0;
+
+  --accent-500: #F0855E;
+  --accent-600: #E5714A;
+
+  --ok-bg:   #0E2C22;  --ok:   #58D3A2;
+  --warn-bg: #2E2413;  --warn: #E8B75A;
+  --err-bg:  #2E1519;  --err:  #F08096;
+  --info-bg: #10233A;  --info: #77B0EA;
+
+  --sh-1: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --sh-2: 0 2px 4px rgba(0, 0, 0, 0.3), 0 6px 16px -6px rgba(0, 0, 0, 0.5);
+  --sh-3: 0 4px 8px rgba(0, 0, 0, 0.3), 0 16px 40px -12px rgba(0, 0, 0, 0.6);
+  --sh-4: 0 8px 16px rgba(0, 0, 0, 0.35), 0 32px 64px -20px rgba(0, 0, 0, 0.7);
+  --ring: 0 0 0 3px rgba(53, 160, 194, 0.35);
+}

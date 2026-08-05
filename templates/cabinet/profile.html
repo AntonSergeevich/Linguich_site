@@ -1,0 +1,73 @@
+{% extends 'cabinet/base.html' %}
+{% block page_title %}Профиль{% endblock %}
+
+{% block cabinet %}
+<div class="grid grid-2" style="align-items:start">
+  <div class="card">
+    <h3>Личные данные</h3>
+    <form data-async method="post" enctype="multipart/form-data" action="{% url 'accounts:profile' %}"
+          data-success="Профиль сохранён">
+      {% csrf_token %}
+      <div class="form-grid">
+        <label class="field"><span class="label">Имя</span>{{ form.first_name }}</label>
+        <label class="field"><span class="label">Фамилия</span>{{ form.last_name }}</label>
+        <label class="field"><span class="label">Email</span>{{ form.email }}</label>
+        <label class="field"><span class="label">Телефон</span>{{ form.phone }}</label>
+        <label class="field"><span class="label">Часовой пояс</span>{{ form.timezone }}</label>
+        <label class="field"><span class="label">Фото</span>{{ form.avatar }}</label>
+      </div>
+
+      {% if details_form %}
+        <h4 class="mt-5">Об обучении</h4>
+        <div class="form-grid">
+          <label class="field"><span class="label">Уровень</span>{{ details_form.level }}</label>
+          <label class="field"><span class="label">Дата рождения</span>{{ details_form.birth_date }}</label>
+          <label class="field field--full"><span class="label">Цель обучения</span>{{ details_form.goal }}</label>
+        </div>
+      {% endif %}
+
+      <h4 class="mt-5">Уведомления</h4>
+      <label class="check">{{ form.notify_email }}<span>Присылать на email</span></label>
+      <label class="check">{{ form.notify_telegram }}<span>Присылать в Telegram</span></label>
+
+      <button class="btn mt-4" type="submit">Сохранить</button>
+    </form>
+  </div>
+
+  <div class="stack">
+    <div class="card">
+      <h3>Telegram</h3>
+      {% if request.user.telegram_chat_id %}
+        <div class="alert alert--ok">
+          <svg class="icon icon--lg"><use href="#i-check"/></svg>
+          <div><strong>Telegram подключён</strong>Напоминания об уроках приходят мгновенно.</div>
+        </div>
+        <button class="btn btn--ghost btn--sm mt-4"
+                data-action="{% url 'accounts:unlink_telegram' %}" data-reload
+                data-confirm="Отключить Telegram-уведомления?">Отвязать</button>
+      {% else %}
+        <p class="muted tiny">Подключите бота — напоминание об уроке придёт за сутки и за час,
+          и вы точно ничего не пропустите.</p>
+        <a class="btn btn--soft" href="{{ request.user.telegram_link_url }}" target="_blank" rel="noopener">
+          Подключить Telegram
+        </a>
+      {% endif %}
+    </div>
+
+    <div class="card">
+      <h3>Смена пароля</h3>
+      <form data-async method="post" action="{% url 'accounts:change_password' %}"
+            data-success="Пароль обновлён">
+        {% csrf_token %}
+        <label class="field"><span class="label">Текущий пароль</span>
+          <input type="password" name="old_password" required autocomplete="current-password"></label>
+        <label class="field"><span class="label">Новый пароль</span>
+          <input type="password" name="new_password1" required autocomplete="new-password"></label>
+        <label class="field"><span class="label">Повторите новый</span>
+          <input type="password" name="new_password2" required autocomplete="new-password"></label>
+        <button class="btn btn--ghost" type="submit">Сменить пароль</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

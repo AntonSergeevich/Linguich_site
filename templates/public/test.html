@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Тест уровня английского — Лингвич{% endblock %}
+{% block description %}Бесплатный адаптивный тест уровня английского по шкале CEFR: 20 вопросов, результат сразу, разбор по навыкам.{% endblock %}
+
+{% block content %}
+<section class="section section--tight">
+  <div class="container">
+    <div class="section-head section-head--center">
+      <div class="eyebrow" style="justify-content:center">Бесплатно · без регистрации</div>
+      <h1>Тест уровня английского</h1>
+      <p class="lead">Адаптивный: чем увереннее вы отвечаете, тем сложнее становятся задания.
+        В конце — уровень по CEFR и разбор по навыкам.</p>
+    </div>
+
+    <div class="quiz">
+      <div id="quiz"
+           data-start-url="{% url 'placement:start' %}"
+           data-answer-url="{% url 'placement:answer' %}"
+           data-lead-url="{% url 'placement:lead' %}">
+        <div class="quiz__shell">
+          <div class="stack text-center" style="margin:auto">
+            <div class="skeleton" style="height:24px;width:60%;margin:0 auto"></div>
+            <div class="skeleton" style="height:14px;width:80%;margin:0 auto"></div>
+            <div class="skeleton" style="height:44px;width:180px;margin:0 auto;border-radius:999px"></div>
+          </div>
+        </div>
+      </div>
+
+      <p class="tiny muted text-center mt-5">
+        Тест оценивает грамматику, лексику, чтение и понимание речевых ситуаций.
+        Точный уровень преподаватель подтвердит на бесплатном пробном уроке.
+      </p>
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'js/quiz.js' %}" defer></script>
+{% endblock %}

@@ -1,0 +1,96 @@
+{% extends 'cabinet/base.html' %}
+{% load static %}
+{% block page_title %}Записаться на занятие{% endblock %}
+{% block page_sub %}<p class="cab-top__sub">Свободное время преподавателей на две недели вперёд</p>{% endblock %}
+
+{% block cabinet %}
+{% if account.lessons_left <= 0 %}
+  <div class="alert alert--warn">
+    <svg class="icon icon--lg"><use href="#i-card"/></svg>
+    <div>
+      <strong>Оплаченные занятия закончились</strong>
+      Записаться можно, но занятие уйдёт в задолженность. Продлите абонемент —
+      напишите администратору или позвоните {{ site.phone }}.
+    </div>
+  </div>
+{% endif %}
+
+<div class="grid grid-panel" id="booking"
+     data-slots-url="{% url 'cabinet:slots_api' %}"
+     data-book-url="{% url 'cabinet:book_api' %}"
+     >
+  <div class="card">
+    <h3>Параметры</h3>
+    <div>
+      <label class="field">
+        <span class="label">Преподаватель</span>
+        <select name="teacher">
+          <option value="">Выберите…</option>
+          {% for teacher in teachers %}
+            <option value="{{ teacher.pk }}">
+              {{ teacher.full_name }}{% if teacher.teacher_profile.headline %} — {{ teacher.teacher_profile.headline }}{% endif %}
+            </option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <div class="field">
+        <span class="label">Формат</span>
+        <div class="chip-row">
+          <label class="chip"><input type="radio" name="mode" value="" checked><span>Любой</span></label>
+          <label class="chip"><input type="radio" name="mode" value="online"><span>Онлайн</span></label>
+          <label class="chip"><input type="radio" name="mode" value="offline"><span>В классе</span></label>
+        </div>
+      </div>
+
+      <div class="alert mt-4" data-summary hidden></div>
+      <button class="btn btn--block btn--lg mt-4" data-book disabled>Записаться</button>
+      <p class="tiny muted mt-3 mb-0">
+        Отменить без списания можно не позже чем за 12 часов до начала.
+      </p>
+    </div>
+  </div>
+
+  <div class="stack">
+    <div class="card">
+      <h3>Свободные слоты</h3>
+      <div data-slots>
+        <div class="empty"><h4>Выберите преподавателя</h4>
+          <p>Покажем свободное время на две недели вперёд.</p></div>
+      </div>
+    </div>
+
+    {% if open_lessons %}
+      <div class="card">
+        <h3>Открытые занятия и разговорные клубы</h3>
+        <p class="tiny muted">Можно присоединиться без записи к преподавателю.</p>
+        {% for lesson in open_lessons %}
+          <div class="lesson-row">
+            <div class="lesson-row__time">
+              <strong>{{ lesson.starts_at|date:"H:i" }}</strong>
+              <span>{{ lesson.starts_at|date:"d.m" }}</span>
+            </div>
+            <div style="min-width:0">
+              <div class="lesson-row__title">{{ lesson.title }}</div>
+              <div class="lesson-row__meta">
+                <span>{{ lesson.teacher.short_name }}</span>
+                <span>{{ lesson.seats_left }} мест(а)</span>
+                <span>{% if lesson.mode == 'online' %}онлайн{% else %}{{ lesson.location.name|default:"класс" }}{% endif %}</span>
+              </div>
+            </div>
+            <div class="lesson-row__actions">
+              <button class="btn btn--soft btn--sm" data-action="{% url 'cabinet:join_api' lesson.pk %}" data-reload>
+                Присоединиться
+              </button>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'js/booking.js' %}" defer></script>
+{% endblock %}

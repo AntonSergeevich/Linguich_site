@@ -1,0 +1,71 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block styles %}<link rel="stylesheet" href="{% static 'css/cabinet.css' %}">{% endblock %}
+{% block chrome %}{% endblock %}
+{% block footer %}{% endblock %}
+
+{% block content %}
+<div class="cab">
+  <div class="cab-side__scrim" aria-hidden="true"></div>
+
+  <aside class="cab-side">
+    <a class="brand" href="{% url 'school:home' %}">
+      {% include 'components/logo.html' %}
+      <span>
+        <span class="brand__name">Лингвич</span>
+        <span class="brand__tag">кабинет</span>
+      </span>
+    </a>
+
+    <nav class="cab-nav" aria-label="Разделы кабинета">
+      {% for group_title, items in nav_groups %}
+        {% if group_title %}<div class="cab-nav__group">{{ group_title }}</div>{% endif %}
+        {% for url_name, label, icon, count in items %}
+          <a href="{% url url_name %}" class="{% if request.resolver_match.view_name == url_name %}is-active{% endif %}">
+            <svg class="icon"><use href="#{{ icon }}"/></svg>
+            <span>{{ label }}</span>
+            {% if count %}<span class="cab-nav__count">{{ count }}</span>{% endif %}
+          </a>
+        {% endfor %}
+      {% endfor %}
+    </nav>
+
+    <div class="cab-side__user">
+      {% if request.user.avatar %}
+        <img class="avatar avatar--sm" src="{{ request.user.avatar.url }}" alt="">
+      {% else %}<span class="avatar avatar--sm">{{ request.user.initials }}</span>{% endif %}
+      <div style="min-width:0;flex:1">
+        <strong>{{ request.user.short_name }}</strong>
+        <span>{{ request.user.get_role_display }}</span>
+      </div>
+      <button class="theme-toggle" data-theme-toggle type="button" aria-label="Сменить тему"
+              style="width:32px;height:32px">
+        <svg class="icon icon--sm theme-toggle__sun"><use href="#i-sun"/></svg>
+        <svg class="icon icon--sm theme-toggle__moon"><use href="#i-moon"/></svg>
+      </button>
+      <a class="btn btn--quiet btn--icon btn--sm" href="{% url 'accounts:logout' %}" title="Выйти">
+        <svg class="icon icon--sm"><use href="#i-logout"/></svg>
+      </a>
+    </div>
+  </aside>
+
+  <div class="cab-main">
+    <header class="cab-top">
+      <button class="btn btn--ghost btn--icon cab-burger" data-cab-burger type="button" aria-label="Меню">
+        <svg class="icon"><use href="#i-menu"/></svg>
+      </button>
+      <div style="min-width:0">
+        <h1>{% block page_title %}Кабинет{% endblock %}</h1>
+        {% block page_sub %}{% endblock %}
+      </div>
+      <div class="spacer"></div>
+      {% block page_actions %}{% endblock %}
+    </header>
+
+    <div class="cab-body">
+      {% block cabinet %}{% endblock %}
+    </div>
+  </div>
+</div>
+{% endblock %}

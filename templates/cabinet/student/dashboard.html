@@ -1,0 +1,155 @@
+{% extends 'cabinet/base.html' %}
+{% load humanize %}
+{% block page_title %}Привет, {{ request.user.first_name }}{% endblock %}
+{% block page_sub %}<p class="cab-top__sub">Вот что происходит с вашим обучением</p>{% endblock %}
+{% block page_actions %}
+  <a class="btn btn--sm" href="{% url 'cabinet:book' %}">
+    <svg class="icon icon--sm"><use href="#i-plus"/></svg> Записаться
+  </a>
+{% endblock %}
+
+{% block cabinet %}
+
+{% if next_lesson %}
+  <div class="next-lesson">
+    <div style="flex:1;min-width:220px">
+      <span class="next-lesson__countdown" data-countdown="{{ next_lesson.starts_at|date:'c' }}">скоро</span>
+      <div class="next-lesson__when mt-3">{{ next_lesson.starts_at|date:"d.m, H:i" }}</div>
+      <h3 class="mt-2">{{ next_lesson.title }}</h3>
+      <div class="next-lesson__meta">
+        {{ next_lesson.teacher.short_name }} ·
+        {% if next_lesson.mode == 'online' %}онлайн{% else %}{{ next_lesson.location.name|default:"в классе" }}{% endif %}
+        · {{ next_lesson.duration_minutes }} мин
+      </div>
+    </div>
+    <div class="btn-group">
+      {% if next_lesson.join_url %}
+        <a class="btn btn--white" href="{{ next_lesson.join_url }}" target="_blank" rel="noopener">
+          <svg class="icon"><use href="#i-video"/></svg> Войти в класс
+        </a>
+      {% endif %}
+      <a class="btn btn--ghost" style="--btn-fg:#fff;--btn-bd:rgba(255,255,255,.45)"
+         href="{% url 'cabinet:schedule' %}">Всё расписание</a>
+    </div>
+  </div>
+{% else %}
+  <div class="card card--pad-lg">
+    <h3>Занятий пока не запланировано</h3>
+    <p class="muted">Запишитесь на удобное время — свободные слоты преподавателей видны в один клик.</p>
+    <a class="btn" href="{% url 'cabinet:book' %}">Выбрать время</a>
+  </div>
+{% endif %}
+
+<div class="grid grid-4">
+  <div class="stat">
+    <div class="stat__label">Осталось занятий</div>
+    <div class="stat__value">{{ account.lessons_left }}</div>
+    <div class="stat__meta">из {{ account.lessons_purchased }} оплаченных</div>
+  </div>
+  <div class="stat">
+    <div class="stat__label">Посещено</div>
+    <div class="stat__value">{{ attended }}</div>
+    <div class="stat__meta">занятий всего</div>
+  </div>
+  <div class="stat">
+    <div class="stat__label">Домашних заданий</div>
+    <div class="stat__value">{{ homework|length }}</div>
+    <div class="stat__meta">ждут выполнения</div>
+  </div>
+  <div class="stat">
+    <div class="stat__label">Баланс</div>
+    {% if account.balance > 0 %}
+      <div class="stat__value money-pos">−{{ account.balance|floatformat:0|intcomma }} ₽</div>
+      <div class="stat__meta stat__meta--down">есть задолженность</div>
+    {% else %}
+      <div class="stat__value">0 ₽</div>
+      <div class="stat__meta stat__meta--up">всё оплачено</div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="grid grid-2">
+  <div class="card">
+    <div class="card-head">
+      <h3>Ближайшие занятия</h3>
+      <a class="btn btn--quiet btn--sm" href="{% url 'cabinet:schedule' %}">Все</a>
+    </div>
+    {% for lesson in upcoming %}
+      <div class="lesson-row">
+        <div class="lesson-row__time">
+          <strong>{{ lesson.starts_at|date:"H:i" }}</strong>
+          <span>{{ lesson.starts_at|date:"d.m" }}</span>
+        </div>
+        <div style="min-width:0">
+          <div class="lesson-row__title">{{ lesson.title }}</div>
+          <div class="lesson-row__meta">
+            <span>{{ lesson.teacher.short_name }}</span>
+            <span>{% if lesson.mode == 'online' %}онлайн{% else %}{{ lesson.location.name|default:"класс" }}{% endif %}</span>
+          </div>
+        </div>
+        <div class="lesson-row__actions">
+          {% if lesson.join_url %}
+            <a class="btn btn--soft btn--sm" href="{{ lesson.join_url }}" target="_blank" rel="noopener">Войти</a>
+          {% endif %}
+        </div>
+      </div>
+    {% empty %}
+      <div class="empty"><h4>Пока пусто</h4><p>Запишитесь на занятие — оно появится здесь.</p></div>
+    {% endfor %}
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <h3>Домашние задания</h3>
+      <a class="btn btn--quiet btn--sm" href="{% url 'cabinet:homework' %}">Все</a>
+    </div>
+    {% for submission in homework %}
+      <a class="hw-card {% if submission.is_overdue %}hw-card--overdue{% endif %}"
+         href="{% url 'cabinet:homework_detail' submission.pk %}" style="display:block">
+        <div class="hw-card__head">
+          <div style="min-width:0">
+            <strong>{{ submission.assignment.title }}</strong>
+            <div class="hw-card__due">
+              {% if submission.assignment.due_at %}
+                до {{ submission.assignment.due_at|date:"d.m H:i" }}
+              {% else %}без срока{% endif %}
+              · {{ submission.assignment.teacher.short_name }}
+            </div>
+          </div>
+          {% if submission.is_overdue %}<span class="badge badge--err">просрочено</span>
+          {% elif submission.status == 'redo' %}<span class="badge badge--warn">на доработку</span>{% endif %}
+        </div>
+      </a>
+    {% empty %}
+      <div class="empty">
+        <div class="empty__icon"><svg class="icon icon--lg"><use href="#i-check"/></svg></div>
+        <h4>Всё сдано</h4><p>Новые задания появятся после следующего урока.</p>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+
+{% if recent_marks %}
+  <div class="card">
+    <h3>Последние оценки</h3>
+    <div class="table-wrap">
+      <table class="table">
+        <thead><tr><th>Задание</th><th>Проверено</th><th class="num">Балл</th><th>Комментарий</th></tr></thead>
+        <tbody>
+          {% for submission in recent_marks %}
+            <tr>
+              <td><a href="{% url 'cabinet:homework_detail' submission.pk %}">{{ submission.assignment.title }}</a></td>
+              <td class="muted">{{ submission.reviewed_at|date:"d.m.Y" }}</td>
+              <td class="num">
+                <span class="score-pill">{{ submission.score }}<small>/{{ submission.assignment.max_score }}</small></span>
+              </td>
+              <td class="muted tiny">{{ submission.teacher_feedback|truncatechars:80|default:"—" }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+{% endif %}
+
+{% endblock %}

@@ -1,0 +1,115 @@
+{% extends 'cabinet/base.html' %}
+{% block page_title %}{{ assignment.title }}{% endblock %}
+{% block page_sub %}
+  <p class="cab-top__sub">
+    {{ assignment.teacher.short_name }}
+    {% if assignment.due_at %} · срок до {{ assignment.due_at|date:"d.m.Y H:i" }}{% endif %}
+  </p>
+{% endblock %}
+
+{% block cabinet %}
+<div class="grid grid-wide">
+  <div class="stack">
+    <div class="card">
+      <h3>Задание</h3>
+      {% if assignment.description %}
+        <div>{{ assignment.description|linebreaks }}</div>
+      {% else %}
+        <p class="muted">Преподаватель не оставил описания — смотрите материалы ниже.</p>
+      {% endif %}
+
+      {% if assignment.materials.exists %}
+        <h4 class="mt-5">Материалы</h4>
+        <div class="stack-sm">
+          {% for material in assignment.materials.all %}
+            <a class="unit-row" href="{{ material.href }}" target="_blank" rel="noopener">
+              <span class="unit-row__num"><svg class="icon icon--sm"><use href="#i-file"/></svg></span>
+              <span class="unit-row__title">{{ material.title }}</span>
+              <span class="badge">{{ material.get_kind_display }}</span>
+            </a>
+          {% endfor %}
+        </div>
+      {% endif %}
+
+      {% if assignment.unit %}
+        <div class="alert mt-5">
+          <svg class="icon icon--lg"><use href="#i-book"/></svg>
+          <div><strong>Тема урока: {{ assignment.unit.title }}</strong>
+            {% if assignment.unit.objective_list %}{{ assignment.unit.objective_list|join:" · " }}{% endif %}
+          </div>
+        </div>
+      {% endif %}
+    </div>
+
+    {% if submission.status == 'reviewed' %}
+      <div class="card card--accent">
+        <div class="card-head">
+          <h3>Проверено</h3>
+          {% if submission.score is not None %}
+            <span class="score-pill">{{ submission.score }}<small>/{{ assignment.max_score }}</small></span>
+          {% endif %}
+        </div>
+        {% if submission.teacher_feedback %}<p>{{ submission.teacher_feedback|linebreaksbr }}</p>
+        {% else %}<p class="muted">Без комментария.</p>{% endif %}
+      </div>
+    {% endif %}
+
+    {% if submission.is_open %}
+      <div class="card">
+        <h3>Ваш ответ</h3>
+        {% if submission.status == 'redo' and submission.teacher_feedback %}
+          <div class="alert alert--warn mb-4">
+            <div><strong>Нужна доработка</strong>{{ submission.teacher_feedback }}</div>
+          </div>
+        {% endif %}
+        <form data-async method="post" enctype="multipart/form-data"
+              action="{% url 'cabinet:homework_submit' submission.pk %}">
+          {% csrf_token %}
+          <label class="field">
+            <span class="label">Текст ответа</span>
+            <textarea name="answer_text" rows="8"
+                      placeholder="Напишите ответ здесь…">{{ submission.answer_text }}</textarea>
+          </label>
+          <label class="field">
+            <span class="label">Файл (необязательно)</span>
+            <input type="file" name="answer_file">
+          </label>
+          <button class="btn btn--lg" type="submit">Отправить на проверку</button>
+        </form>
+      </div>
+    {% elif submission.answer_text or submission.answer_file %}
+      <div class="card">
+        <div class="card-head">
+          <h3>Ваш ответ</h3>
+          <span class="badge">{{ submission.submitted_at|date:"d.m.Y H:i" }}</span>
+        </div>
+        {% if submission.answer_text %}<p>{{ submission.answer_text|linebreaksbr }}</p>{% endif %}
+        {% if submission.answer_file %}
+          <a class="btn btn--soft btn--sm" href="{{ submission.answer_file.url }}" target="_blank" rel="noopener">
+            Скачать файл
+          </a>
+        {% endif %}
+      </div>
+    {% endif %}
+  </div>
+
+  <aside class="card">
+    <h4>Статус</h4>
+    <div class="stack-sm">
+      <div class="row row--between"><span class="muted tiny">Состояние</span>
+        <strong>{{ submission.get_status_display }}</strong></div>
+      <div class="row row--between"><span class="muted tiny">Максимум баллов</span>
+        <strong class="tabnum">{{ assignment.max_score }}</strong></div>
+      {% if assignment.due_at %}
+        <div class="row row--between"><span class="muted tiny">Срок</span>
+          <strong class="tabnum">{{ assignment.due_at|date:"d.m H:i" }}</strong></div>
+      {% endif %}
+      {% if submission.submitted_at %}
+        <div class="row row--between"><span class="muted tiny">Сдано</span>
+          <strong class="tabnum">{{ submission.submitted_at|date:"d.m H:i" }}</strong></div>
+      {% endif %}
+    </div>
+    <a class="btn btn--ghost btn--block mt-5" href="{% url 'cabinet:homework' %}">← Ко всем заданиям</a>
+  </aside>
+</div>
+{% endblock %}

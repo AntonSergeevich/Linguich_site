@@ -1,0 +1,64 @@
+{% extends 'cabinet/base.html' %}
+{% block page_title %}Программы и материалы{% endblock %}
+{% block page_sub %}<p class="cab-top__sub">Общая библиотека школы — можно брать чужие программы за основу</p>{% endblock %}
+{% block page_actions %}
+  <button class="btn btn--sm" type="button" data-modal-open="#program-modal">
+    <svg class="icon icon--sm"><use href="#i-plus"/></svg> Новая программа
+  </button>
+{% endblock %}
+
+{% block cabinet %}
+<div class="grid grid-3">
+  {% for program in programs %}
+    <a class="card card--hover" href="{% url 'cabinet:teacher_program' program.pk %}">
+      <div class="row row--between mb-3">
+        <span class="badge badge--brand">{{ program.language.flag_emoji }} {{ program.language.name }}</span>
+        {% if program.level %}<span class="badge">{{ program.level }}</span>{% endif %}
+      </div>
+      <h3 style="font-size:var(--step-1)">{{ program.title }}</h3>
+      <p class="tiny muted">{{ program.description|truncatechars:110 }}</p>
+      <div class="row row--between tiny muted" style="border-top:1px solid var(--line-soft);padding-top:var(--s-3)">
+        <span>{{ program.modules_count }} модул{{ program.modules_count|pluralize:"ь,я,ей" }}</span>
+        <span>{{ program.author.short_name|default:"школа" }}</span>
+      </div>
+    </a>
+  {% empty %}
+    <div class="empty">
+      <div class="empty__icon"><svg class="icon icon--lg"><use href="#i-book"/></svg></div>
+      <h4>Программ пока нет</h4>
+      <p>Создайте первую — она станет каркасом для групп и домашних заданий.</p>
+    </div>
+  {% endfor %}
+</div>
+
+<div class="modal" id="program-modal">
+  <div class="modal__panel">
+    <div class="card-head">
+      <h3>Новая программа</h3>
+      <button class="btn btn--quiet btn--icon btn--sm" data-modal-close type="button">
+        <svg class="icon"><use href="#i-x"/></svg>
+      </button>
+    </div>
+    <form data-async method="post" action="{% url 'cabinet:teacher_program_create' %}">
+      {% csrf_token %}
+      <label class="field"><span class="label">Название *</span>
+        <input type="text" name="title" required placeholder="Например: General English A2 → B1"></label>
+      <div class="form-grid">
+        <label class="field"><span class="label">Язык *</span>
+          <select name="language" required>
+            {% for language in nav_languages %}<option value="{{ language.pk }}">{{ language.name }}</option>{% endfor %}
+          </select></label>
+        <label class="field"><span class="label">Уровень</span>
+          <select name="level">
+            <option value="">—</option>
+            <option value="A1">A1</option><option value="A2">A2</option>
+            <option value="B1">B1</option><option value="B2">B2</option><option value="C1">C1</option>
+          </select></label>
+      </div>
+      <label class="field"><span class="label">Описание</span>
+        <textarea name="description" rows="3" placeholder="Для кого программа и к чему приводит"></textarea></label>
+      <button class="btn btn--block btn--lg" type="submit">Создать</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

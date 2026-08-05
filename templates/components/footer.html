@@ -1,0 +1,63 @@
+{% load static %}
+<footer class="site-footer">
+  <div class="container">
+    <div class="site-footer__grid">
+      <div>
+        <a class="brand" href="{% url 'school:home' %}" style="color:#fff">
+          {% include 'components/logo.html' %}
+          <span>
+            <span class="brand__name" style="color:#fff">Лингвич</span>
+            <span class="brand__tag" style="color:#8AA9B6">языковая школа</span>
+          </span>
+        </a>
+        <p class="mt-4" style="font-size:var(--step--1);max-width:34ch">
+          Учим говорить с 2011 года. Живые преподаватели, программы под вашу цель
+          и кабинет, в котором видно весь прогресс.
+        </p>
+        <div class="social-row mt-4">
+          {% if site.telegram_url %}<a href="{{ site.telegram_url }}" target="_blank" rel="noopener" aria-label="Telegram"><svg class="icon"><use href="#i-mail"/></svg></a>{% endif %}
+          {% if site.whatsapp_url %}<a href="{{ site.whatsapp_url }}" target="_blank" rel="noopener" aria-label="WhatsApp"><svg class="icon"><use href="#i-phone"/></svg></a>{% endif %}
+          {% if site.vk_url %}<a href="{{ site.vk_url }}" target="_blank" rel="noopener" aria-label="ВКонтакте"><svg class="icon"><use href="#i-users"/></svg></a>{% endif %}
+          {% if site.youtube_url %}<a href="{{ site.youtube_url }}" target="_blank" rel="noopener" aria-label="YouTube"><svg class="icon"><use href="#i-video"/></svg></a>{% endif %}
+        </div>
+      </div>
+
+      <div>
+        <h5>Обучение</h5>
+        <ul>
+          <li><a href="{% url 'school:courses' %}">Все курсы</a></li>
+          <li><a href="{% url 'school:teachers' %}">Преподаватели</a></li>
+          <li><a href="{% url 'placement:test' %}">Тест уровня</a></li>
+          <li><a href="{% url 'school:prices' %}">Цены и абонементы</a></li>
+          <li><a href="{% url 'school:promos' %}">Акции</a></li>
+        </ul>
+      </div>
+
+      <div>
+        <h5>Языки</h5>
+        <ul>
+          {% for language in nav_languages %}
+            <li><a href="{{ language.get_absolute_url }}">{{ language.name }}</a></li>
+          {% endfor %}
+        </ul>
+      </div>
+
+      <div>
+        <h5>Контакты</h5>
+        <ul>
+          {% for location in nav_locations %}
+            <li>{{ location.address }}</li>
+          {% endfor %}
+          <li><a href="tel:{{ site.phone }}">{{ site.phone }}</a></li>
+          <li><a href="mailto:{{ site.email }}">{{ site.email }}</a></li>
+        </ul>
+        <a class="btn btn--soft btn--sm mt-4" href="{% url 'school:signup' %}">Записаться</a>
+      </div>
+    </div>
+
+    <div class="site-footer__bottom">
+      <span>© {% now "Y" %} Лингвич. Все права защищены.</span>
+      <span><a href="{% url 'school:privacy' %}">Политика конфиденциальности</a></span>
+    </div>
+  </div>
+</footer>

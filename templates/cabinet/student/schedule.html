@@ -1,0 +1,104 @@
+{% extends 'cabinet/base.html' %}
+{% block page_title %}Расписание{% endblock %}
+{% block page_sub %}<p class="cab-top__sub">{{ monday|date:"d.m" }} — {{ sunday|date:"d.m.Y" }}</p>{% endblock %}
+{% block page_actions %}
+  <div class="segmented">
+    <a href="?week={{ week_offset|add:'-1' }}">←</a>
+    <a href="?week=0" class="{% if not week_offset %}is-active{% endif %}">Эта неделя</a>
+    <a href="?week={{ week_offset|add:'1' }}">→</a>
+  </div>
+  <a class="btn btn--sm" href="{% url 'cabinet:book' %}">Записаться</a>
+{% endblock %}
+
+{% block cabinet %}
+
+<div class="week">
+  {% for day in days %}
+    <div class="week__day {% if day.is_today %}is-today{% endif %}">
+      <h5><span>{{ day.short }}</span><span>{{ day.date|date:"d.m" }}</span></h5>
+      {% for lesson in day.lessons %}
+        <span class="week-chip {% if lesson.status == 'cancelled' %}is-cancelled{% elif lesson.status == 'completed' %}is-done{% endif %}">
+          <strong>{{ lesson.starts_at|date:"H:i" }}</strong>
+          {{ lesson.title|truncatechars:28 }}
+        </span>
+      {% empty %}
+        <span class="tiny muted">—</span>
+      {% endfor %}
+    </div>
+  {% endfor %}
+</div>
+
+<div class="card">
+  <h3>Занятия недели</h3>
+  {% for day in days %}
+    {% for lesson in day.lessons %}
+      <div class="lesson-row {% if lesson.status == 'cancelled' %}is-cancelled{% endif %} {% if lesson.is_live_now %}is-live{% endif %}">
+        <div class="lesson-row__time">
+          <strong>{{ lesson.starts_at|date:"H:i" }}</strong>
+          <span>{{ day.short }} {{ lesson.starts_at|date:"d.m" }}</span>
+        </div>
+        <div style="min-width:0">
+          <div class="lesson-row__title">{{ lesson.title }}</div>
+          <div class="lesson-row__meta">
+            <span>{{ lesson.teacher.short_name }}</span>
+            <span>{{ lesson.duration_minutes }} мин</span>
+            <span>{% if lesson.mode == 'online' %}онлайн{% else %}{{ lesson.location.name|default:"класс" }}{% endif %}</span>
+            {% if lesson.status == 'cancelled' %}<span class="badge badge--err">отменён</span>{% endif %}
+            {% if lesson.is_trial %}<span class="badge badge--accent">пробный</span>{% endif %}
+          </div>
+        </div>
+        <div class="lesson-row__actions">
+          {% if lesson.status == 'scheduled' and not lesson.is_past %}
+            {% if lesson.join_url %}
+              <a class="btn btn--soft btn--sm" href="{{ lesson.join_url }}" target="_blank" rel="noopener">
+                <svg class="icon icon--sm"><use href="#i-video"/></svg> Войти
+              </a>
+            {% endif %}
+            <button class="btn btn--ghost btn--sm"
+                    data-action="{% url 'cabinet:cancel_api' lesson.pk %}"
+                    data-reload
+                    data-confirm="Отменить запись на это занятие?{% if not lesson.can_be_cancelled_free_by %} До урока меньше 12 часов — занятие будет списано.{% endif %}">
+              Отменить
+            </button>
+          {% elif lesson.status == 'completed' %}
+            <span class="badge badge--ok">проведён</span>
+          {% endif %}
+        </div>
+      </div>
+    {% endfor %}
+  {% endfor %}
+  {% if not days.0.lessons and not days.1.lessons and not days.2.lessons and not days.3.lessons and not days.4.lessons and not days.5.lessons and not days.6.lessons %}
+    <div class="empty">
+      <h4>На этой неделе занятий нет</h4>
+      <p>Посмотрите другую неделю или запишитесь на свободное время.</p>
+      <a class="btn btn--soft mt-4" href="{% url 'cabinet:book' %}">Записаться</a>
+    </div>
+  {% endif %}
+</div>
+
+{% if history %}
+  <div class="card">
+    <h3>История занятий</h3>
+    <div class="table-wrap">
+      <table class="table">
+        <thead><tr><th>Дата</th><th>Тема</th><th>Преподаватель</th><th>Статус</th></tr></thead>
+        <tbody>
+          {% for lesson in history %}
+            <tr>
+              <td class="tabnum">{{ lesson.starts_at|date:"d.m.Y H:i" }}</td>
+              <td>{{ lesson.topic|default:lesson.title }}</td>
+              <td class="muted">{{ lesson.teacher.short_name }}</td>
+              <td>
+                {% if lesson.status == 'completed' %}<span class="badge badge--ok">проведён</span>
+                {% elif lesson.status == 'cancelled' %}<span class="badge badge--err">отменён</span>
+                {% else %}<span class="badge">не отмечен</span>{% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+{% endif %}
+
+{% endblock %}

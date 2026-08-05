@@ -1,0 +1,56 @@
+{% comment %}
+Единственная форма захвата на сайте. Отправляется без перезагрузки,
+ошибки подсвечиваются по полям. Параметры: form, source, title, note.
+{% endcomment %}
+<form class="stack" data-async method="post" action="{% url 'school:lead_create' %}"
+      data-success-html="{{ success_target|default:'#lead-thanks' }}">
+  {% csrf_token %}
+  <input type="hidden" name="source" value="{{ source|default:'trial' }}">
+  {{ form.company }}
+
+  <div class="form-grid">
+    <label class="field">
+      <span class="label">Как вас зовут *</span>
+      <input type="text" name="name" required placeholder="Имя" autocomplete="name">
+    </label>
+    <label class="field">
+      <span class="label">Телефон *</span>
+      <input type="tel" name="phone" required placeholder="+7 (___) ___-__-__" autocomplete="tel">
+    </label>
+    {% if not compact %}
+      <label class="field">
+        <span class="label">Язык</span>
+        {{ form.language }}
+      </label>
+      <label class="field">
+        <span class="label">Формат</span>
+        {{ form.preferred_format }}
+      </label>
+      <label class="field field--full">
+        <span class="label">Что хотите изучать</span>
+        <textarea name="message" rows="3" placeholder="Например: английский для работы, уровень примерно A2"></textarea>
+      </label>
+    {% endif %}
+  </div>
+
+  <label class="check">
+    <input type="checkbox" name="consent" required>
+    <span class="tiny">Согласен на обработку персональных данных и с
+      <a href="{% url 'school:privacy' %}" target="_blank">политикой конфиденциальности</a>.</span>
+  </label>
+
+  <button class="btn btn--accent btn--lg btn--block" type="submit">
+    {{ button|default:"Записаться на бесплатный урок" }}
+  </button>
+  <p class="tiny muted text-center mb-0">
+    {{ note|default:"Перезвоним в рабочее время и подберём удобное время. Без спама." }}
+  </p>
+</form>
+
+<div id="{{ success_target|default:'lead-thanks'|cut:'#' }}" hidden class="alert alert--ok">
+  <svg class="icon icon--lg"><use href="#i-check"/></svg>
+  <div>
+    <strong>Заявка принята</strong>
+    Мы уже видим её и свяжемся с вами в ближайшее рабочее время.
+  </div>
+</div>

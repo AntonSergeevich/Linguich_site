@@ -1,0 +1,64 @@
+{% extends 'cabinet/base.html' %}
+{% block page_title %}Домашние задания{% endblock %}
+
+{% block cabinet %}
+<div class="tabs">
+  <a href="?tab=open" class="{% if tab == 'open' %}is-active{% endif %}">Нужно сделать ({{ counts.open }})</a>
+  <a href="?tab=sent" class="{% if tab == 'sent' %}is-active{% endif %}">На проверке ({{ counts.sent }})</a>
+  <a href="?tab=done" class="{% if tab == 'done' %}is-active{% endif %}">Проверено ({{ counts.done }})</a>
+</div>
+
+{% for submission in submissions %}
+  <div class="hw-card {% if submission.is_overdue %}hw-card--overdue{% elif submission.status == 'reviewed' %}hw-card--done{% elif submission.status == 'submitted' %}hw-card--review{% endif %}">
+    <div class="hw-card__head">
+      <div style="min-width:0">
+        <h4 class="mb-1">
+          <a href="{% url 'cabinet:homework_detail' submission.pk %}">{{ submission.assignment.title }}</a>
+        </h4>
+        <div class="hw-card__due">
+          {% if submission.assignment.due_at %}срок: {{ submission.assignment.due_at|date:"d.m.Y H:i" }}{% else %}без срока{% endif %}
+          · {{ submission.assignment.teacher.short_name }}
+          {% if submission.assignment.unit %} · {{ submission.assignment.unit.title }}{% endif %}
+        </div>
+      </div>
+      <div class="row" style="gap:var(--s-2)">
+        {% if submission.status == 'reviewed' and submission.score is not None %}
+          <span class="score-pill">{{ submission.score }}<small>/{{ submission.assignment.max_score }}</small></span>
+        {% elif submission.status == 'submitted' %}
+          <span class="badge badge--warn">на проверке</span>
+        {% elif submission.status == 'redo' %}
+          <span class="badge badge--warn">на доработку</span>
+        {% elif submission.is_overdue %}
+          <span class="badge badge--err">просрочено</span>
+        {% else %}
+          <span class="badge badge--brand">к выполнению</span>
+        {% endif %}
+      </div>
+    </div>
+
+    {% if submission.assignment.description %}
+      <p class="tiny muted mt-3 mb-0">{{ submission.assignment.description|truncatechars:180 }}</p>
+    {% endif %}
+    {% if submission.teacher_feedback %}
+      <div class="alert mt-3" style="padding:var(--s-3)">
+        <div><strong>Комментарий преподавателя</strong>{{ submission.teacher_feedback }}</div>
+      </div>
+    {% endif %}
+
+    <div class="row mt-4">
+      <a class="btn btn--soft btn--sm" href="{% url 'cabinet:homework_detail' submission.pk %}">
+        {% if submission.is_open %}Выполнить{% else %}Открыть{% endif %}
+      </a>
+      {% if submission.assignment.materials.exists %}
+        <span class="tiny muted">{{ submission.assignment.materials.count }} материал(ов)</span>
+      {% endif %}
+    </div>
+  </div>
+{% empty %}
+  <div class="empty">
+    <div class="empty__icon"><svg class="icon icon--lg"><use href="#i-book"/></svg></div>
+    <h4>Здесь пусто</h4>
+    <p>{% if tab == 'open' %}Все задания сданы — отличная работа.{% else %}Заданий в этой категории пока нет.{% endif %}</p>
+  </div>
+{% endfor %}
+{% endblock %}

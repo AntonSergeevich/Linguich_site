@@ -1,0 +1,135 @@
+{% extends 'cabinet/base.html' %}
+{% block page_title %}{{ program.title }}{% endblock %}
+{% block page_sub %}
+  <p class="cab-top__sub">{{ program.language.name }}
+    {% if program.level %} · {{ program.level }}{% endif %} · {{ program.unit_count }} тем</p>
+{% endblock %}
+{% block page_actions %}
+  {% if can_edit %}
+    <button class="btn btn--ghost btn--sm" type="button" data-modal-open="#module-modal">
+      <svg class="icon icon--sm"><use href="#i-plus"/></svg> Модуль
+    </button>
+  {% endif %}
+{% endblock %}
+
+{% block cabinet %}
+{% if program.description %}
+  <div class="card card--flat">{{ program.description|linebreaks }}</div>
+{% endif %}
+
+{% for module in program.modules.all %}
+  <div class="card">
+    <div class="card-head">
+      <div>
+        <h3 class="mb-1">{{ forloop.counter }}. {{ module.title }}</h3>
+        {% if module.summary %}<p class="tiny muted mb-0">{{ module.summary }}</p>{% endif %}
+      </div>
+      {% if can_edit %}
+        <button class="btn btn--soft btn--sm" type="button"
+                data-modal-open="#unit-modal" data-setmodule="{{ module.pk }}">
+          <svg class="icon icon--sm"><use href="#i-plus"/></svg> Тема
+        </button>
+      {% endif %}
+    </div>
+
+    {% for unit in module.units.all %}
+      <details class="faq-item">
+        <summary>
+          <span class="row row--nowrap" style="gap:var(--s-3)">
+            <span class="unit-row__num">{{ forloop.counter }}</span>
+            <span>{{ unit.title }}</span>
+          </span>
+        </summary>
+        <div class="faq-item__body">
+          {% if unit.objective_list %}
+            <strong>Цели</strong>
+            <ul>{% for objective in unit.objective_list %}<li>{{ objective }}</li>{% endfor %}</ul>
+          {% endif %}
+          {% if unit.content %}<p>{{ unit.content|linebreaksbr }}</p>{% endif %}
+          {% if unit.vocabulary_pairs %}
+            <strong>Лексика</strong>
+            <div class="chip-row mb-4">
+              {% for term, translation in unit.vocabulary_pairs %}
+                <span class="badge">{{ term }}{% if translation %} — {{ translation }}{% endif %}</span>
+              {% endfor %}
+            </div>
+          {% endif %}
+          {% for material in unit.materials.all %}
+            <a class="unit-row" href="{{ material.href }}" target="_blank" rel="noopener">
+              <span class="unit-row__num"><svg class="icon icon--sm"><use href="#i-file"/></svg></span>
+              <span class="unit-row__title">{{ material.title }}</span>
+              <span class="badge">{{ material.get_kind_display }}</span>
+            </a>
+          {% endfor %}
+        </div>
+      </details>
+    {% empty %}
+      <div class="empty"><h4>В модуле нет тем</h4><p>Добавьте первую тему.</p></div>
+    {% endfor %}
+  </div>
+{% empty %}
+  <div class="empty">
+    <div class="empty__icon"><svg class="icon icon--lg"><use href="#i-book"/></svg></div>
+    <h4>Программа пустая</h4>
+    <p>Добавьте модуль, а внутри — темы уроков с целями, конспектом и материалами.</p>
+  </div>
+{% endfor %}
+
+{% if can_edit %}
+  <div class="modal" id="module-modal">
+    <div class="modal__panel">
+      <div class="card-head"><h3>Новый модуль</h3>
+        <button class="btn btn--quiet btn--icon btn--sm" data-modal-close type="button">
+          <svg class="icon"><use href="#i-x"/></svg></button></div>
+      <form data-async method="post" action="{% url 'cabinet:teacher_module_create' program.pk %}">
+        {% csrf_token %}
+        <label class="field"><span class="label">Название *</span>
+          <input type="text" name="title" required placeholder="Например: Travel"></label>
+        <label class="field"><span class="label">Краткое описание</span>
+          <input type="text" name="summary" placeholder="О чём модуль"></label>
+        <button class="btn btn--block" type="submit">Добавить</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal" id="unit-modal">
+    <div class="modal__panel modal__panel--wide">
+      <div class="card-head"><h3>Новая тема</h3>
+        <button class="btn btn--quiet btn--icon btn--sm" data-modal-close type="button">
+          <svg class="icon"><use href="#i-x"/></svg></button></div>
+      <form data-async method="post" enctype="multipart/form-data" id="unit-form"
+            action="{% url 'cabinet:teacher_unit_create' 0 %}">
+        {% csrf_token %}
+        <input type="hidden" name="module" value="">
+        <label class="field"><span class="label">Название темы *</span>
+          <input type="text" name="title" required placeholder="Например: At the airport"></label>
+        <label class="field"><span class="label">Цели урока</span>
+          <textarea name="objectives" rows="3" placeholder="По одному пункту на строку"></textarea></label>
+        <label class="field"><span class="label">Конспект / план</span>
+          <textarea name="content" rows="4" placeholder="Ход занятия"></textarea></label>
+        <label class="field"><span class="label">Лексика</span>
+          <textarea name="vocabulary" rows="3" placeholder="boarding pass — посадочный талон"></textarea></label>
+        <div class="form-grid">
+          <label class="field"><span class="label">Ссылка на материал</span>
+            <input type="url" name="material_url" placeholder="https://…"></label>
+          <label class="field"><span class="label">Название ссылки</span>
+            <input type="text" name="material_title"></label>
+          <label class="field field--full"><span class="label">Файлы</span>
+            <input type="file" name="material_files" multiple></label>
+        </div>
+        <button class="btn btn--block btn--lg" type="submit">Добавить тему</button>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    // Модалка одна на все модули — подставляем id выбранного в action формы.
+    document.querySelectorAll('[data-setmodule]').forEach(function (trigger) {
+      trigger.addEventListener('click', function () {
+        var form = document.getElementById('unit-form');
+        form.action = '/cabinet/t/modules/' + trigger.dataset.setmodule + '/units/create/';
+      });
+    });
+  </script>
+{% endif %}
+{% endblock %}

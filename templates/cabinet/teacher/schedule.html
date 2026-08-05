@@ -1,0 +1,72 @@
+{% extends 'cabinet/base.html' %}
+{% block page_title %}Расписание и журнал{% endblock %}
+{% block page_sub %}<p class="cab-top__sub">{{ monday|date:"d.m" }} — {{ sunday|date:"d.m.Y" }}</p>{% endblock %}
+{% block page_actions %}
+  <div class="segmented">
+    <a href="?week={{ week_offset|add:'-1' }}">←</a>
+    <a href="?week=0" class="{% if not week_offset %}is-active{% endif %}">Эта неделя</a>
+    <a href="?week={{ week_offset|add:'1' }}">→</a>
+  </div>
+{% endblock %}
+
+{% block cabinet %}
+
+{% if pending %}
+  <div class="alert alert--warn">
+    <svg class="icon icon--lg"><use href="#i-clock"/></svg>
+    <div>
+      <strong>{{ pending|length }} прошедших урока(ов) без отметок</strong>
+      Отметьте посещаемость — тогда занятия спишутся с абонементов и попадут в отчёты.
+    </div>
+  </div>
+{% endif %}
+
+<div class="week">
+  {% for day in days %}
+    <div class="week__day {% if day.is_today %}is-today{% endif %}">
+      <h5><span>{{ day.short }}</span><span>{{ day.date|date:"d.m" }}</span></h5>
+      {% for lesson in day.lessons %}
+        <a class="week-chip {% if lesson.status == 'cancelled' %}is-cancelled{% elif lesson.status == 'completed' %}is-done{% endif %}"
+           href="{% url 'cabinet:teacher_lesson' lesson.pk %}">
+          <strong>{{ lesson.starts_at|date:"H:i" }}</strong>
+          {{ lesson.title|truncatechars:24 }}
+        </a>
+      {% empty %}<span class="tiny muted">—</span>{% endfor %}
+    </div>
+  {% endfor %}
+</div>
+
+<div class="card">
+  <h3>Занятия недели</h3>
+  {% for day in days %}
+    {% for lesson in day.lessons %}
+      <div class="lesson-row {% if lesson.status == 'cancelled' %}is-cancelled{% endif %} {% if lesson.is_live_now %}is-live{% endif %}">
+        <div class="lesson-row__time">
+          <strong>{{ lesson.starts_at|date:"H:i" }}</strong>
+          <span>{{ day.short }} {{ lesson.starts_at|date:"d.m" }}</span>
+        </div>
+        <div style="min-width:0">
+          <div class="lesson-row__title">{{ lesson.title }}</div>
+          <div class="lesson-row__meta">
+            <span>{{ lesson.participants.count }} чел.</span>
+            <span>{{ lesson.duration_minutes }} мин</span>
+            <span>{% if lesson.mode == 'online' %}онлайн{% else %}{{ lesson.location.name|default:"класс" }}{% endif %}</span>
+            {% if lesson.status == 'completed' %}<span class="badge badge--ok">отмечен</span>
+            {% elif lesson.status == 'cancelled' %}<span class="badge badge--err">отменён</span>
+            {% elif lesson.is_past %}<span class="badge badge--warn">нужно отметить</span>{% endif %}
+          </div>
+        </div>
+        <div class="lesson-row__actions">
+          {% if lesson.join_url and not lesson.is_past %}
+            <a class="btn btn--soft btn--sm" href="{{ lesson.join_url }}" target="_blank" rel="noopener">
+              <svg class="icon icon--sm"><use href="#i-video"/></svg>
+            </a>
+          {% endif %}
+          <a class="btn btn--ghost btn--sm" href="{% url 'cabinet:teacher_lesson' lesson.pk %}">Журнал</a>
+        </div>
+      </div>
+    {% endfor %}
+  {% endfor %}
+</div>
+
+{% endblock %}

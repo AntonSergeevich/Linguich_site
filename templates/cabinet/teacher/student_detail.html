@@ -1,0 +1,126 @@
+{% extends 'cabinet/base.html' %}
+{% load humanize %}
+{% block page_title %}{{ student.full_name }}{% endblock %}
+{% block page_sub %}
+  <p class="cab-top__sub">
+    {{ student.student_profile.get_status_display|default:"ученик" }}
+    {% if student.student_profile.level %} · уровень {{ student.student_profile.level }}{% endif %}
+  </p>
+{% endblock %}
+
+{% block cabinet %}
+<div class="grid grid-4">
+  <div class="stat"><div class="stat__label">Осталось занятий</div>
+    <div class="stat__value">{{ account.lessons_left }}</div></div>
+  <div class="stat"><div class="stat__label">Проведено</div>
+    <div class="stat__value">{{ account.lessons_used }}</div></div>
+  <div class="stat"><div class="stat__label">Баланс</div>
+    <div class="stat__value {% if account.balance > 0 %}money-pos{% endif %}">
+      {{ account.balance|floatformat:0|intcomma }} ₽</div></div>
+  <div class="stat"><div class="stat__label">Тест уровня</div>
+    <div class="stat__value">{{ placement.result_level|default:"—" }}</div>
+    {% if placement %}<div class="stat__meta">{{ placement.accuracy }}% верных</div>{% endif %}</div>
+</div>
+
+<div class="grid grid-2" style="align-items:start">
+  <div class="stack">
+    <div class="card">
+      <h3>Контакты и цель</h3>
+      <div class="stack-sm">
+        <div class="row row--between"><span class="muted tiny">Телефон</span>
+          <a href="tel:{{ student.phone }}">{{ student.phone|default:"—" }}</a></div>
+        <div class="row row--between"><span class="muted tiny">Email</span>
+          <span>{{ student.email|default:"—" }}</span></div>
+        {% if student.student_profile.parent_name %}
+          <div class="row row--between"><span class="muted tiny">Родитель</span>
+            <span>{{ student.student_profile.parent_name }} · {{ student.student_profile.parent_phone }}</span></div>
+        {% endif %}
+      </div>
+      {% if student.student_profile.goal %}
+        <div class="alert mt-4">
+          <div><strong>Цель обучения</strong>{{ student.student_profile.goal }}</div>
+        </div>
+      {% endif %}
+      {% if enrollments %}
+        <h4 class="mt-5">Группы</h4>
+        {% for enrollment in enrollments %}
+          <div class="unit-row">
+            <span class="unit-row__num">{{ forloop.counter }}</span>
+            <span class="unit-row__title">{{ enrollment.group.name }}</span>
+            {% if enrollment.is_active %}<span class="badge badge--ok">активно</span>
+            {% else %}<span class="badge">завершено</span>{% endif %}
+          </div>
+        {% endfor %}
+      {% endif %}
+    </div>
+
+    <div class="card">
+      <h3>Домашние задания</h3>
+      {% for submission in submissions %}
+        <div class="lesson-row" style="grid-template-columns:minmax(0,1fr) auto">
+          <div style="min-width:0">
+            <div class="lesson-row__title">{{ submission.assignment.title }}</div>
+            <div class="lesson-row__meta"><span>{{ submission.updated_at|date:"d.m.Y" }}</span></div>
+          </div>
+          <div class="lesson-row__actions">
+            {% if submission.score is not None %}
+              <span class="score-pill">{{ submission.score }}<small>/{{ submission.assignment.max_score }}</small></span>
+            {% else %}
+              <span class="badge">{{ submission.get_status_display }}</span>
+            {% endif %}
+            <a class="btn btn--quiet btn--sm" href="{% url 'cabinet:teacher_submission' submission.pk %}">→</a>
+          </div>
+        </div>
+      {% empty %}
+        <div class="empty"><h4>Заданий ещё не было</h4></div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="stack">
+    <div class="card">
+      <h3>Ближайшие занятия</h3>
+      {% for lesson in upcoming %}
+        <div class="lesson-row">
+          <div class="lesson-row__time">
+            <strong>{{ lesson.starts_at|date:"H:i" }}</strong><span>{{ lesson.starts_at|date:"d.m" }}</span>
+          </div>
+          <div style="min-width:0">
+            <div class="lesson-row__title">{{ lesson.title }}</div>
+            <div class="lesson-row__meta"><span>{{ lesson.teacher.short_name }}</span></div>
+          </div>
+          <div class="lesson-row__actions">
+            <a class="btn btn--quiet btn--sm" href="{% url 'cabinet:teacher_lesson' lesson.pk %}">Журнал</a>
+          </div>
+        </div>
+      {% empty %}
+        <div class="empty"><h4>Занятий не запланировано</h4></div>
+      {% endfor %}
+    </div>
+
+    <div class="card">
+      <h3>История</h3>
+      <div class="table-wrap">
+        <table class="table" style="min-width:0">
+          <thead><tr><th>Дата</th><th>Тема</th><th>Статус</th></tr></thead>
+          <tbody>
+            {% for lesson in history %}
+              <tr>
+                <td class="tabnum">{{ lesson.starts_at|date:"d.m.Y" }}</td>
+                <td>{{ lesson.topic|default:lesson.title|truncatechars:34 }}</td>
+                <td>
+                  {% if lesson.status == 'completed' %}<span class="badge badge--ok">проведён</span>
+                  {% elif lesson.status == 'cancelled' %}<span class="badge badge--err">отменён</span>
+                  {% else %}<span class="badge badge--warn">не отмечен</span>{% endif %}
+                </td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="3" class="muted">Занятий ещё не было.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

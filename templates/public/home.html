@@ -1,0 +1,298 @@
+{% extends 'base.html' %}
+{% load static humanize %}
+
+{% block content %}
+
+<section class="hero">
+  <div class="container hero__inner">
+    <div>
+      <div class="eyebrow">Красноярск и онлайн · с 2011 года</div>
+      <h1>Язык, на котором вы <em>наконец заговорите</em></h1>
+      <p class="hero__sub">
+        Не «проходим учебник», а учим говорить. Программа собирается под вашу цель,
+        а прогресс, расписание и домашние задания живут в личном кабинете.
+      </p>
+      <div class="btn-group">
+        <a class="btn btn--accent btn--lg" href="{% url 'school:signup' %}">Записаться на бесплатный урок</a>
+        <a class="btn btn--ghost btn--lg" href="{% url 'placement:test' %}">Узнать свой уровень</a>
+      </div>
+
+      <div class="hero__proof">
+        <div><strong>{{ languages|length }}</strong><span>языков в школе</span></div>
+        <div><strong>1 400+</strong><span>учеников за 13 лет</span></div>
+        <div><strong>2</strong><span>офиса + онлайн</span></div>
+      </div>
+    </div>
+
+    <div class="hero__card reveal">
+      {% if starting_soon %}
+        <span class="pill-live">Ближайший набор</span>
+        <div class="stack mt-4">
+          {% for group in starting_soon %}
+            <div class="row row--between" style="gap:var(--s-3);padding-bottom:var(--s-3);border-bottom:1px solid var(--line-soft)">
+              <div style="min-width:0">
+                <strong>{{ group.course.title }}</strong>
+                <div class="tiny muted">
+                  {{ group.schedule_summary|default:"расписание уточняется" }} · {{ group.teacher.short_name }}
+                </div>
+              </div>
+              <span class="badge badge--brand nowrap">{{ group.starts_on|date:"d.m" }}</span>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <span class="pill-live">Идёт набор</span>
+        <h3 class="mt-4">Группы стартуют каждый месяц</h3>
+        <p class="muted">Оставьте заявку — подберём группу под ваш уровень и график.</p>
+      {% endif %}
+      <a class="btn btn--block mt-5" href="{% url 'school:signup' %}">Занять место</a>
+      <p class="tiny muted text-center mt-4 mb-0">Первое занятие — бесплатно</p>
+    </div>
+  </div>
+</section>
+
+<section class="section section--sand">
+  <div class="container">
+    <div class="section-head section-head--center">
+      <div class="eyebrow" style="justify-content:center">Направления</div>
+      <h2>Семь языков и один подход</h2>
+      <p class="lead">Говорить с первого занятия, ошибаться без страха и видеть,
+        как через месяц получается то, что не получалось вчера.</p>
+    </div>
+
+    <div class="grid grid-4">
+      {% for language in languages %}
+        <a class="lang-card reveal" href="{{ language.get_absolute_url }}">
+          <span class="lang-card__flag">{{ language.flag_emoji }}</span>
+          <h3>{{ language.name }}</h3>
+          <p>{{ language.short_pitch }}</p>
+          <span class="lang-card__more">
+            {{ language.course_count }} курс{{ language.course_count|pluralize:"а,ов" }}
+            <svg class="icon icon--sm"><use href="#i-arrow"/></svg>
+          </span>
+        </a>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+{% if featured_courses %}
+<section class="section">
+  <div class="container">
+    <div class="row row--between mb-6">
+      <div class="section-head mb-0">
+        <div class="eyebrow">Популярное</div>
+        <h2>Курсы, которые чаще всего выбирают</h2>
+      </div>
+      <a class="btn btn--ghost" href="{% url 'school:courses' %}">Все курсы</a>
+    </div>
+
+    <div class="grid grid-3">
+      {% for course in featured_courses %}
+        <a class="course-card reveal" href="{{ course.get_absolute_url }}">
+          <div class="course-card__top">
+            <span class="badge badge--brand">{{ course.language.flag_emoji }} {{ course.language.name }}</span>
+            <h3 class="mt-4 mb-0">{{ course.title }}</h3>
+          </div>
+          <div class="course-card__body">
+            <p class="muted tiny mb-0">{{ course.summary }}</p>
+            <div class="course-card__price">
+              {{ course.price_per_lesson|floatformat:0|intcomma }} ₽ <small>/ занятие</small>
+            </div>
+            <div class="course-card__meta">
+              <span>{{ course.get_format_display }}</span>
+              <span>{{ course.level_range }}</span>
+              <span>{{ course.duration_minutes }} мин</span>
+            </div>
+          </div>
+        </a>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endif %}
+
+<section class="section section--sand">
+  <div class="container">
+    <div class="grid grid-2" style="align-items:center;gap:var(--s-8)">
+      <div>
+        <div class="eyebrow">Как это устроено</div>
+        <h2>От заявки до первой фразы — четыре шага</h2>
+        <p class="lead mb-6">Никаких «пришлите резюме и ждите». Всё прозрачно и быстро.</p>
+        <div class="steps">
+          <div class="step reveal">
+            <h4>Тест и заявка</h4>
+            <p>Проходите тест уровня за пять минут или просто оставляете телефон.</p>
+          </div>
+          <div class="step reveal">
+            <h4>Бесплатный пробный урок</h4>
+            <p>Преподаватель уточняет уровень, цель и предлагает программу — без обязательств.</p>
+          </div>
+          <div class="step reveal">
+            <h4>Личный кабинет</h4>
+            <p>Расписание, ссылка на онлайн-класс, материалы и домашние задания в одном месте.</p>
+          </div>
+          <div class="step reveal">
+            <h4>Виден прогресс</h4>
+            <p>Пройденные темы, оценки за домашки и комментарии преподавателя — всегда под рукой.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="card card--pad-lg reveal">
+        <h3>Записаться на бесплатный урок</h3>
+        <p class="muted tiny mb-5">Заполните два поля — остальное обсудим по телефону.</p>
+        {% include 'components/lead_form.html' with form=lead_form source='trial' compact=1 %}
+      </div>
+    </div>
+  </div>
+</section>
+
+{% if teachers %}
+<section class="section">
+  <div class="container">
+    <div class="section-head section-head--center">
+      <div class="eyebrow" style="justify-content:center">Команда</div>
+      <h2>Преподаватели, к которым возвращаются</h2>
+    </div>
+    <div class="grid grid-4">
+      {% for teacher in teachers %}
+        <div class="card teacher-card reveal">
+          {% if teacher.avatar %}
+            <img class="avatar avatar--xl" src="{{ teacher.avatar.url }}" alt="{{ teacher.full_name }}">
+          {% else %}
+            <span class="avatar avatar--xl">{{ teacher.initials }}</span>
+          {% endif %}
+          <h4>{{ teacher.full_name }}</h4>
+          <div class="teacher-card__role">{{ teacher.teacher_profile.headline }}</div>
+          {% if teacher.teacher_profile.years_of_experience %}
+            <div class="chip-row" style="justify-content:center">
+              <span class="badge">{{ teacher.teacher_profile.years_of_experience }} лет опыта</span>
+              {% if teacher.teacher_profile.is_native %}<span class="badge badge--accent">носитель</span>{% endif %}
+            </div>
+          {% endif %}
+        </div>
+      {% endfor %}
+    </div>
+    <div class="text-center mt-6">
+      <a class="btn btn--ghost" href="{% url 'school:teachers' %}">Вся команда</a>
+    </div>
+  </div>
+</section>
+{% endif %}
+
+<section class="section section--sand">
+  <div class="container">
+    <div class="grid grid-2" style="align-items:center;gap:var(--s-8)">
+      <div>
+        <div class="eyebrow">Бесплатно · 5 минут</div>
+        <h2>Тест уровня, который правда что-то измеряет</h2>
+        <p class="lead">Двадцать заданий, которые подстраиваются под ваши ответы: чем увереннее
+          отвечаете, тем сложнее становится. В конце — уровень по CEFR, разбор по навыкам
+          и программа, которая вам подойдёт.</p>
+        <div class="chip-row mb-6">
+          <span class="badge">Грамматика</span>
+          <span class="badge">Лексика</span>
+          <span class="badge">Чтение</span>
+          <span class="badge">Речевые ситуации</span>
+        </div>
+        <a class="btn btn--lg" href="{% url 'placement:test' %}">Пройти тест</a>
+      </div>
+      <div class="card card--brand card--pad-lg reveal">
+        <div class="quiz-result__level" style="font-size:var(--step-5)">B1</div>
+        <h3 class="mt-4">Intermediate</h3>
+        <p class="muted">Вы уже общаетесь. Теперь важно убрать ошибки и научиться говорить длинными мыслями.</p>
+        <div class="stack-sm mt-5">
+          <div class="skill-bar">
+            <div class="skill-bar__head"><span>Грамматика</span><strong>78%</strong></div>
+            <div class="progress"><div class="progress__bar" style="width:78%"></div></div>
+          </div>
+          <div class="skill-bar">
+            <div class="skill-bar__head"><span>Лексика</span><strong>64%</strong></div>
+            <div class="progress"><div class="progress__bar" style="width:64%"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+{% if reviews %}
+<section class="section">
+  <div class="container">
+    <div class="section-head section-head--center">
+      <div class="eyebrow" style="justify-content:center">Отзывы</div>
+      <h2>Что говорят ученики</h2>
+    </div>
+    <div class="grid grid-3">
+      {% for review in reviews %}
+        <div class="review reveal">
+          <div class="review__stars">{% for _ in "12345"|make_list %}{% if forloop.counter <= review.rating %}★{% else %}☆{% endif %}{% endfor %}</div>
+          <p class="review__text">«{{ review.text }}»</p>
+          <div class="review__author">
+            <span class="avatar avatar--sm">{{ review.author_name|slice:":1" }}</span>
+            <div>
+              <strong>{{ review.author_name }}</strong>
+              <span>{{ review.author_role }}</span>
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endif %}
+
+{% if promos %}
+<section class="section section--tight">
+  <div class="container">
+    <div class="grid grid-2">
+      {% for promo in promos %}
+        <div class="card card--accent card--pad-lg reveal">
+          {% if promo.badge %}<span class="badge badge--accent">{{ promo.badge }}</span>{% endif %}
+          <h3 class="mt-3">{{ promo.title }}</h3>
+          <p class="muted mb-0">{{ promo.subtitle }}</p>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endif %}
+
+{% if faqs %}
+<section class="section">
+  <div class="container-narrow">
+    <div class="section-head section-head--center">
+      <div class="eyebrow" style="justify-content:center">Вопросы</div>
+      <h2>Коротко о главном</h2>
+    </div>
+    {% for faq in faqs %}
+      <details class="faq-item">
+        <summary>{{ faq.question }}</summary>
+        <div class="faq-item__body">{{ faq.answer|linebreaksbr }}</div>
+      </details>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+<section class="section section--tight">
+  <div class="container">
+    <div class="cta-band">
+      <div class="grid grid-2" style="align-items:center">
+        <div>
+          <h2>Первое занятие — бесплатно</h2>
+          <p>Познакомимся, определим уровень и честно скажем, сколько времени
+            займёт путь до вашей цели.</p>
+        </div>
+        <div class="row row--end">
+          <a class="btn btn--white btn--lg" href="{% url 'school:signup' %}">Записаться</a>
+          <a class="btn btn--ghost btn--lg" style="--btn-fg:#fff;--btn-bd:rgba(255,255,255,.4)"
+             href="tel:{{ site.phone }}">{{ site.phone }}</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+{% endblock %}

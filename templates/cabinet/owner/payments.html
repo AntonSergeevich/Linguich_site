@@ -1,0 +1,130 @@
+{% extends 'cabinet/base.html' %}
+{% load humanize %}
+{% block page_title %}Платежи и долги{% endblock %}
+{% block page_actions %}
+  <button class="btn btn--sm" type="button" data-modal-open="#payment-modal">
+    <svg class="icon icon--sm"><use href="#i-plus"/></svg> Внести платёж
+  </button>
+{% endblock %}
+
+{% block cabinet %}
+<div class="tabs">
+  <a href="?period=month" class="{% if period == 'month' %}is-active{% endif %}">Этот месяц</a>
+  <a href="?period=prev" class="{% if period == 'prev' %}is-active{% endif %}">Прошлый</a>
+  <a href="?period=year" class="{% if period == 'year' %}is-active{% endif %}">Год</a>
+  <a href="?period=all" class="{% if period == 'all' %}is-active{% endif %}">Всё время</a>
+</div>
+
+<div class="grid grid-4">
+  <div class="stat"><div class="stat__label">Поступило</div>
+    <div class="stat__value">{{ total|floatformat:0|intcomma }} ₽</div>
+    <div class="stat__meta">{{ count }} платеж(ей)</div></div>
+  <div class="stat"><div class="stat__label">Задолженность</div>
+    <div class="stat__value money-pos">{{ total_debt|floatformat:0|intcomma }} ₽</div>
+    <div class="stat__meta">{{ debtors|length }} ученик(ов)</div></div>
+  {% for row in by_method|slice:":2" %}
+    <div class="stat"><div class="stat__label">{{ row.label }}</div>
+      <div class="stat__value">{{ row.total|floatformat:0|intcomma }} ₽</div></div>
+  {% endfor %}
+</div>
+
+<div class="grid grid-main">
+  <div class="card">
+    <div class="card-head">
+      <h3>Платежи</h3>
+      <form method="get" class="row" style="gap:var(--s-2)">
+        <input type="hidden" name="period" value="{{ period }}">
+        <input type="search" name="q" value="{{ search }}" placeholder="Ученик"
+               style="min-height:36px;padding:.4em .8em;width:180px">
+        <button class="btn btn--ghost btn--sm" type="submit">Найти</button>
+      </form>
+    </div>
+    <div class="table-wrap">
+      <table class="table">
+        <thead><tr><th>Дата</th><th>Ученик</th><th>Способ</th><th class="num">Сумма</th><th>Внёс</th></tr></thead>
+        <tbody>
+          {% for payment in payments %}
+            <tr>
+              <td class="tabnum">{{ payment.paid_on|date:"d.m.Y" }}</td>
+              <td><a href="{% url 'cabinet:crm_student' payment.student.pk %}">{{ payment.student.full_name }}</a>
+                {% if payment.comment %}<div class="tiny muted">{{ payment.comment|truncatechars:40 }}</div>{% endif %}</td>
+              <td class="muted tiny">{{ payment.get_method_display }}</td>
+              <td class="num"><strong class="money-neg">+{{ payment.amount|floatformat:0|intcomma }} ₽</strong></td>
+              <td class="muted tiny">{{ payment.created_by.short_name|default:"—" }}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="5"><div class="empty"><h4>Платежей за период нет</h4></div></td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <h3>Кто должен</h3>
+      {% if debtors %}
+        <button class="btn btn--soft btn--sm" data-action="{% url 'cabinet:crm_debt_remind' %}"
+                data-confirm="Отправить напоминание всем должникам?">Напомнить всем</button>
+      {% endif %}
+    </div>
+    {% for row in debtors %}
+      <div class="lesson-row" style="grid-template-columns:minmax(0,1fr) auto">
+        <div style="min-width:0">
+          <div class="lesson-row__title">
+            <a href="{% url 'cabinet:crm_student' row.student.pk %}">{{ row.student.full_name }}</a>
+          </div>
+          <div class="lesson-row__meta">
+            <span>{{ row.paid|floatformat:0|intcomma }} из {{ row.billed|floatformat:0|intcomma }} ₽</span>
+          </div>
+        </div>
+        <div class="lesson-row__actions">
+          <strong class="money-pos tabnum">{{ row.balance|floatformat:0|intcomma }} ₽</strong>
+        </div>
+      </div>
+    {% empty %}
+      <div class="empty">
+        <div class="empty__icon"><svg class="icon icon--lg"><use href="#i-check"/></svg></div>
+        <h4>Долгов нет</h4>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="modal" id="payment-modal">
+  <div class="modal__panel">
+    <div class="card-head"><h3>Внести платёж</h3>
+      <button class="btn btn--quiet btn--icon btn--sm" data-modal-close type="button">
+        <svg class="icon"><use href="#i-x"/></svg></button></div>
+    <form data-async method="post" action="{% url 'cabinet:crm_payment_create' %}" data-success="Платёж записан">
+      {% csrf_token %}
+      <label class="field"><span class="label">Ученик *</span>
+        <select name="student" required>
+          {% for student in students %}
+            <option value="{{ student.pk }}">{{ student.full_name }} — {{ student.phone }}</option>
+          {% endfor %}
+        </select></label>
+      <div class="form-grid">
+        <label class="field"><span class="label">Сумма, ₽ *</span>
+          <input type="text" name="amount" required inputmode="decimal" placeholder="7600"></label>
+        <label class="field"><span class="label">Способ</span>
+          <select name="method">
+            {% for value, label in methods %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+          </select></label>
+        <label class="field"><span class="label">Дата</span>
+          <input type="date" name="paid_on"></label>
+        <label class="field"><span class="label">Сразу выдать абонемент</span>
+          <select name="tariff">
+            <option value="">Не выдавать</option>
+            {% for tariff in tariffs %}
+              <option value="{{ tariff.pk }}">{{ tariff.name }} — {{ tariff.price|floatformat:0 }} ₽</option>
+            {% endfor %}
+          </select></label>
+        <label class="field field--full"><span class="label">Комментарий</span>
+          <input type="text" name="comment"></label>
+      </div>
+      <button class="btn btn--block btn--lg" type="submit">Записать платёж</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

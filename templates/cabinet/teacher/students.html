@@ -1,0 +1,63 @@
+{% extends 'cabinet/base.html' %}
+{% load humanize %}
+{% block page_title %}Мои ученики{% endblock %}
+{% block page_sub %}<p class="cab-top__sub">{{ rows|length }} человек</p>{% endblock %}
+
+{% block cabinet %}
+<form class="crm-filters" method="get">
+  <label class="field" style="flex:2 1 260px">
+    <span class="label">Поиск</span>
+    <input type="search" name="q" value="{{ search }}" placeholder="Имя, фамилия или телефон">
+  </label>
+  <button class="btn" type="submit">Найти</button>
+</form>
+
+<div class="table-wrap">
+  <table class="table">
+    <thead>
+      <tr><th>Ученик</th><th>Уровень</th><th>Ближайшее занятие</th>
+        <th class="num">Домашки</th><th class="num">Осталось уроков</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+        <tr>
+          <td>
+            <div class="row row--nowrap">
+              <span class="avatar avatar--sm">{{ row.student.initials }}</span>
+              <div style="min-width:0">
+                <strong>{{ row.student.full_name }}</strong>
+                <div class="tiny muted">{{ row.student.phone|default:row.student.email }}</div>
+              </div>
+            </div>
+          </td>
+          <td>
+            {% if row.student.student_profile.level %}
+              <span class="badge badge--brand">{{ row.student.student_profile.level }}</span>
+            {% else %}<span class="muted tiny">—</span>{% endif %}
+          </td>
+          <td class="muted tabnum">
+            {% if row.next %}{{ row.next.starts_at|date:"d.m H:i" }}{% else %}—{% endif %}
+          </td>
+          <td class="num">
+            {% if row.open_homework %}<span class="badge badge--warn">{{ row.open_homework }}</span>
+            {% else %}<span class="muted">0</span>{% endif %}
+          </td>
+          <td class="num">
+            {% if row.account.lessons_left <= 1 %}
+              <span class="badge badge--err">{{ row.account.lessons_left }}</span>
+            {% else %}{{ row.account.lessons_left }}{% endif %}
+          </td>
+          <td class="num">
+            <a class="btn btn--quiet btn--sm" href="{% url 'cabinet:teacher_student' row.student.pk %}">Открыть</a>
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="6">
+          <div class="empty"><h4>Учеников пока нет</h4>
+            <p>Они появятся здесь, как только вы проведёте с ними первое занятие.</p></div>
+        </td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

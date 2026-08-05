@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+{% block title %}Записаться на занятие — Лингвич{% endblock %}
+
+{% block content %}
+<section class="section section--tight">
+  <div class="container">
+    <div class="grid grid-form" style="gap:var(--s-8)">
+      <div>
+        <div class="eyebrow">Первое занятие бесплатно</div>
+        <h1>Запишитесь на пробный урок</h1>
+        <p class="lead">На пробном мы знакомимся, определяем ваш уровень и честно говорим,
+          сколько времени займёт путь до цели. Никаких обязательств.</p>
+
+        <div class="steps mt-6">
+          <div class="step">
+            <h4>Оставляете заявку</h4>
+            <p>Достаточно имени и телефона.</p>
+          </div>
+          <div class="step">
+            <h4>Мы звоним</h4>
+            <p>В рабочее время, обычно в течение пары часов. Подбираем время и преподавателя.</p>
+          </div>
+          <div class="step">
+            <h4>Пробный урок</h4>
+            <p>Онлайн или в офисе — как удобнее. После него решаете, продолжать или нет.</p>
+          </div>
+        </div>
+
+        <div class="alert alert--ok mt-6">
+          <svg class="icon icon--lg"><use href="#i-check"/></svg>
+          <div>
+            <strong>Уже знаете свой уровень?</strong>
+            Пройдите <a href="{% url 'placement:test' %}">тест</a> — приложим результат к заявке
+            и сразу предложим подходящую группу.
+          </div>
+        </div>
+      </div>
+
+      <aside class="card card--pad-lg" style="position:sticky;top:calc(var(--header-h) + 1rem)">
+        <h3>Заявка</h3>
+        {% include 'components/lead_form.html' with form=lead_form source='trial' %}
+
+        <div class="divider">или</div>
+        <a class="btn btn--ghost btn--block" href="tel:{{ site.phone }}">
+          <svg class="icon"><use href="#i-phone"/></svg> Позвонить {{ site.phone }}
+        </a>
+      </aside>
+    </div>
+  </div>
+</section>
+{% endblock %}

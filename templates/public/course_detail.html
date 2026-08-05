@@ -1,0 +1,101 @@
+{% extends 'base.html' %}
+{% load humanize %}
+{% block title %}{{ course.title }} — Лингвич{% endblock %}
+{% block description %}{{ course.summary }}{% endblock %}
+
+{% block content %}
+<section class="section section--tight">
+  <div class="container">
+    <div class="grid grid-wide" style="gap:var(--s-7)">
+      <div>
+        <div class="eyebrow">{{ course.language.flag_emoji }} {{ course.language.name }} · {{ course.get_format_display }}</div>
+        <h1>{{ course.title }}</h1>
+        <p class="lead">{{ course.summary }}</p>
+
+        <div class="chip-row mb-6">
+          <span class="badge">Уровень {{ course.level_range }}</span>
+          <span class="badge">{{ course.duration_minutes }} мин</span>
+          <span class="badge">{{ course.lessons_per_week }} занятия в неделю</span>
+          {% if course.is_online_available %}<span class="badge badge--ok">есть онлайн</span>{% endif %}
+        </div>
+
+        {% if course.description %}
+          <div class="card card--flat mb-5">{{ course.description|linebreaks }}</div>
+        {% endif %}
+
+        {% if course.outcome_list %}
+          <h3>Что вы сможете после курса</h3>
+          <div class="stack-sm mb-6">
+            {% for outcome in course.outcome_list %}
+              <div class="row row--nowrap row--top">
+                <svg class="icon" style="color:var(--ok);margin-top:.2em"><use href="#i-check"/></svg>
+                <span>{{ outcome }}</span>
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+
+        {% if groups %}
+          <h3>Ближайшие группы</h3>
+          <div class="table-wrap mb-6">
+            <table class="table">
+              <thead>
+                <tr><th>Группа</th><th>Расписание</th><th>Преподаватель</th><th>Мест</th></tr>
+              </thead>
+              <tbody>
+                {% for group in groups %}
+                  <tr>
+                    <td><strong>{{ group.name }}</strong><br><span class="tiny muted">{{ group.location.name|default:"онлайн" }}</span></td>
+                    <td>{{ group.schedule_summary|default:"—" }}</td>
+                    <td>{{ group.teacher.short_name }}</td>
+                    <td class="num">
+                      {% if group.seats_left %}
+                        <span class="badge badge--ok">{{ group.seats_left }}</span>
+                      {% else %}
+                        <span class="badge badge--err">нет</span>
+                      {% endif %}
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% endif %}
+
+        {% if teachers %}
+          <h3>Кто ведёт</h3>
+          <div class="grid grid-4">
+            {% for teacher in teachers %}
+              <div class="card teacher-card">
+                {% if teacher.avatar %}
+                  <img class="avatar avatar--lg" src="{{ teacher.avatar.url }}" alt="{{ teacher.full_name }}">
+                {% else %}<span class="avatar avatar--lg">{{ teacher.initials }}</span>{% endif %}
+                <h4>{{ teacher.short_name }}</h4>
+                <div class="teacher-card__role">{{ teacher.teacher_profile.headline }}</div>
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      </div>
+
+      <aside class="card card--pad-lg" style="position:sticky;top:calc(var(--header-h) + 1rem)">
+        <div class="course-card__price mb-4">
+          {{ course.price_per_lesson|floatformat:0|intcomma }} ₽ <small>/ занятие</small>
+        </div>
+        {% if tariffs %}
+          <div class="stack-sm mb-5">
+            {% for tariff in tariffs %}
+              <div class="row row--between tiny" style="padding-bottom:var(--s-2);border-bottom:1px solid var(--line-soft)">
+                <span>{{ tariff.name }}</span>
+                <strong class="tabnum">{{ tariff.price|floatformat:0|intcomma }} ₽</strong>
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+        <h4>Записаться</h4>
+        {% include 'components/lead_form.html' with form=lead_form source='course' compact=1 button="Записаться на пробный" %}
+      </aside>
+    </div>
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+{% block title %}Регистрация — Лингвич{% endblock %}
+{% block footer %}{% endblock %}
+
+{% block content %}
+<section class="section">
+  <div class="container" style="max-width:520px">
+    <div class="card card--pad-lg">
+      <h1 style="font-size:var(--step-2)">Создать личный кабинет</h1>
+      <p class="muted tiny mb-5">Кабинет для учеников школы. Если вы ещё не занимаетесь у нас —
+        <a href="{% url 'school:signup' %}">запишитесь на пробный урок</a>.</p>
+
+      {% if form.non_field_errors %}
+        <div class="alert alert--err mb-4">{{ form.non_field_errors.0 }}</div>
+      {% endif %}
+
+      <form method="post" class="stack">
+        {% csrf_token %}
+        <div class="form-grid">
+          <label class="field">
+            <span class="label">Имя *</span>
+            <input type="text" name="first_name" required value="{{ form.first_name.value|default:'' }}">
+            {% if form.first_name.errors %}<span class="error">{{ form.first_name.errors.0 }}</span>{% endif %}
+          </label>
+          <label class="field">
+            <span class="label">Фамилия</span>
+            <input type="text" name="last_name" value="{{ form.last_name.value|default:'' }}">
+          </label>
+          <label class="field">
+            <span class="label">Email *</span>
+            <input type="email" name="email" required autocomplete="email" value="{{ form.email.value|default:'' }}">
+            {% if form.email.errors %}<span class="error">{{ form.email.errors.0 }}</span>{% endif %}
+          </label>
+          <label class="field">
+            <span class="label">Телефон *</span>
+            <input type="tel" name="phone" required autocomplete="tel" value="{{ form.phone.value|default:'' }}">
+            {% if form.phone.errors %}<span class="error">{{ form.phone.errors.0 }}</span>{% endif %}
+          </label>
+          <label class="field">
+            <span class="label">Пароль *</span>
+            <input type="password" name="password1" required autocomplete="new-password">
+            {% if form.password1.errors %}<span class="error">{{ form.password1.errors.0 }}</span>{% endif %}
+          </label>
+          <label class="field">
+            <span class="label">Повторите пароль *</span>
+            <input type="password" name="password2" required autocomplete="new-password">
+            {% if form.password2.errors %}<span class="error">{{ form.password2.errors.0 }}</span>{% endif %}
+          </label>
+        </div>
+
+        <label class="check">
+          <input type="checkbox" name="consent" required>
+          <span class="tiny">Согласен на обработку персональных данных и с
+            <a href="{% url 'school:privacy' %}" target="_blank">политикой конфиденциальности</a>.</span>
+        </label>
+        {% if form.consent.errors %}<span class="error">{{ form.consent.errors.0 }}</span>{% endif %}
+
+        <button class="btn btn--block btn--lg" type="submit">Создать кабинет</button>
+      </form>
+
+      <div class="divider">уже есть аккаунт?</div>
+      <a class="btn btn--ghost btn--block" href="{% url 'accounts:login' %}">Войти</a>
+    </div>
+  </div>
+</section>
+{% endblock %}

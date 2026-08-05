@@ -1,0 +1,154 @@
+{% extends 'cabinet/base.html' %}
+{% load humanize %}
+{% block page_title %}Сводка по школе{% endblock %}
+{% block page_sub %}<p class="cab-top__sub">Деньги, ученики и заявки на одном экране</p>{% endblock %}
+{% block page_actions %}
+  <a class="btn btn--ghost btn--sm" href="{% url 'cabinet:crm_payments' %}">Внести платёж</a>
+  <a class="btn btn--sm" href="{% url 'cabinet:crm_leads' %}">Заявки</a>
+{% endblock %}
+
+{% block cabinet %}
+
+<div class="grid grid-4">
+  <div class="stat">
+    <div class="stat__label">Выручка за месяц</div>
+    <div class="stat__value">{{ revenue_month|floatformat:0|intcomma }} ₽</div>
+    {% if revenue_delta is not None %}
+      <div class="stat__meta {% if revenue_delta >= 0 %}stat__meta--up{% else %}stat__meta--down{% endif %}">
+        {% if revenue_delta >= 0 %}+{% endif %}{{ revenue_delta }}% к прошлому
+      </div>
+    {% else %}
+      <div class="stat__meta">прошлый: {{ revenue_prev|floatformat:0|intcomma }} ₽</div>
+    {% endif %}
+  </div>
+  <div class="stat">
+    <div class="stat__label">Задолженность</div>
+    <div class="stat__value {% if total_debt %}money-pos{% endif %}">{{ total_debt|floatformat:0|intcomma }} ₽</div>
+    <div class="stat__meta">{{ debtor_count }} ученик(ов)</div>
+  </div>
+  <div class="stat">
+    <div class="stat__label">Активных учеников</div>
+    <div class="stat__value">{{ active_students }}</div>
+    <div class="stat__meta">{{ lessons_week }} занятий на неделе</div>
+  </div>
+  <div class="stat">
+    <div class="stat__label">Новых заявок</div>
+    <div class="stat__value">{{ new_leads }}</div>
+    <div class="stat__meta">{{ leads_month }} за месяц</div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-head">
+    <h3>Выручка по месяцам</h3>
+    <span class="badge">последние 12</span>
+  </div>
+  <div class="scroll-x">
+    <div class="bars" style="min-width:560px">
+      {% for point in chart %}
+        <div class="bars__item">
+          <span class="bars__value">{% if point.value %}{{ point.value|floatformat:0|intcomma }}{% endif %}</span>
+          <div class="bars__bar" style="height:{{ point.percent }}%"
+               title="{{ point.label }}: {{ point.value|floatformat:0 }} ₽"></div>
+          <span class="bars__label">{{ point.label }}</span>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<div class="grid grid-2" style="align-items:start">
+  <div class="card">
+    <div class="card-head">
+      <h3>Должники</h3>
+      {% if debtors %}
+        <button class="btn btn--soft btn--sm" data-action="{% url 'cabinet:crm_debt_remind' %}"
+                data-confirm="Отправить напоминание всем должникам?">
+          <svg class="icon icon--sm"><use href="#i-bell"/></svg> Напомнить всем
+        </button>
+      {% endif %}
+    </div>
+    {% for row in debtors %}
+      <div class="lesson-row" style="grid-template-columns:44px minmax(0,1fr) auto">
+        <span class="avatar avatar--sm">{{ row.student.initials }}</span>
+        <div style="min-width:0">
+          <div class="lesson-row__title">{{ row.student.full_name }}</div>
+          <div class="lesson-row__meta">
+            <span>начислено {{ row.billed|floatformat:0|intcomma }} ₽</span>
+            <span>оплачено {{ row.paid|floatformat:0|intcomma }} ₽</span>
+          </div>
+        </div>
+        <div class="lesson-row__actions">
+          <strong class="money-pos tabnum">{{ row.balance|floatformat:0|intcomma }} ₽</strong>
+          <a class="btn btn--quiet btn--sm" href="{% url 'cabinet:crm_student' row.student.pk %}">→</a>
+        </div>
+      </div>
+    {% empty %}
+      <div class="empty">
+        <div class="empty__icon"><svg class="icon icon--lg"><use href="#i-check"/></svg></div>
+        <h4>Долгов нет</h4><p>Все абонементы оплачены.</p>
+      </div>
+    {% endfor %}
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <h3>Последние платежи</h3>
+      <a class="btn btn--quiet btn--sm" href="{% url 'cabinet:crm_payments' %}">Все</a>
+    </div>
+    {% for payment in recent_payments %}
+      <div class="lesson-row" style="grid-template-columns:44px minmax(0,1fr) auto">
+        <span class="avatar avatar--sm">{{ payment.student.initials }}</span>
+        <div style="min-width:0">
+          <div class="lesson-row__title">{{ payment.student.full_name }}</div>
+          <div class="lesson-row__meta">
+            <span>{{ payment.get_method_display }}</span><span>{{ payment.paid_on|date:"d.m.Y" }}</span>
+          </div>
+        </div>
+        <div class="lesson-row__actions">
+          <strong class="money-neg tabnum">+{{ payment.amount|floatformat:0|intcomma }} ₽</strong>
+        </div>
+      </div>
+    {% empty %}
+      <div class="empty"><h4>Платежей ещё не было</h4></div>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="grid grid-2" style="align-items:start">
+  <div class="card">
+    <h3>Воронка заявок</h3>
+    {% for label, count in funnel %}
+      <div class="skill-bar">
+        <div class="skill-bar__head"><span>{{ label }}</span><strong class="tabnum">{{ count }}</strong></div>
+        <div class="progress"><div class="progress__bar" style="width:{% widthratio count leads_month|default:1 100 %}%"></div></div>
+      </div>
+    {% endfor %}
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <h3>Новые заявки</h3>
+      <a class="btn btn--quiet btn--sm" href="{% url 'cabinet:crm_leads' %}">Все</a>
+    </div>
+    {% for lead in recent_leads %}
+      <div class="lesson-row" style="grid-template-columns:minmax(0,1fr) auto">
+        <div style="min-width:0">
+          <div class="lesson-row__title">{{ lead.name }}</div>
+          <div class="lesson-row__meta">
+            <span>{{ lead.phone }}</span><span>{{ lead.get_source_display }}</span>
+            {% if lead.placement_level %}<span class="badge badge--brand">{{ lead.placement_level }}</span>{% endif %}
+          </div>
+        </div>
+        <div class="lesson-row__actions">
+          <span class="tiny muted nowrap">{{ lead.created_at|date:"d.m" }}</span>
+          <span class="badge">{{ lead.get_status_display }}</span>
+        </div>
+      </div>
+    {% empty %}
+      <div class="empty"><h4>Заявок нет</h4></div>
+    {% endfor %}
+  </div>
+</div>
+
+{% endblock %}

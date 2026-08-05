@@ -1,0 +1,64 @@
+{% load static %}<!doctype html>
+<html lang="ru" class="no-js">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>{% block title %}{{ site.brand_name }} — {{ site.tagline }}{% endblock %}</title>
+  <meta name="description" content="{% block description %}Языковая школа «Лингвич» в Красноярске: английский, немецкий, китайский и другие языки. Группы, индивидуально, онлайн.{% endblock %}">
+  <meta name="theme-color" content="#0B5A74" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0D141A" media="(prefers-color-scheme: dark)">
+
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="{{ site.brand_name }}">
+  <meta property="og:title" content="{% block og_title %}{{ site.brand_name }} — {{ site.tagline }}{% endblock %}">
+  <meta property="og:description" content="{% block og_description %}Языковая школа в Красноярске. Живые преподаватели, программы под цель, онлайн-кабинет.{% endblock %}">
+  <meta property="og:image" content="{% static 'img/logo.svg' %}">
+
+  <link rel="icon" href="{% static 'img/logo.svg' %}" type="image/svg+xml">
+  <link rel="preload" href="{% static 'fonts/OfficinaSansBoldITC-Regular.ttf' %}" as="font" type="font/ttf" crossorigin>
+
+  <link rel="stylesheet" href="{% static 'css/tokens.css' %}">
+  <link rel="stylesheet" href="{% static 'css/base.css' %}">
+  <link rel="stylesheet" href="{% static 'css/components.css' %}">
+  <link rel="stylesheet" href="{% static 'css/site.css' %}">
+  {% block styles %}{% endblock %}
+
+  {# Тему ставим до первой отрисовки, иначе будет вспышка светлого фона. #}
+  <script>
+    (function () {
+      var t = localStorage.getItem("linguich-theme");
+      if (t) document.documentElement.setAttribute("data-theme", t);
+      document.documentElement.classList.remove("no-js");
+      document.documentElement.classList.add("js");
+    })();
+  </script>
+</head>
+<body{% block body_attrs %}{% endblock %}>
+{% include 'components/icons.html' %}
+
+{% block chrome %}
+  {% include 'components/header.html' %}
+{% endblock %}
+
+<main id="content">
+  {% block content %}{% endblock %}
+</main>
+
+{% block footer %}
+  {% include 'components/footer.html' %}
+{% endblock %}
+
+{% if messages %}
+  <div class="toasts" role="status" aria-live="polite">
+    {% for message in messages %}
+      <div class="toast {% if message.tags == 'error' %}toast--err{% elif message.tags == 'success' %}toast--ok{% elif message.tags == 'warning' %}toast--warn{% endif %}">
+        {{ message }}
+      </div>
+    {% endfor %}
+  </div>
+{% endif %}
+
+<script src="{% static 'js/app.js' %}" defer></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

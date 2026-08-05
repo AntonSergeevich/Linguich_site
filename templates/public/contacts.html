@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+{% block title %}Контакты — Лингвич{% endblock %}
+
+{% block content %}
+<section class="section section--tight">
+  <div class="container">
+    <div class="section-head">
+      <div class="eyebrow">Мы рядом</div>
+      <h1>Контакты</h1>
+    </div>
+
+    <div class="grid grid-2" style="align-items:start;gap:var(--s-7)">
+      <div class="stack">
+        {% for location in locations %}
+          <div class="card">
+            <div class="row row--top row--nowrap">
+              <svg class="icon icon--lg" style="color:var(--accent-500)"><use href="#i-pin"/></svg>
+              <div>
+                <h4 class="mb-1">{{ location.name }}</h4>
+                <p class="muted mb-0">{{ location.address }}{% if not location.is_online %}, {{ location.city }}{% endif %}</p>
+              </div>
+            </div>
+            {% if location.map_embed_url %}
+              <iframe class="mt-4" src="{{ location.map_embed_url }}" width="100%" height="240"
+                      style="border:0;border-radius:var(--r-md)" loading="lazy"
+                      title="Карта: {{ location.name }}"></iframe>
+            {% endif %}
+          </div>
+        {% endfor %}
+
+        <div class="card">
+          <h4>Связаться напрямую</h4>
+          <div class="stack-sm">
+            <a class="row row--nowrap" href="tel:{{ site.phone }}">
+              <svg class="icon"><use href="#i-phone"/></svg><span>{{ site.phone }}</span></a>
+            <a class="row row--nowrap" href="mailto:{{ site.email }}">
+              <svg class="icon"><use href="#i-mail"/></svg><span>{{ site.email }}</span></a>
+          </div>
+          <div class="social-row mt-4" style="--brand-900:transparent">
+            {% if site.telegram_url %}<a href="{{ site.telegram_url }}" target="_blank" rel="noopener"
+              style="background:var(--surface-2);color:var(--ink-2)"><svg class="icon"><use href="#i-mail"/></svg></a>{% endif %}
+            {% if site.whatsapp_url %}<a href="{{ site.whatsapp_url }}" target="_blank" rel="noopener"
+              style="background:var(--surface-2);color:var(--ink-2)"><svg class="icon"><use href="#i-phone"/></svg></a>{% endif %}
+            {% if site.vk_url %}<a href="{{ site.vk_url }}" target="_blank" rel="noopener"
+              style="background:var(--surface-2);color:var(--ink-2)"><svg class="icon"><use href="#i-users"/></svg></a>{% endif %}
+          </div>
+        </div>
+      </div>
+
+      <div class="card card--pad-lg">
+        <h3>Написать нам</h3>
+        <p class="muted tiny mb-5">Ответим в рабочее время. Если вопрос срочный — звоните.</p>
+        {% include 'components/lead_form.html' with form=lead_form source='trial' button="Отправить" %}
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

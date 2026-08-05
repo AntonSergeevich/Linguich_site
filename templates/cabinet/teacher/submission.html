@@ -1,0 +1,55 @@
+{% extends 'cabinet/base.html' %}
+{% block page_title %}{{ submission.assignment.title }}{% endblock %}
+{% block page_sub %}<p class="cab-top__sub">{{ submission.student.full_name }}
+  {% if submission.submitted_at %} · сдано {{ submission.submitted_at|date:"d.m.Y H:i" }}{% endif %}</p>{% endblock %}
+
+{% block cabinet %}
+<div class="grid grid-main">
+  <div class="stack">
+    <div class="card">
+      <h3>Задание</h3>
+      {% if submission.assignment.description %}
+        <div class="muted">{{ submission.assignment.description|linebreaks }}</div>
+      {% else %}<p class="muted">Без описания.</p>{% endif %}
+    </div>
+
+    <div class="card">
+      <h3>Ответ ученика</h3>
+      {% if submission.answer_text %}
+        <div style="white-space:pre-wrap">{{ submission.answer_text }}</div>
+      {% endif %}
+      {% if submission.answer_file %}
+        <a class="btn btn--soft btn--sm mt-4" href="{{ submission.answer_file.url }}" target="_blank" rel="noopener">
+          <svg class="icon icon--sm"><use href="#i-file"/></svg> Скачать файл
+        </a>
+      {% endif %}
+      {% if not submission.answer_text and not submission.answer_file %}
+        <div class="empty"><h4>Ученик ещё не прислал работу</h4></div>
+      {% endif %}
+    </div>
+  </div>
+
+  <aside class="card">
+    <h3>Проверка</h3>
+    <form data-async method="post" action="{% url 'cabinet:teacher_submission_save' submission.pk %}">
+      {% csrf_token %}
+      <label class="field">
+        <span class="label">Балл (из {{ submission.assignment.max_score }})</span>
+        <input type="number" name="score" min="0" max="{{ submission.assignment.max_score }}"
+               value="{{ submission.score|default_if_none:'' }}">
+      </label>
+      <label class="field">
+        <span class="label">Комментарий ученику</span>
+        <textarea name="teacher_feedback" rows="6"
+                  placeholder="Что получилось, над чем поработать">{{ submission.teacher_feedback }}</textarea>
+        <span class="help">Придёт ученику уведомлением.</span>
+      </label>
+      <button class="btn btn--block" type="submit" name="action" value="review">Принять работу</button>
+      <button class="btn btn--ghost btn--block mt-3" type="submit" name="action" value="redo">
+        Вернуть на доработку
+      </button>
+    </form>
+    <a class="btn btn--quiet btn--block mt-4" href="{% url 'cabinet:teacher_review' %}">← К очереди</a>
+  </aside>
+</div>
+{% endblock %}

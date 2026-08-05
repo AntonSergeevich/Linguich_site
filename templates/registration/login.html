@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+{% block title %}Вход в кабинет — Лингвич{% endblock %}
+{% block footer %}{% endblock %}
+
+{% block content %}
+<section class="section">
+  <div class="container" style="max-width:440px">
+    <div class="card card--pad-lg">
+      <h1 style="font-size:var(--step-2)">Вход в кабинет</h1>
+      <p class="muted tiny mb-5">Расписание, домашние задания и оплаты — в одном месте.</p>
+
+      {% if form.non_field_errors %}
+        <div class="alert alert--err mb-4">{{ form.non_field_errors.0 }}</div>
+      {% endif %}
+
+      <form method="post" class="stack">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ next }}">
+        <label class="field">
+          <span class="label">Email или телефон</span>
+          <input type="text" name="username" required autocomplete="username"
+                 value="{{ form.username.value|default:'' }}" placeholder="you@mail.ru или +7 …">
+          {% if form.username.errors %}<span class="error">{{ form.username.errors.0 }}</span>{% endif %}
+        </label>
+        <label class="field">
+          <span class="label">Пароль</span>
+          <input type="password" name="password" required autocomplete="current-password">
+          {% if form.password.errors %}<span class="error">{{ form.password.errors.0 }}</span>{% endif %}
+        </label>
+        <button class="btn btn--block btn--lg" type="submit">Войти</button>
+      </form>
+
+      <div class="divider">нет аккаунта?</div>
+      <a class="btn btn--ghost btn--block" href="{% url 'accounts:register' %}">Зарегистрироваться</a>
+      <p class="tiny muted text-center mt-4 mb-0">
+        Забыли пароль? Напишите нам на <a href="mailto:{{ site.email }}">{{ site.email }}</a> —
+        восстановим доступ.
+      </p>
+    </div>
+    <p class="text-center mt-5"><a class="tiny muted" href="{% url 'school:home' %}">← На сайт школы</a></p>
+  </div>
+</section>
+{% endblock %}

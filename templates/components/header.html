@@ -1,0 +1,75 @@
+{% load static %}
+<header class="site-header">
+  <div class="container site-header__inner">
+    <a class="brand" href="{% url 'school:home' %}">
+      {% include 'components/logo.html' %}
+      <span>
+        <span class="brand__name">Лингвич</span>
+        <span class="brand__tag">языковая школа</span>
+      </span>
+    </a>
+
+    <nav class="nav nav--main spacer" aria-label="Основная навигация">
+      <div class="nav-drop">
+        <a href="{% url 'school:courses' %}" aria-haspopup="true">Языки и курсы</a>
+        <div class="nav-drop__panel">
+          {% for language in nav_languages %}
+            <a href="{{ language.get_absolute_url }}">
+              <span class="flag">{{ language.flag_emoji }}</span>
+              <span>
+                {{ language.name }}
+                {% if language.short_pitch %}<small>{{ language.short_pitch }}</small>{% endif %}
+              </span>
+            </a>
+          {% empty %}
+            <a href="{% url 'school:courses' %}">Все курсы</a>
+          {% endfor %}
+        </div>
+      </div>
+      <a href="{% url 'school:teachers' %}">Преподаватели</a>
+      <a href="{% url 'school:prices' %}">Цены</a>
+      <a href="{% url 'school:promos' %}">Акции</a>
+      <a href="{% url 'placement:test' %}">Тест уровня</a>
+      <a href="{% url 'school:contacts' %}">Контакты</a>
+    </nav>
+
+    <div class="row row--nowrap header-actions__desktop" style="gap:var(--s-2)">
+      <button class="theme-toggle" data-theme-toggle type="button" aria-label="Сменить тему">
+        <svg class="icon theme-toggle__sun"><use href="#i-sun"/></svg>
+        <svg class="icon theme-toggle__moon"><use href="#i-moon"/></svg>
+      </button>
+      <a class="btn btn--ghost btn--sm header-phone" href="tel:{{ site.phone }}" title="{{ site.phone }}">
+        <svg class="icon icon--sm"><use href="#i-phone"/></svg>
+        <span class="header-phone__text">{{ site.phone }}</span>
+      </a>
+      {% if request.user.is_authenticated %}
+        <a class="btn btn--sm" href="{% url 'cabinet:home' %}">Кабинет</a>
+      {% else %}
+        <a class="btn btn--ghost btn--sm" href="{% url 'accounts:login' %}">Войти</a>
+        <a class="btn btn--accent btn--sm" href="{% url 'school:signup' %}">Записаться</a>
+      {% endif %}
+    </div>
+
+    <button class="burger" data-burger type="button" aria-label="Меню" aria-expanded="false">
+      <svg class="icon"><use href="#i-menu"/></svg>
+    </button>
+  </div>
+</header>
+
+<div class="mobile-menu" id="mobile-menu">
+  <a href="{% url 'school:courses' %}">Языки и курсы</a>
+  <a href="{% url 'school:teachers' %}">Преподаватели</a>
+  <a href="{% url 'school:prices' %}">Цены</a>
+  <a href="{% url 'school:promos' %}">Акции</a>
+  <a href="{% url 'placement:test' %}">Тест уровня</a>
+  <a href="{% url 'school:contacts' %}">Контакты</a>
+  <div class="stack mt-6">
+    {% if request.user.is_authenticated %}
+      <a class="btn btn--block" href="{% url 'cabinet:home' %}">Личный кабинет</a>
+    {% else %}
+      <a class="btn btn--accent btn--block" href="{% url 'school:signup' %}">Записаться на урок</a>
+      <a class="btn btn--ghost btn--block" href="{% url 'accounts:login' %}">Войти в кабинет</a>
+    {% endif %}
+    <a class="btn btn--ghost btn--block" href="tel:{{ site.phone }}">{{ site.phone }}</a>
+  </div>
+</div>
