@@ -5,7 +5,7 @@ from unittest import mock
 
 from django.test import SimpleTestCase
 
-from config.settings import _postgres_settings
+from config.settings import _email_security, _postgres_settings
 
 
 class DatabaseSettingsTests(SimpleTestCase):
@@ -54,3 +54,30 @@ class DatabaseSettingsTests(SimpleTestCase):
     def test_connections_are_reused(self):
         config = self.build(POSTGRES_DB="linguich", POSTGRES_PASSWORD="x")
         self.assertEqual(config["CONN_MAX_AGE"], 60, "без этого каждый запрос открывает новое соединение")
+
+
+class EmailSecurityTests(SimpleTestCase):
+    """Режим шифрования SMTP. Ошибка тут молчаливая: письма не уходят."""
+
+    def build(self, port, **env):
+        with mock.patch.dict(os.environ, env, clear=False):
+            for key in ("EMAIL_USE_SSL", "EMAIL_USE_TLS"):
+                if key not in env:
+                    os.environ.pop(key, None)
+            return _email_security(port)
+
+    def test_port_465_means_ssl(self):
+        self.assertEqual(self.build(465), (True, False))
+
+    def test_port_587_means_starttls(self):
+        self.assertEqual(self.build(587), (False, True))
+
+    def test_environment_wins_over_the_port(self):
+        self.assertEqual(self.build(465, EMAIL_USE_SSL="False", EMAIL_USE_TLS="True"), (False, True))
+
+    def test_both_enabled_is_resolved_instead_of_crashing(self):
+        """Django отказывается стартовать при SSL и TLS одновременно —
+        именно так выглядит .env, где порт поменяли, а строку забыли."""
+        ssl, tls = self.build(465, EMAIL_USE_SSL="True", EMAIL_USE_TLS="True")
+        self.assertFalse(ssl and tls)
+        self.assertTrue(ssl)

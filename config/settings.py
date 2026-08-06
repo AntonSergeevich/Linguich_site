@@ -188,8 +188,31 @@ EMAIL_HOST = env("EMAIL_HOST", "")
 EMAIL_PORT = int(env("EMAIL_PORT", "587"))
 EMAIL_HOST_USER = env("EMAIL_HOST_USER", "")
 EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", "")
-EMAIL_USE_TLS = env_bool("EMAIL_USE_TLS", True)
+
+
+def _email_security(port):
+    """Как шифровать SMTP-соединение: (EMAIL_USE_SSL, EMAIL_USE_TLS).
+
+    465 — это SMTPS, канал шифруется сразу и STARTTLS там не работает.
+    587 — наоборот, открытый порт с апгрейдом до TLS. Перепутать их легко,
+    и симптом получается неинформативный: письма просто не уходят. Поэтому
+    режим по умолчанию выводим из порта, а не требуем помнить про две
+    переменные. Явные значения из окружения всё равно имеют приоритет.
+    """
+    smtps = port == 465
+    ssl = env_bool("EMAIL_USE_SSL", smtps)
+    tls = env_bool("EMAIL_USE_TLS", not smtps)
+    if ssl and tls:
+        # Django отказывается стартовать при обоих включённых, а порт
+        # говорит о намерении честнее, чем забытая в .env строка.
+        tls = False
+    return ssl, tls
+
+
+EMAIL_USE_SSL, EMAIL_USE_TLS = _email_security(EMAIL_PORT)
+EMAIL_TIMEOUT = int(env("EMAIL_TIMEOUT", "20"))
 DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", "Лингвич <noreply@linguich.ru>")
+SERVER_EMAIL = env("SERVER_EMAIL", DEFAULT_FROM_EMAIL)
 
 # --- Notifications ---------------------------------------------------------
 TELEGRAM_BOT_TOKEN = env("TELEGRAM_BOT_TOKEN", "")

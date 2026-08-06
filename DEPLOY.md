@@ -90,12 +90,11 @@ DJANGO_CSRF_TRUSTED_ORIGINS=https://linguich.ru,https://www.linguich.ru
 SITE_URL=https://linguich.ru
 
 EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
-EMAIL_HOST=smtp.beget.com
+EMAIL_HOST=smtp.yandex.ru
 EMAIL_PORT=465
-EMAIL_USE_TLS=False
-EMAIL_HOST_USER=noreply@linguich.ru
-EMAIL_HOST_PASSWORD=<пароль ящика>
-DEFAULT_FROM_EMAIL=Лингвич <noreply@linguich.ru>
+EMAIL_HOST_USER=linguich@yandex.ru
+EMAIL_HOST_PASSWORD=<пароль приложения, не пароль от почты>
+DEFAULT_FROM_EMAIL=Лингвич <linguich@yandex.ru>
 
 TELEGRAM_BOT_TOKEN=<токен вашего бота>
 TELEGRAM_BOT_USERNAME=<имя бота без @>
@@ -109,8 +108,13 @@ chmod 600 /srv/linguich/.env
 chown linguich:linguich /srv/linguich/.env
 ```
 
-> **BEGET и порт 465.** Их SMTP работает по SSL на 465, а не STARTTLS на 587.
-> Если письма не уходят — проверьте эти две строки в первую очередь.
+> **Порт решает всё.** 465 — SSL сразу, 587 — STARTTLS; настройки выводятся
+> из порта автоматически, руками `EMAIL_USE_SSL`/`EMAIL_USE_TLS` задавать не
+> нужно. Это же верно для BEGET (`smtp.beget.com`, порт 465).
+>
+> **Яндекс требует пароль приложения.** Обычный пароль от почты SMTP не
+> примет: `id.yandex.ru` → Безопасность → Пароли приложений → Почта.
+> И адрес в `DEFAULT_FROM_EMAIL` обязан совпадать с `EMAIL_HOST_USER`.
 
 ---
 
@@ -313,7 +317,7 @@ sudo -u linguich psql linguich -c "\dt+"          # размер таблиц
 | 400 Bad Request | `DJANGO_ALLOWED_HOSTS` не содержит домен |
 | CSRF verification failed | `DJANGO_CSRF_TRUSTED_ORIGINS` без `https://` |
 | Статика без стилей | не выполнен `collectstatic` или неверный `alias` в nginx |
-| Письма не уходят | порт 465 + `EMAIL_USE_TLS=False` для BEGET; `logs/cron.log` |
+| Письма не уходят | пароль приложения, а не от почты; `From` = `EMAIL_HOST_USER`; `logs/cron.log` |
 | Напоминания молчат | `sudo -u linguich crontab -l`, затем `logs/cron.log` |
 | Не грузятся файлы домашек | права на `/srv/linguich/media/`, `client_max_body_size` |
 
