@@ -166,6 +166,12 @@ sudo -u linguich .venv/bin/python manage.py migrate
 sudo -u linguich .venv/bin/python manage.py load_placement_questions
 sudo -u linguich .venv/bin/python manage.py collectstatic --noinput
 
+# nginx работает от www-data и должен попасть в каталог приложения.
+# adduser в Ubuntu 24.04 создаёт домашний каталог с режимом 0750 —
+# без этого статика отдаётся с 403, а сайт открывается без стилей.
+chmod 711 /srv/linguich
+chmod -R a+rX /srv/linguich/staticfiles /srv/linguich/media
+
 # Аккаунт владелицы
 sudo -u linguich .venv/bin/python manage.py createsuperuser
 ```
@@ -316,7 +322,7 @@ sudo -u linguich psql linguich -c "\dt+"          # размер таблиц
 | 502 Bad Gateway | `journalctl -u linguich -n 50` — приложение не поднялось |
 | 400 Bad Request | `DJANGO_ALLOWED_HOSTS` не содержит домен |
 | CSRF verification failed | `DJANGO_CSRF_TRUSTED_ORIGINS` без `https://` |
-| Статика без стилей | не выполнен `collectstatic` или неверный `alias` в nginx |
+| Статика без стилей | 403 в `linguich.error.log` → `chmod 711 /srv/linguich`; иначе `collectstatic` |
 | Письма не уходят | пароль приложения, а не от почты; `From` = `EMAIL_HOST_USER`; `logs/cron.log` |
 | Напоминания молчат | `sudo -u linguich crontab -l`, затем `logs/cron.log` |
 | Не грузятся файлы домашек | права на `/srv/linguich/media/`, `client_max_body_size` |

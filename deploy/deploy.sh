@@ -35,6 +35,10 @@ echo "==> Миграции"
 
 echo "==> Статика"
 "$VENV/bin/python" manage.py collectstatic --noinput
+# collectstatic наследует umask, и свежие файлы бывают закрыты от nginx —
+# он ходит под www-data и отдаёт 403 вместо стилей. Заглавная X добавляет
+# +x только каталогам, файлы исполняемыми не становятся.
+chmod -R a+rX "$APP_DIR/staticfiles"
 
 echo "==> Перезапуск"
 sudo systemctl restart "$SERVICE"
