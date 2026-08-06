@@ -164,6 +164,10 @@ DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", "Лингвич <noreply@linguich
 # --- Notifications ---------------------------------------------------------
 TELEGRAM_BOT_TOKEN = env("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_BOT_USERNAME = env("TELEGRAM_BOT_USERNAME", "linguich_bot")
+# Секрет для вебхука — только если апдейты принимает сама платформа.
+TELEGRAM_WEBHOOK_SECRET = env("TELEGRAM_WEBHOOK_SECRET", "")
+# Ключ для привязки чатов из уже работающего бота школы (см. README).
+TELEGRAM_LINK_API_KEY = env("TELEGRAM_LINK_API_KEY", "")
 # Minutes before a lesson at which reminders are fired.
 LESSON_REMINDER_OFFSETS = [int(x) for x in env_list("LESSON_REMINDER_OFFSETS", "1440,60")]
 

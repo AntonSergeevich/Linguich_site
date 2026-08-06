@@ -160,3 +160,42 @@ class TelegramLinkTests(TestCase):
 
     def test_link_code_is_stable(self):
         self.assertEqual(self.user.ensure_telegram_code(), self.code)
+
+
+@override_settings(TELEGRAM_LINK_API_KEY="botkey")
+class TelegramBotApiTests(TestCase):
+    """Привязка чата из уже работающего бота школы, без вебхука."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(email="e@x.ru", first_name="Егор")
+        self.code = self.user.ensure_telegram_code()
+
+    def call(self, payload, key="botkey"):
+        import json
+
+        return self.client.post(
+            reverse("accounts:telegram_link"),
+            data=json.dumps(payload), content_type="application/json",
+            HTTP_X_API_KEY=key,
+        )
+
+    def test_bot_can_link_a_chat(self):
+        response = self.call({"code": self.code, "chat_id": 777})
+        self.assertEqual(response.status_code, 200)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.telegram_chat_id, "777")
+
+    def test_wrong_api_key_is_rejected(self):
+        self.assertEqual(self.call({"code": self.code, "chat_id": 777}, key="nope").status_code, 403)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.telegram_chat_id, "")
+
+    def test_unknown_code_is_reported(self):
+        self.assertEqual(self.call({"code": "bogus", "chat_id": 777}).status_code, 404)
+
+    def test_missing_fields_are_reported(self):
+        self.assertEqual(self.call({"code": self.code}).status_code, 400)
+
+    @override_settings(TELEGRAM_LINK_API_KEY="")
+    def test_endpoint_is_closed_when_no_key_configured(self):
+        self.assertEqual(self.call({"code": self.code, "chat_id": 777}, key="").status_code, 403)

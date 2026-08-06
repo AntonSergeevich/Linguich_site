@@ -11,11 +11,7 @@
 
   <aside class="cab-side">
     <a class="brand" href="{% url 'school:home' %}">
-      {% include 'components/logo.html' %}
-      <span>
-        <span class="brand__name">Лингвич</span>
-        <span class="brand__tag">кабинет</span>
-      </span>
+      {% include 'components/logo.html' with tagline="личный кабинет" %}
     </a>
 
     <nav class="cab-nav" aria-label="Разделы кабинета">

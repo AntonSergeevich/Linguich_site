@@ -148,6 +148,32 @@
   </div>
 </section>
 
+{% if site.show_founder %}
+<section class="section">
+  <div class="container">
+    {% comment %}
+      Без фотографии колонка-заглушка смотрится дырой, поэтому блок
+      становится одноколоночным — выглядит как задуманная цитата.
+    {% endcomment %}
+    <div class="founder {% if not site.founder_photo %}founder--text{% endif %} reveal">
+      {% if site.founder_photo %}
+        <div class="founder__photo">
+          <img src="{{ site.founder_photo.url }}" alt="{{ site.founder_name }}" loading="lazy">
+        </div>
+      {% endif %}
+      <div class="founder__body">
+        <div class="eyebrow">Слово основателя</div>
+        <blockquote class="founder__quote">{{ site.founder_quote }}</blockquote>
+        <div class="founder__sign">
+          <strong>{{ site.founder_name }}</strong>
+          {% if site.founder_role %}<span>{{ site.founder_role }}</span>{% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+{% endif %}
+
 {% if teachers %}
 <section class="section">
   <div class="container">

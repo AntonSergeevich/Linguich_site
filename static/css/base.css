@@ -2,6 +2,14 @@
    Reset + typography + layout primitives
    ========================================================================== */
 
+/* Фирменная гарнитура из брендбука. Black — для логотипа, Bold — для
+   крупных заголовков. Оба грузятся только там, где реально нужны. */
+@font-face {
+  font-family: "OfficinaSansBlack";
+  src: url("../fonts/OfficinaSansBlackITC-Regular.ttf") format("truetype");
+  font-weight: 900;
+  font-display: swap;
+}
 @font-face {
   font-family: "OfficinaSansBold";
   src: url("../fonts/OfficinaSansBoldITC-Regular.ttf") format("truetype");

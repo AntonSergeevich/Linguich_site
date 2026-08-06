@@ -5,52 +5,61 @@
 
 :root {
   /* --- Brand -------------------------------------------------------------
-     Глубокий сине-зелёный — эволюция прежнего голубого логотипа:
-     та же семья, но взрослее и дороже. */
-  --brand-50:  #EAF6FA;
-  --brand-100: #CDE9F2;
-  --brand-200: #9BD2E5;
-  --brand-300: #5FB4D0;
-  --brand-400: #2A90B4;
-  --brand-500: #10718F;
-  --brand-600: #0B5A74;
-  --brand-700: #08475D;
-  --brand-800: #063546;
-  --brand-900: #04242F;
+     --brand-500 — точный фирменный синий из брендбука (#008CD2, снят
+     пипеткой с логотипа). Остальные ступени построены вокруг него по
+     светлоте, оттенок и насыщенность сохранены. Менять 500 без брендбука
+     нельзя: это цвет знака. */
+  --brand-50:  #EFF7FC;
+  --brand-100: #D6EBF7;
+  --brand-200: #A5D6EE;
+  --brand-300: #5FBFE9;
+  --brand-400: #1FA3DE;
+  --brand-500: #008CD2;
+  --brand-600: #0077B2;
+  --brand-700: #005F8F;
+  --brand-800: #004466;
+  --brand-900: #002C42;
 
-  /* --- Accent: тёплая терракота, «человеческий» контраст к холодному бренду */
-  --accent-50:  #FDF1EB;
-  --accent-100: #FADDD0;
-  --accent-200: #F4BBA1;
-  --accent-300: #EE9873;
-  --accent-400: #E67C50;
-  --accent-500: #D9603B;
-  --accent-600: #BC4A29;
-  --accent-700: #96391F;
+  /* --- Accent ------------------------------------------------------------
+     Тёплый коралл — дополнение к азурному синему. Нужен, чтобы главная
+     кнопка не сливалась с фирменным цветом, которым залито полсайта. */
+  --accent-50:  #FDF0ED;
+  --accent-100: #FBDED6;
+  --accent-200: #F6BCAE;
+  --accent-300: #F09983;
+  --accent-400: #EA7B60;
+  --accent-500: #E2543C;
+  --accent-600: #C4402B;
+  --accent-700: #9C3021;
 
-  /* --- Neutrals: тёплая бумага вместо стерильного белого */
-  --paper:      #FCFAF7;
-  --paper-alt:  #F6F1EA;
-  --sand:       #EFE6DA;
-  --line:       #E2D9CD;
-  --line-soft:  #EDE6DC;
+  /* --- Neutrals ----------------------------------------------------------
+     Холодновато-нейтральные: тёплая бумага рядом с азурным синим выглядит
+     разнобоем. --ink совпадает с чёрным логотипа из брендбука. */
+  --paper:      #FBFCFD;
+  --paper-alt:  #F2F5F8;
+  --sand:       #E6EBF0;
+  --line:       #DCE3EA;
+  --line-soft:  #E9EEF3;
   --surface:    #FFFFFF;
-  --surface-2:  #FAF7F3;
+  --surface-2:  #F6F9FB;
 
-  --ink:        #14202A;
-  --ink-2:      #33454F;
-  --muted:      #6B7B87;
-  --muted-2:    #93A1AB;
+  --ink:        #2B2B2B;
+  --ink-2:      #45505A;
+  --muted:      #6B7883;
+  --muted-2:    #97A2AC;
 
   /* --- Status */
-  --ok-bg:   #E6F5EE;  --ok:   #147A54;
-  --warn-bg: #FDF2DF;  --warn: #96650A;
-  --err-bg:  #FCEBED;  --err:  #B3283C;
-  --info-bg: #E9F2FB;  --info: #1F5FA8;
+  --ok-bg:   #E4F6EE;  --ok:   #14795A;
+  --warn-bg: #FDF3DE;  --warn: #92640B;
+  --err-bg:  #FCEBEC;  --err:  #B4283A;
+  --info-bg: #E7F3FB;  --info: #0A6394;
 
-  /* --- Typography */
+  /* --- Typography
+     Officina Sans — фирменная гарнитура из брендбука, ею набран логотип.
+     Держим её только на логотипе и крупных заголовках: в мелком тексте
+     она хуже читается, чем системный гротеск. */
   --font-sans: "Inter", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
-  --font-display: "OfficinaSansBold", "Inter", system-ui, sans-serif;
+  --font-display: "OfficinaSansBlack", "OfficinaSansBold", "Inter", system-ui, sans-serif;
   --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
 
   --step--2: clamp(0.71rem, 0.70rem + 0.05vw, 0.75rem);
@@ -70,11 +79,11 @@
   /* --- Radii */
   --r-sm: 8px;  --r-md: 14px;  --r-lg: 20px;  --r-xl: 28px;  --r-full: 999px;
 
-  /* --- Elevation: мягкие, тёплые тени, без «серых пятен» */
-  --sh-1: 0 1px 2px rgba(20, 32, 42, 0.05), 0 1px 3px rgba(20, 32, 42, 0.04);
-  --sh-2: 0 2px 4px rgba(20, 32, 42, 0.04), 0 6px 16px -6px rgba(20, 32, 42, 0.10);
-  --sh-3: 0 4px 8px rgba(20, 32, 42, 0.05), 0 16px 40px -12px rgba(20, 32, 42, 0.16);
-  --sh-4: 0 8px 16px rgba(20, 32, 42, 0.06), 0 32px 64px -20px rgba(20, 32, 42, 0.22);
+  /* --- Elevation */
+  --sh-1: 0 1px 2px rgba(20, 30, 40, 0.05), 0 1px 3px rgba(20, 30, 40, 0.04);
+  --sh-2: 0 2px 4px rgba(20, 30, 40, 0.04), 0 6px 16px -6px rgba(20, 30, 40, 0.10);
+  --sh-3: 0 4px 8px rgba(20, 30, 40, 0.05), 0 16px 40px -12px rgba(20, 30, 40, 0.16);
+  --sh-4: 0 8px 16px rgba(20, 30, 40, 0.06), 0 32px 64px -20px rgba(20, 30, 40, 0.22);
   --ring: 0 0 0 3px var(--brand-100);
 
   /* --- Motion */
@@ -91,83 +100,84 @@
 }
 
 /* --- Dark theme ---------------------------------------------------------
-   Не инверсия, а отдельная сборка: тёплые нейтрали уходят в сине-графитовые,
-   акцент чуть светлеет, чтобы держать контраст на тёмном. */
+   Не инверсия, а отдельная сборка. Фирменный синий на тёмном фоне слишком
+   тёмен для текста, поэтому в тёмной теме рабочие ступени сдвинуты вверх —
+   но сам знак остаётся #008CD2 в обеих темах, как требует брендбук. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --paper:     #0D141A;
-    --paper-alt: #111A21;
-    --sand:      #17222B;
-    --line:      #24333E;
-    --line-soft: #1C2932;
-    --surface:   #131D25;
-    --surface-2: #18242D;
+    --paper:     #0E1418;
+    --paper-alt: #121A20;
+    --sand:      #18222A;
+    --line:      #25323C;
+    --line-soft: #1D2831;
+    --surface:   #141D24;
+    --surface-2: #1A242C;
 
     --ink:    #E9EFF3;
     --ink-2:  #C3D0D9;
     --muted:  #8B9BA7;
     --muted-2:#697A87;
 
-    --brand-50:  #072A38;
-    --brand-100: #0A3A4C;
-    --brand-200: #0F5670;
-    --brand-300: #1B7E9F;
-    --brand-400: #35A0C2;
-    --brand-500: #56BADA;
-    --brand-600: #7FCEE7;
-    --brand-700: #A6DFF0;
+    --brand-50:  #06283A;
+    --brand-100: #08374F;
+    --brand-200: #0B5279;
+    --brand-300: #0F79AF;
+    --brand-400: #1FA3DE;
+    --brand-500: #3FB8EC;
+    --brand-600: #6CCBF3;
+    --brand-700: #9DDDF7;
 
-    --accent-500: #F0855E;
-    --accent-600: #E5714A;
+    --accent-500: #F0755C;
+    --accent-600: #E85F45;
 
     --ok-bg:   #0E2C22;  --ok:   #58D3A2;
     --warn-bg: #2E2413;  --warn: #E8B75A;
     --err-bg:  #2E1519;  --err:  #F08096;
-    --info-bg: #10233A;  --info: #77B0EA;
+    --info-bg: #0B2739;  --info: #6FBDEB;
 
     --sh-1: 0 1px 2px rgba(0, 0, 0, 0.35);
     --sh-2: 0 2px 4px rgba(0, 0, 0, 0.3), 0 6px 16px -6px rgba(0, 0, 0, 0.5);
     --sh-3: 0 4px 8px rgba(0, 0, 0, 0.3), 0 16px 40px -12px rgba(0, 0, 0, 0.6);
     --sh-4: 0 8px 16px rgba(0, 0, 0, 0.35), 0 32px 64px -20px rgba(0, 0, 0, 0.7);
-    --ring: 0 0 0 3px rgba(53, 160, 194, 0.35);
+    --ring: 0 0 0 3px rgba(31, 163, 222, 0.35);
   }
 }
 
 /* Явный выбор темы переключателем — должен побеждать в обе стороны. */
 :root[data-theme="dark"] {
-  --paper:     #0D141A;
-  --paper-alt: #111A21;
-  --sand:      #17222B;
-  --line:      #24333E;
-  --line-soft: #1C2932;
-  --surface:   #131D25;
-  --surface-2: #18242D;
+  --paper:     #0E1418;
+  --paper-alt: #121A20;
+  --sand:      #18222A;
+  --line:      #25323C;
+  --line-soft: #1D2831;
+  --surface:   #141D24;
+  --surface-2: #1A242C;
 
   --ink:    #E9EFF3;
   --ink-2:  #C3D0D9;
   --muted:  #8B9BA7;
   --muted-2:#697A87;
 
-  --brand-50:  #072A38;
-  --brand-100: #0A3A4C;
-  --brand-200: #0F5670;
-  --brand-300: #1B7E9F;
-  --brand-400: #35A0C2;
-  --brand-500: #56BADA;
-  --brand-600: #7FCEE7;
-  --brand-700: #A6DFF0;
+  --brand-50:  #06283A;
+  --brand-100: #08374F;
+  --brand-200: #0B5279;
+  --brand-300: #0F79AF;
+  --brand-400: #1FA3DE;
+  --brand-500: #3FB8EC;
+  --brand-600: #6CCBF3;
+  --brand-700: #9DDDF7;
 
-  --accent-500: #F0855E;
-  --accent-600: #E5714A;
+  --accent-500: #F0755C;
+  --accent-600: #E85F45;
 
   --ok-bg:   #0E2C22;  --ok:   #58D3A2;
   --warn-bg: #2E2413;  --warn: #E8B75A;
   --err-bg:  #2E1519;  --err:  #F08096;
-  --info-bg: #10233A;  --info: #77B0EA;
+  --info-bg: #0B2739;  --info: #6FBDEB;
 
   --sh-1: 0 1px 2px rgba(0, 0, 0, 0.35);
   --sh-2: 0 2px 4px rgba(0, 0, 0, 0.3), 0 6px 16px -6px rgba(0, 0, 0, 0.5);
   --sh-3: 0 4px 8px rgba(0, 0, 0, 0.3), 0 16px 40px -12px rgba(0, 0, 0, 0.6);
   --sh-4: 0 8px 16px rgba(0, 0, 0, 0.35), 0 32px 64px -20px rgba(0, 0, 0, 0.7);
-  --ring: 0 0 0 3px rgba(53, 160, 194, 0.35);
+  --ring: 0 0 0 3px rgba(31, 163, 222, 0.35);
 }

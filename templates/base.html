@@ -5,17 +5,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>{% block title %}{{ site.brand_name }} — {{ site.tagline }}{% endblock %}</title>
   <meta name="description" content="{% block description %}Языковая школа «Лингвич» в Красноярске: английский, немецкий, китайский и другие языки. Группы, индивидуально, онлайн.{% endblock %}">
-  <meta name="theme-color" content="#0B5A74" media="(prefers-color-scheme: light)">
-  <meta name="theme-color" content="#0D141A" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#008CD2" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0E1418" media="(prefers-color-scheme: dark)">
 
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="{{ site.brand_name }}">
   <meta property="og:title" content="{% block og_title %}{{ site.brand_name }} — {{ site.tagline }}{% endblock %}">
   <meta property="og:description" content="{% block og_description %}Языковая школа в Красноярске. Живые преподаватели, программы под цель, онлайн-кабинет.{% endblock %}">
-  <meta property="og:image" content="{% static 'img/logo.svg' %}">
+  <meta property="og:image" content="{% static 'images/logo.png' %}">
 
-  <link rel="icon" href="{% static 'img/logo.svg' %}" type="image/svg+xml">
-  <link rel="preload" href="{% static 'fonts/OfficinaSansBoldITC-Regular.ttf' %}" as="font" type="font/ttf" crossorigin>
+  <link rel="icon" href="{% static 'img/favicon.svg' %}" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="{% static 'images/logo.png' %}">
+  <link rel="preload" href="{% static 'fonts/OfficinaSansBlackITC-Regular.ttf' %}" as="font" type="font/ttf" crossorigin>
 
   <link rel="stylesheet" href="{% static 'css/tokens.css' %}">
   <link rel="stylesheet" href="{% static 'css/base.css' %}">

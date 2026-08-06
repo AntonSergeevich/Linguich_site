@@ -99,6 +99,16 @@ class PublicPagesTests(TestCase):
         ]:
             self.assertEqual(self.client.get(url).status_code, 200, url)
 
+    def test_no_template_syntax_leaks_into_the_page(self):
+        """Регрессия: многострочный {# … #} Django не считает комментарием
+        и выводит его текст прямо на страницу."""
+        for url in [reverse("school:home"), reverse("school:courses"),
+                    reverse("school:prices"), reverse("school:signup"),
+                    reverse("school:contacts"), reverse("placement:test")]:
+            html = self.client.get(url).content.decode()
+            for token in ("{#", "#}", "{%", "{{"):
+                self.assertNotIn(token, html, f"{token} утёк в разметку на {url}")
+
     def test_course_filter_narrows_the_catalogue(self):
         other = Language.objects.create(name="Немецкий", slug="de")
         Course.objects.create(language=other, title="Немецкий", slug="de-0", price_per_lesson=900)

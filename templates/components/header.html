@@ -2,11 +2,7 @@
 <header class="site-header">
   <div class="container site-header__inner">
     <a class="brand" href="{% url 'school:home' %}">
-      {% include 'components/logo.html' %}
-      <span>
-        <span class="brand__name">Лингвич</span>
-        <span class="brand__tag">языковая школа</span>
-      </span>
+      {% include 'components/logo.html' with tagline="языковая школа" %}
     </a>
 
     <nav class="nav nav--main spacer" aria-label="Основная навигация">

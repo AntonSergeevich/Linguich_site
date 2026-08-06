@@ -3,22 +3,19 @@
   <div class="container">
     <div class="site-footer__grid">
       <div>
-        <a class="brand" href="{% url 'school:home' %}" style="color:#fff">
+        <a class="brand brand--invert" href="{% url 'school:home' %}">
           {% include 'components/logo.html' %}
-          <span>
-            <span class="brand__name" style="color:#fff">Лингвич</span>
-            <span class="brand__tag" style="color:#8AA9B6">языковая школа</span>
-          </span>
         </a>
         <p class="mt-4" style="font-size:var(--step--1);max-width:34ch">
           Учим говорить с 2011 года. Живые преподаватели, программы под вашу цель
           и кабинет, в котором видно весь прогресс.
         </p>
         <div class="social-row mt-4">
-          {% if site.telegram_url %}<a href="{{ site.telegram_url }}" target="_blank" rel="noopener" aria-label="Telegram"><svg class="icon"><use href="#i-mail"/></svg></a>{% endif %}
-          {% if site.whatsapp_url %}<a href="{{ site.whatsapp_url }}" target="_blank" rel="noopener" aria-label="WhatsApp"><svg class="icon"><use href="#i-phone"/></svg></a>{% endif %}
-          {% if site.vk_url %}<a href="{{ site.vk_url }}" target="_blank" rel="noopener" aria-label="ВКонтакте"><svg class="icon"><use href="#i-users"/></svg></a>{% endif %}
-          {% if site.youtube_url %}<a href="{{ site.youtube_url }}" target="_blank" rel="noopener" aria-label="YouTube"><svg class="icon"><use href="#i-video"/></svg></a>{% endif %}
+          {% if site.telegram_url %}<a href="{{ site.telegram_url }}" target="_blank" rel="noopener" aria-label="Telegram"><svg class="icon"><use href="#i-telegram"/></svg></a>{% endif %}
+          {% if site.whatsapp_url %}<a href="{{ site.whatsapp_url }}" target="_blank" rel="noopener" aria-label="WhatsApp"><svg class="icon"><use href="#i-whatsapp"/></svg></a>{% endif %}
+          {% if site.vk_url %}<a href="{{ site.vk_url }}" target="_blank" rel="noopener" aria-label="ВКонтакте"><svg class="icon"><use href="#i-vk"/></svg></a>{% endif %}
+          {% if site.instagram_url %}<a href="{{ site.instagram_url }}" target="_blank" rel="noopener" aria-label="Instagram"><svg class="icon"><use href="#i-instagram"/></svg></a>{% endif %}
+          {% if site.youtube_url %}<a href="{{ site.youtube_url }}" target="_blank" rel="noopener" aria-label="YouTube"><svg class="icon"><use href="#i-youtube"/></svg></a>{% endif %}
         </div>
       </div>
 
@@ -51,7 +48,7 @@
           <li><a href="tel:{{ site.phone }}">{{ site.phone }}</a></li>
           <li><a href="mailto:{{ site.email }}">{{ site.email }}</a></li>
         </ul>
-        <a class="btn btn--soft btn--sm mt-4" href="{% url 'school:signup' %}">Записаться</a>
+        <a class="btn btn--accent btn--sm mt-4" href="{% url 'school:signup' %}">Записаться</a>
       </div>
     </div>
 

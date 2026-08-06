@@ -116,12 +116,55 @@ def unlink_telegram(request):
     return json_ok("Telegram отвязан.")
 
 
+def _link_chat(code, chat_id):
+    """Attach a Telegram chat to the account that owns ``code``."""
+    user = User.objects.filter(telegram_link_code=code).first()
+    if not user:
+        return None
+    user.telegram_chat_id = str(chat_id)
+    user.save(update_fields=["telegram_chat_id"])
+    return user
+
+
+@csrf_exempt
+@require_POST
+def telegram_link(request):
+    """Linking endpoint for a bot the school already runs.
+
+    Отправлять сообщения через Bot API может кто угодно, кто знает токен, —
+    для этого интеграция не нужна. А вот узнать chat_id ученика может только
+    тот, кто принимает апдейты. Если бот уже работает на long polling,
+    ставить вебхук нельзя (Telegram отдаёт апдейты кому-то одному), поэтому
+    бот сам зовёт этот эндпоинт, получив /start <код>.
+    """
+    from django.conf import settings
+
+    api_key = getattr(settings, "TELEGRAM_LINK_API_KEY", "")
+    if not api_key or request.headers.get("X-Api-Key", "") != api_key:
+        return json_error("forbidden", status=403)
+
+    try:
+        payload = json.loads(request.body or "{}")
+    except json.JSONDecodeError:
+        return json_error("bad payload")
+
+    code = (payload.get("code") or "").strip()
+    chat_id = payload.get("chat_id")
+    if not code or not chat_id:
+        return json_error("нужны code и chat_id")
+
+    user = _link_chat(code, chat_id)
+    if user is None:
+        return json_error("код не найден", status=404)
+    return json_ok(f"Привязано к аккаунту {user.full_name}", user=user.pk)
+
+
 @csrf_exempt
 @require_POST
 def telegram_webhook(request):
-    """Links a Telegram chat to an account when the user sends /start <code>.
+    """Alternative to ``telegram_link``: the platform receives updates itself.
 
-    Deliberately minimal: the bot is a notification channel, not a second UI.
+    Годится, только если у школы нет своего бота на long polling.
     """
     from django.conf import settings
 
@@ -143,11 +186,6 @@ def telegram_webhook(request):
 
     parts = text.split(maxsplit=1)
     code = parts[1].strip() if len(parts) > 1 else ""
-    if not code:
-        return json_ok()
-
-    user = User.objects.filter(telegram_link_code=code).first()
-    if user:
-        user.telegram_chat_id = chat_id
-        user.save(update_fields=["telegram_chat_id"])
+    if code:
+        _link_chat(code, chat_id)
     return json_ok()

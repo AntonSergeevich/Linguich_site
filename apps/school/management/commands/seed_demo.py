@@ -61,8 +61,8 @@ COURSES = [
 ]
 
 TEACHERS = [
-    ("Мария", "Ковалёва", "owner@linguich.ru", "+79130000001", Role.OWNER,
-     "Основатель школы · английский, методика", ["english"], 2006, True),
+    ("Евгения", "Глухова", "owner@linguich.ru", "+79130000001", Role.OWNER,
+     "Основатель школы · английский, методика", ["english"], 2011, False),
     ("Анна", "Соколова", "anna@linguich.ru", "+79130000002", Role.TEACHER,
      "Английский · подготовка к IELTS", ["english"], 2014, False),
     ("Дмитрий", "Верещагин", "dmitry@linguich.ru", "+79130000003", Role.TEACHER,

@@ -26,6 +26,24 @@ class SiteSettings(models.Model):
         blank=True, help_text=_("Куда присылать уведомления о новых заявках.")
     )
 
+    # Блок «слово основателя» на главной. Для локальной школы личное обращение
+    # владелицы конвертирует лучше любого рекламного текста, но появляется он
+    # только когда есть и фото, и текст — иначе выглядит пустой заглушкой.
+    founder_name = models.CharField(
+        _("Основатель: имя"), max_length=120, blank=True, default="Глухова Евгения Алексеевна"
+    )
+    founder_role = models.CharField(
+        _("Основатель: должность"), max_length=140, blank=True,
+        default="основатель школы, преподаватель английского",
+    )
+    founder_photo = models.ImageField(_("Основатель: фото"), upload_to="site/", blank=True, null=True)
+    founder_quote = models.TextField(
+        _("Основатель: обращение"), blank=True,
+        default="Я открыла «Лингвич» в 2011 году, потому что верю: язык учат разговором, "
+                "а не зубрёжкой правил. Мы не гонимся за количеством — я лично знаю каждого "
+                "преподавателя и вижу, как идут дела у каждой группы.",
+    )
+
     class Meta:
         verbose_name = _("Настройки сайта")
         verbose_name_plural = _("Настройки сайта")
@@ -41,6 +59,10 @@ class SiteSettings(models.Model):
     def load(cls):
         obj, _created = cls.objects.get_or_create(pk=1)
         return obj
+
+    @property
+    def show_founder(self):
+        return bool(self.founder_quote and self.founder_name)
 
 
 class Location(models.Model):

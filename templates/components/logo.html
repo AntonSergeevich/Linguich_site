@@ -1,10 +1,14 @@
-<svg class="brand__mark" viewBox="0 0 100 100" aria-hidden="true" focusable="false">
-  <path d="M30 68 L8 96 L48 79 Z" fill="var(--accent-500)"/>
-  <circle cx="52" cy="42" r="36" fill="none" stroke="var(--brand-600)" stroke-width="8"/>
-  <g fill="none" stroke="var(--brand-600)" stroke-width="5.5" stroke-linecap="round">
-    <ellipse cx="52" cy="42" rx="14.5" ry="31"/>
-    <path d="M21.5 42 H82.5"/>
-    <path d="M26.5 24.5 H77.5"/>
-    <path d="M26.5 59.5 H77.5"/>
-  </g>
-</svg>
+{% load static %}{% comment %}
+Горизонтальный лок-ап из брендбука: знак слева, «Лингвич» и подпись справа.
+Знак всегда фирменного синего (#008CD2 зашит в SVG), логотип-текст следует
+теме — на тёмном фоне чёрное начертание было бы не видно.
+
+Параметры: tagline — текст подписи, mark_only — только знак.
+{% endcomment %}
+<img class="brand__mark" src="{% static 'img/logo-mark.svg' %}" alt="" width="505" height="424" aria-hidden="true">
+{% if not mark_only %}
+  <span class="brand__text">
+    <span class="brand__name">Лингвич</span>
+    <span class="brand__tag">{{ tagline|default:"школа европейских и восточных языков" }}</span>
+  </span>
+{% endif %}
