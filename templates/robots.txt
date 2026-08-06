@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+
+# Кабинеты и админка в индексе не нужны — там нет публичного контента,
+# зато есть персональные данные учеников.
+Disallow: /cabinet/
+Disallow: /accounts/
+Disallow: /admin/
+Disallow: /api/
+
+Sitemap: {{ request.scheme }}://{{ request.get_host }}/sitemap.xml

@@ -117,6 +117,23 @@ class PublicPagesTests(TestCase):
         titles = [c.title for c in response.context["courses"]]
         self.assertEqual(titles, ["Английский с нуля"])
 
+    def test_sitemap_lists_courses_and_languages(self):
+        response = self.client.get("/sitemap.xml")
+        self.assertEqual(response.status_code, 200)
+        xml = response.content.decode()
+        self.assertIn(self.course.get_absolute_url(), xml)
+        self.assertIn(self.language.get_absolute_url(), xml)
+        self.assertIn("<priority>1.0</priority>", xml, "главная должна быть приоритетнее")
+
+    def test_robots_hides_private_areas_and_points_at_the_sitemap(self):
+        response = self.client.get("/robots.txt")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "text/plain")
+        body = response.content.decode()
+        for path in ("/cabinet/", "/admin/", "/accounts/"):
+            self.assertIn(f"Disallow: {path}", body)
+        self.assertIn("sitemap.xml", body)
+
     def test_inactive_course_is_hidden_and_404s(self):
         self.course.is_active = False
         self.course.save(update_fields=["is_active"])

@@ -1,0 +1,28 @@
+# Регулярные задачи. Установить от пользователя linguich:
+#   crontab deploy/crontab
+# Проверить: crontab -l
+
+SHELL=/bin/bash
+PATH=/usr/local/bin:/usr/bin:/bin
+MAILTO=""
+
+APP=/srv/linguich
+PY=/srv/linguich/.venv/bin/python
+
+# Раз в минуту разбираем очередь уведомлений (email + Telegram).
+* * * * * cd $APP && $PY manage.py send_notifications >> $APP/logs/cron.log 2>&1
+
+# Каждые 15 минут ставим напоминания об уроках на ближайшие дни.
+*/15 * * * * cd $APP && $PY manage.py schedule_reminders >> $APP/logs/cron.log 2>&1
+
+# Ночью материализуем занятия групп на 6 недель вперёд.
+0 3 * * * cd $APP && $PY manage.py generate_lessons --weeks 6 >> $APP/logs/cron.log 2>&1
+
+# Ночная резервная копия базы, храним 30 последних.
+30 3 * * * cd $APP && sqlite3 db.sqlite3 ".backup 'backups/nightly-$(date +\%Y\%m\%d).sqlite3'" && ls -1t backups/nightly-* | tail -n +31 | xargs -r rm --
+
+# Чистим просроченные сессии раз в неделю.
+0 4 * * 0 cd $APP && $PY manage.py clearsessions >> $APP/logs/cron.log 2>&1
+
+# Ротация лога крона, чтобы он не рос бесконечно.
+0 5 * * 1 : > $APP/logs/cron.log

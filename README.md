@@ -212,16 +212,26 @@ python manage.py test apps
 
 ## Деплой
 
-1. `DJANGO_DEBUG=False`, задать `DJANGO_SECRET_KEY` и `DJANGO_ALLOWED_HOSTS`.
-2. `python manage.py collectstatic` — статику раздаёт WhiteNoise, отдельный
-   nginx-alias не обязателен.
-3. `python manage.py migrate`, затем `createsuperuser`.
-4. Настроить cron из раздела выше.
-5. Медиафайлы (аватары, домашки, материалы) лежат в `media/` — включить в бэкап
-   вместе с базой.
+Полная пошаговая инструкция для BEGET VPS — в **[DEPLOY.md](DEPLOY.md)**:
+DNS, пользователь, gunicorn, nginx, HTTPS, cron, резервные копии и что
+делать, если что-то сломалось.
 
-В production автоматически включаются HSTS, secure-cookies и редирект на HTTPS
-(`SECURE_SSL_REDIRECT` можно отключить, если TLS терминируется выше).
+Готовые файлы лежат в `deploy/`:
+
+| Файл | Что это |
+|---|---|
+| `gunicorn.service` | systemd-юнит, слушает unix-сокет |
+| `nginx.conf` | вирт-хост с HTTPS, статикой и лимитом на формы |
+| `crontab` | уведомления, напоминания, генерация занятий, бэкапы |
+| `deploy.sh` | выкатка одной командой с бэкапом и проверкой |
+| `telegram_bot_snippet.py` | код для существующего бота школы |
+
+Обновление после первой установки:
+
+```bash
+ssh linguich@сервер
+cd /srv/linguich && ./deploy/deploy.sh
+```
 
 ---
 

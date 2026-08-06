@@ -530,7 +530,7 @@
 /* --- Слово основателя --------------------------------------------------- */
 .founder {
   display: grid;
-  grid-template-columns: 260px minmax(0, 1fr);
+  grid-template-columns: 280px minmax(0, 1fr);
   gap: clamp(1.5rem, 4vw, 3.5rem);
   align-items: center;
   padding: clamp(1.5rem, 4vw, 3rem);
@@ -546,16 +546,18 @@
 
 .founder__photo {
   position: relative;
-  aspect-ratio: 4 / 5;
+  /* Квадрат, а не портретный 4:5: снимки из телефона и соцсетей чаще всего
+     квадратные, и при таком контейнере кадр не режется вообще. */
+  aspect-ratio: 1 / 1;
   border-radius: var(--r-lg);
   overflow: hidden;
   background: var(--brand-50);
   display: grid;
   place-items: center;
-  max-width: 260px;
+  max-width: 280px;
   margin-inline: auto;
 }
-.founder__photo img { width: 100%; height: 100%; object-fit: cover; }
+.founder__photo img { width: 100%; height: 100%; object-fit: cover; object-position: center; }
 
 /* Пока фотографии нет — одна колонка с цитатой во всю ширину. */
 .founder--text { grid-template-columns: minmax(0, 1fr); max-width: 62rem; margin-inline: auto; }
