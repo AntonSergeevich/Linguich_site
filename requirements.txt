@@ -6,6 +6,4 @@ Pillow==10.3.0
 whitenoise==6.6.0
 requests==2.32.3
 gunicorn==22.0.0
-
-# PostgreSQL — раскомментировать, если DATABASE_URL указывает на postgres.
-# psycopg2-binary==2.9.9
+psycopg2-binary==2.9.9

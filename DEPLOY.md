@@ -34,8 +34,8 @@
 ssh root@ВАШ_IP
 
 apt update && apt upgrade -y
-apt install -y python3 python3-venv python3-pip git nginx sqlite3 curl \
-               certbot python3-certbot-nginx ufw
+apt install -y python3 python3-venv python3-pip python3-dev git nginx curl \
+               build-essential libpq-dev certbot python3-certbot-nginx ufw
 
 # Отдельный пользователь: приложение не должно работать от root.
 adduser --system --group --home /srv/linguich --shell /bin/bash linguich
@@ -114,7 +114,47 @@ chown linguich:linguich /srv/linguich/.env
 
 ---
 
-## 5. База и первичное наполнение
+## 5. PostgreSQL
+
+```bash
+apt install -y postgresql postgresql-contrib
+
+# Пароль придумайте длинный. Спецсимволы можно любые — экранировать
+# ничего не нужно, он попадёт в .env как есть.
+sudo -u postgres psql <<'SQL'
+CREATE USER linguich WITH PASSWORD 'ВАШ_ПАРОЛЬ_БД';
+CREATE DATABASE linguich OWNER linguich ENCODING 'UTF8'
+    LC_COLLATE 'ru_RU.UTF-8' LC_CTYPE 'ru_RU.UTF-8' TEMPLATE template0;
+-- Django создаёт и удаляет тестовую базу, для этого нужно право createdb.
+ALTER USER linguich CREATEDB;
+SQL
+```
+
+Если `CREATE DATABASE` ругается на локаль — сгенерируйте её и повторите:
+
+```bash
+locale-gen ru_RU.UTF-8 && update-locale
+systemctl restart postgresql
+```
+
+Добавьте в `/srv/linguich/.env`:
+
+```ini
+POSTGRES_DB=linguich
+POSTGRES_USER=linguich
+POSTGRES_PASSWORD=ВАШ_ПАРОЛЬ_БД
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432
+```
+
+Проверка подключения:
+
+```bash
+cd /srv/linguich
+sudo -u linguich .venv/bin/python manage.py check --database default
+```
+
+## 5.1. Миграции и первичное наполнение
 
 ```bash
 cd /srv/linguich
@@ -128,8 +168,6 @@ sudo -u linguich .venv/bin/python manage.py createsuperuser
 
 `seed_demo` на боевом сервере **запускать не нужно** — он создаст выдуманных
 учеников и платежи. Реальные данные заводятся через кабинет и админку.
-
----
 
 ## 6. gunicorn как служба
 
@@ -238,8 +276,14 @@ cd /srv/linguich && ./deploy/deploy.sh
 
 ```bash
 # с вашего компьютера
-scp linguich@ВАШ_IP:/srv/linguich/backups/nightly-*.sqlite3 ./backups/
+scp linguich@ВАШ_IP:/srv/linguich/backups/nightly-*.sql.gz ./backups/
 rsync -avz linguich@ВАШ_IP:/srv/linguich/media/ ./backups/media/
+```
+
+Восстановление из копии:
+
+```bash
+gunzip -c backups/nightly-20260806.sql.gz | sudo -u linguich psql linguich
 ```
 
 Медиафайлы (аватары, домашние работы, материалы) в базе не лежат — их нужно
@@ -247,33 +291,19 @@ rsync -avz linguich@ВАШ_IP:/srv/linguich/media/ ./backups/media/
 
 ---
 
-## Когда SQLite станет мало
+## Обслуживание PostgreSQL
 
-Сейчас база — SQLite, и для школы на несколько сотен учеников этого хватает
-с запасом: нагрузка тут десятки запросов в минуту, а не тысячи. Переезжать
-на PostgreSQL имеет смысл, когда появятся параллельные записи от многих
-администраторов одновременно или база перевалит за несколько гигабайт.
-
-Переезд:
+Ничего регулярного делать не нужно: автовакуум включён по умолчанию и для
+базы такого размера справляется сам. Полезно знать две команды:
 
 ```bash
-apt install -y postgresql
-sudo -u postgres createuser linguich -P
-sudo -u postgres createdb -O linguich linguich
-
-cd /srv/linguich
-sudo -u linguich .venv/bin/pip install psycopg2-binary
-sudo -u linguich .venv/bin/python manage.py dumpdata \
-    --natural-foreign --natural-primary \
-    -e contenttypes -e auth.Permission -e sessions > dump.json
-
-# в .env: DATABASE_URL=postgres://linguich:пароль@localhost:5432/linguich
-sudo -u linguich .venv/bin/python manage.py migrate
-sudo -u linguich .venv/bin/python manage.py loaddata dump.json
-systemctl restart linguich
+sudo -u postgres psql -c "\l+"                    # размер баз
+sudo -u linguich psql linguich -c "\dt+"          # размер таблиц
 ```
 
----
+Настройки по умолчанию рассчитаны на скромный сервер и вам подходят.
+Трогать `postgresql.conf` при 2 ГБ памяти не нужно — значения из коробки
+уже консервативны.
 
 ## Если что-то сломалось
 

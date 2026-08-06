@@ -93,22 +93,51 @@ TEMPLATES = [
 WSGI_APPLICATION = "config.wsgi.application"
 ASGI_APPLICATION = "config.asgi.application"
 
-if env("DATABASE_URL", "").startswith("postgres"):
-    from urllib.parse import urlparse
+def _postgres_settings():
+    """PostgreSQL из отдельных переменных или из DATABASE_URL.
 
-    _url = urlparse(env("DATABASE_URL"))
-    DATABASES = {
-        "default": {
+    Раздельные переменные — основной путь: пароль в них пишется как есть,
+    без возни с URL-кодированием. DATABASE_URL оставлен для совместимости
+    с хостингами, которые отдают только его.
+    """
+    name = env("POSTGRES_DB")
+    if name:
+        return {
             "ENGINE": "django.db.backends.postgresql",
-            "NAME": _url.path.lstrip("/"),
-            "USER": _url.username,
-            "PASSWORD": _url.password,
-            "HOST": _url.hostname,
-            "PORT": _url.port or 5432,
+            "NAME": name,
+            "USER": env("POSTGRES_USER", "linguich"),
+            "PASSWORD": env("POSTGRES_PASSWORD", ""),
+            "HOST": env("POSTGRES_HOST", "localhost"),
+            "PORT": env("POSTGRES_PORT", "5432"),
             "CONN_MAX_AGE": 60,
         }
+
+    url = env("DATABASE_URL", "")
+    if not url.startswith("postgres"):
+        return None
+
+    from urllib.parse import unquote, urlparse
+
+    parsed = urlparse(url)
+    # urlparse отдаёт логин и пароль как есть, не раскодировав их. Пароль с «@»
+    # или «:» обязан быть процентно-закодирован в URL, иначе разъедется разбор,
+    # — значит, здесь его нужно раскодировать обратно.
+    return {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": unquote(parsed.path.lstrip("/")),
+        "USER": unquote(parsed.username or ""),
+        "PASSWORD": unquote(parsed.password or ""),
+        "HOST": parsed.hostname or "localhost",
+        "PORT": parsed.port or 5432,
+        "CONN_MAX_AGE": 60,
     }
+
+
+_pg = _postgres_settings()
+if _pg:
+    DATABASES = {"default": _pg}
 else:
+    # SQLite — для локальной разработки. На сервере всегда PostgreSQL.
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.sqlite3",

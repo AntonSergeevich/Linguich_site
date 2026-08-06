@@ -22,16 +22,13 @@ echo "==> Проверки перед миграцией"
 echo "==> Резервная копия базы"
 mkdir -p "$APP_DIR/backups"
 STAMP=$(date +%Y%m%d-%H%M%S)
-if [ -f "$APP_DIR/db.sqlite3" ]; then
-    # .backup корректно снимает копию даже при активных подключениях.
-    sqlite3 "$APP_DIR/db.sqlite3" ".backup '$APP_DIR/backups/db-$STAMP.sqlite3'"
-else
-    "$VENV/bin/python" manage.py dumpdata --natural-foreign --natural-primary \
-        -e contenttypes -e auth.Permission -e sessions \
-        > "$APP_DIR/backups/dump-$STAMP.json"
-fi
+# Пароль берём из .env, чтобы не светить его в списке процессов.
+set -a; . "$APP_DIR/.env"; set +a
+PGPASSWORD="$POSTGRES_PASSWORD" pg_dump \
+    -h "${POSTGRES_HOST:-localhost}" -U "$POSTGRES_USER" "$POSTGRES_DB" \
+    | gzip > "$APP_DIR/backups/db-$STAMP.sql.gz"
 # Держим последние 30 копий.
-ls -1t "$APP_DIR/backups"/* 2>/dev/null | tail -n +31 | xargs -r rm --
+ls -1t "$APP_DIR/backups"/*.sql.gz 2>/dev/null | tail -n +31 | xargs -r rm --
 
 echo "==> Миграции"
 "$VENV/bin/python" manage.py migrate --noinput
