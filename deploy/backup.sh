@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 # Ночная копия базы. Вызывается из cron, лежит в /srv/linguich/backups/.
+#
+# Тело в фигурной группе: выкатка может обновить этот файл ровно тогда,
+# когда его выполняет cron, и bash дочитал бы новый файл со старого
+# смещения. Группа заставляет разобрать файл целиком до первой команды.
+{
 set -euo pipefail
 
 APP_DIR="/srv/linguich"
@@ -31,3 +36,4 @@ fi
 
 ls -1t backups/nightly-*.sql.gz | tail -n +31 | xargs -r rm --
 echo "$(date -Is) бэкап готов: nightly-$STAMP.sql.gz ($(du -h backups/nightly-$STAMP.sql.gz | cut -f1))"
+}
