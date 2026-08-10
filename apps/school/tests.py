@@ -1,12 +1,16 @@
 """Публичный сайт: захват заявок и доступность страниц."""
 
+from datetime import timedelta
+
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
 
 from apps.accounts.models import Role, User, normalize_phone
 from apps.billing.models import Tariff
 from apps.notifications.models import Notification, NotificationKind
 
+from . import antispam
 from .models import FAQ, Course, Language, Lead, LeadStatus, Location, Promo, Review, SiteSettings
 
 
@@ -30,8 +34,15 @@ class LeadFormTests(TestCase):
         )
         self.language = Language.objects.create(name="Английский", slug="en")
 
+    def filled_slowly(self, seconds=10):
+        """Метка времени так, будто форму заполняли `seconds` секунд."""
+        return antispam.form_timestamp(timezone.now() - timedelta(seconds=seconds))
+
     def post(self, **overrides):
-        payload = {"name": "Ольга", "phone": "89130001122", "consent": "on"}
+        payload = {
+            "name": "Ольга", "phone": "89130001122", "consent": "on",
+            "form_ts": self.filled_slowly(),
+        }
         payload.update(overrides)
         return self.client.post(reverse("school:lead_create"), payload)
 
@@ -56,7 +67,7 @@ class LeadFormTests(TestCase):
 
     def test_consent_is_required(self):
         response = self.client.post(reverse("school:lead_create"), {
-            "name": "Ольга", "phone": "89130001122",
+            "name": "Ольга", "phone": "89130001122", "form_ts": self.filled_slowly(),
         })
         self.assertEqual(response.status_code, 400)
         self.assertIn("consent", response.json()["fields"])
@@ -69,6 +80,7 @@ class LeadFormTests(TestCase):
     def test_callback_widget_creates_a_lead_too(self):
         response = self.client.post(reverse("school:callback_create"), {
             "name": "Иван", "phone": "89130002233", "consent": "on",
+            "form_ts": self.filled_slowly(),
         })
         self.assertEqual(response.status_code, 200)
         self.assertEqual(Lead.objects.get().source, "callback")
@@ -159,3 +171,106 @@ class LanguageTests(TestCase):
     def test_bad_flag_code_falls_back_to_a_globe(self):
         self.assertEqual(Language(flag_code="").flag_emoji, "🌐")
         self.assertEqual(Language(flag_code="xyz").flag_emoji, "🌐")
+
+
+class AntispamTests(TestCase):
+    """Слои защиты формы заявки. Каждый проверяем отдельно: если один
+    отвалится, остальные должны продолжать держать."""
+
+    def setUp(self):
+        self.owner = User.objects.create_user(
+            email="owner@x.ru", first_name="Мария", role=Role.OWNER
+        )
+
+    def post(self, seconds=10, path="school:lead_create", **overrides):
+        payload = {
+            "name": "Ольга", "phone": "89130001122", "consent": "on",
+            "form_ts": antispam.form_timestamp(timezone.now() - timedelta(seconds=seconds)),
+        }
+        payload.update(overrides)
+        return self.client.post(reverse(path), payload)
+
+    def test_instant_submission_is_rejected(self):
+        """Человек не заполняет форму за секунду — а бот заполняет."""
+        response = self.post(seconds=0)
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(Lead.objects.exists())
+
+    def test_missing_token_is_rejected(self):
+        """Форма, собранная в обход страницы, метки времени не несёт."""
+        response = self.client.post(reverse("school:lead_create"), {
+            "name": "Ольга", "phone": "89130001122", "consent": "on",
+        })
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(Lead.objects.exists())
+
+    def test_forged_token_is_rejected(self):
+        response = self.post(form_ts="MTcwMDAwMDAwMA:fake:signature")
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(Lead.objects.exists())
+
+    def test_stale_token_is_rejected(self):
+        """Заготовленный когда-то токен не должен работать вечно."""
+        response = self.post(seconds=antispam.MAX_FORM_AGE_SECONDS + 60)
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(Lead.objects.exists())
+
+    def test_honeypot_catches_a_bot_that_fills_every_field(self):
+        response = self.post(company="Spam Ltd")
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(Lead.objects.exists())
+
+    def test_one_address_cannot_flood_the_crm(self):
+        for index in range(antispam.MAX_LEADS_PER_IP_PER_HOUR):
+            # Разные номера, иначе сработает гашение дублей, а не лимит.
+            response = self.post(phone=f"891300011{index:02d}")
+            self.assertEqual(response.status_code, 200, f"заявка {index + 1} должна пройти")
+        response = self.post(phone="89130009999")
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(Lead.objects.count(), antispam.MAX_LEADS_PER_IP_PER_HOUR)
+
+    def test_repeated_phone_does_not_duplicate_the_lead(self):
+        """Второй клик по кнопке — не повод заводить вторую карточку,
+        но и ошибку показывать не за что."""
+        self.assertEqual(self.post().status_code, 200)
+        response = self.post()
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(Lead.objects.count(), 1)
+
+    def test_origin_is_recorded(self):
+        self.post(HTTP_USER_AGENT="TestBrowser/1.0")
+        lead = Lead.objects.get()
+        self.assertTrue(lead.ip, "без IP не посчитать частоту заявок")
+
+    def test_callback_endpoint_is_guarded_too(self):
+        response = self.post(seconds=0, path="school:callback_create")
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(Lead.objects.exists())
+
+
+class ClientIpTests(TestCase):
+    """X-Forwarded-For клиент может подделать целиком — кроме последнего
+    элемента, который дописывает наш собственный nginx."""
+
+    def make(self, **meta):
+        from django.test import RequestFactory
+
+        return RequestFactory().post("/api/lead/", **meta)
+
+    def test_real_address_is_taken_from_the_end_of_the_chain(self):
+        request = self.make(
+            HTTP_X_FORWARDED_FOR="203.0.113.9, 198.51.100.7", REMOTE_ADDR="127.0.0.1"
+        )
+        self.assertEqual(antispam.client_ip(request), "198.51.100.7")
+
+    def test_spoofed_header_cannot_hide_the_client(self):
+        """Бот пишет чужой адрес первым — nginx всё равно допишет настоящий."""
+        request = self.make(
+            HTTP_X_FORWARDED_FOR="8.8.8.8", REMOTE_ADDR="198.51.100.7"
+        )
+        # Один элемент — это и есть то, что дописал nginx.
+        self.assertEqual(antispam.client_ip(request), "8.8.8.8")
+
+    def test_falls_back_to_remote_addr(self):
+        request = self.make(REMOTE_ADDR="198.51.100.7")
+        self.assertEqual(antispam.client_ip(request), "198.51.100.7")

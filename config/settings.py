@@ -228,6 +228,9 @@ LESSON_REMINDER_OFFSETS = [int(x) for x in env_list("LESSON_REMINDER_OFFSETS", "
 # Hours before lesson start when a student may still cancel without being charged.
 FREE_CANCELLATION_HOURS = int(env("FREE_CANCELLATION_HOURS", "12"))
 SITE_URL = env("SITE_URL", "http://127.0.0.1:8000")
+# Защита форм заявки от ботов. Выключать стоит только при отладке форм —
+# без неё в CRM за ночь набивается сотня мусорных карточек.
+LEAD_ANTISPAM_ENABLED = env_bool("LEAD_ANTISPAM_ENABLED", True)
 
 # --- Security (production) -------------------------------------------------
 if not DEBUG:

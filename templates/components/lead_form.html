@@ -6,7 +6,8 @@
       data-success-html="{{ success_target|default:'#lead-thanks' }}">
   {% csrf_token %}
   <input type="hidden" name="source" value="{{ source|default:'trial' }}">
-  {{ form.company }}
+  {# Ловушка и метка времени. Без них заявка не примется — см. school/antispam.py #}
+  {{ form.antispam_fields }}
 
   <div class="form-grid">
     <label class="field">

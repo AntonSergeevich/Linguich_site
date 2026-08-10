@@ -256,6 +256,10 @@ class Lead(models.Model):
         "accounts.User", on_delete=models.SET_NULL, null=True, blank=True, related_name="origin_leads"
     )
     admin_notes = models.TextField(_("Комментарий"), blank=True)
+    # Нужны для защиты от ботов: по ним считается частота заявок с адреса
+    # и видно, что за поток пришёл, если начнётся налив.
+    ip = models.CharField(max_length=45, blank=True, db_index=True)
+    user_agent = models.CharField(max_length=200, blank=True)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -263,7 +267,12 @@ class Lead(models.Model):
         verbose_name = _("Заявка")
         verbose_name_plural = _("Заявки")
         ordering = ["-created_at"]
-        indexes = [models.Index(fields=["status", "-created_at"])]
+        indexes = [
+            models.Index(fields=["status", "-created_at"]),
+            # Счётчик заявок с одного адреса за час — самый горячий запрос
+            # антиспама, он выполняется на каждой отправке формы.
+            models.Index(fields=["ip", "-created_at"]),
+        ]
 
     def __str__(self):
         return f"{self.name} · {self.phone}"

@@ -9,8 +9,9 @@ from apps.billing.models import Tariff
 from apps.notifications.models import NotificationKind
 from apps.notifications.services import notify_many
 from apps.scheduling.models import Group, LessonStatus
-from apps.utils import is_ajax, json_form_error, json_ok
+from apps.utils import is_ajax, json_error, json_form_error, json_ok
 
+from . import antispam
 from .forms import CallbackForm, LeadForm
 from .models import FAQ, Course, Language, Lead, LeadSource, Promo, Review, SiteSettings
 
@@ -130,29 +131,58 @@ def signup(request):
     })
 
 
+ACCEPTED = "Заявка принята — перезвоним в течение рабочего дня."
+
+
 @require_POST
 def lead_create(request):
     """Single endpoint behind every form on the site. Always answers JSON."""
+    try:
+        antispam.check_request(request)
+    except antispam.SpamRejected as exc:
+        return json_error(str(exc))
+
     form = LeadForm(request.POST)
     if not form.is_valid():
         return json_form_error(form)
 
+    # Повтор того же номера — почти всегда второй клик по кнопке или
+    # перезагрузка страницы. Заводить вторую карточку в CRM незачем,
+    # но и пугать человека ошибкой не за что.
+    if antispam.find_recent_duplicate(form.cleaned_data["phone"]):
+        return json_ok(ACCEPTED)
+
     lead = form.save(commit=False)
     lead.source = request.POST.get("source") or LeadSource.TRIAL_FORM
+    _stamp_origin(lead, request)
     lead.save()
     _alert_staff_about(lead)
 
-    return json_ok("Заявка принята — перезвоним в течение рабочего дня.")
+    return json_ok(ACCEPTED)
 
 
 @require_POST
 def callback_create(request):
+    try:
+        antispam.check_request(request)
+    except antispam.SpamRejected as exc:
+        return json_error(str(exc))
+
     form = CallbackForm(request.POST)
     if not form.is_valid():
         return json_form_error(form)
-    lead = form.save()
+    if antispam.find_recent_duplicate(form.cleaned_data["phone"]):
+        return json_ok("Спасибо! Наберём вас в ближайшее время.")
+    lead = form.save(commit=False)
+    _stamp_origin(lead, request)
+    lead.save()
     _alert_staff_about(lead)
     return json_ok("Спасибо! Наберём вас в ближайшее время.")
+
+
+def _stamp_origin(lead, request):
+    lead.ip = antispam.client_ip(request)
+    lead.user_agent = (request.META.get("HTTP_USER_AGENT") or "")[:200]
 
 
 def _alert_staff_about(lead):

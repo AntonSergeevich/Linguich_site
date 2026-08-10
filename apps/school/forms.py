@@ -1,13 +1,63 @@
 from django import forms
+from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 
 from apps.accounts.models import normalize_phone
 from apps.accounts.widgets import PhoneInput
 
+from . import antispam
 from .models import Course, Language, Lead, LeadSource
 
 
-class LeadForm(forms.ModelForm):
+class HoneypotInput(forms.TextInput):
+    """Поле-приманка: в разметке есть, для человека — нет.
+
+    Прячем стилями, а не `type="hidden"` и не `display:none` в CSS-файле:
+    внешний файл бот может не загрузить, а инлайновый стиль он видит там же,
+    где и поле. `tabindex="-1"` и `aria-hidden` убирают его с дороги у тех,
+    кто ходит по форме с клавиатуры или через скринридер.
+    """
+
+    def __init__(self, attrs=None):
+        base = {
+            "autocomplete": "off",
+            "tabindex": "-1",
+            "aria-hidden": "true",
+            "style": (
+                "position:absolute!important;left:-9999px!important;"
+                "width:1px;height:1px;opacity:0;pointer-events:none"
+            ),
+        }
+        base.update(attrs or {})
+        super().__init__(base)
+
+
+class AntispamFieldsMixin:
+    """Скрытые поля защиты: ловушка и подписанная метка времени.
+
+    Метка выдаётся заново при каждой отрисовке — по ней видно, сколько
+    времени ушло на заполнение. Проверяются оба поля во вью, здесь только
+    разметка, чтобы её нельзя было забыть добавить на новой форме.
+
+    Поля добавляются в `__init__`, а не объявляются на классе: метакласс
+    Django собирает поля только с классов-форм, и с обычной подмешки они
+    молча не попали бы в форму вообще.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["company"] = forms.CharField(required=False, widget=HoneypotInput)
+        self.fields["form_ts"] = forms.CharField(
+            required=False, widget=forms.HiddenInput, initial=antispam.form_timestamp()
+        )
+
+    @property
+    def antispam_fields(self):
+        """Оба поля разом — чтобы в шаблоне была одна строка."""
+        return format_html("{}{}", self["company"], self["form_ts"])
+
+
+class LeadForm(AntispamFieldsMixin, forms.ModelForm):
     """The one form the whole public site funnels into."""
 
     consent = forms.BooleanField(
@@ -15,8 +65,6 @@ class LeadForm(forms.ModelForm):
         label=_("Согласен на обработку персональных данных"),
         error_messages={"required": _("Без согласия мы не сможем вам перезвонить.")},
     )
-    # Honeypot: a real person never fills a hidden field.
-    company = forms.CharField(required=False, widget=forms.HiddenInput)
 
     class Meta:
         model = Lead
@@ -52,7 +100,7 @@ class LeadForm(forms.ModelForm):
         return cleaned
 
 
-class CallbackForm(forms.Form):
+class CallbackForm(AntispamFieldsMixin, forms.Form):
     """Two-field version for the sticky «перезвоните мне» widget."""
 
     name = forms.CharField(max_length=120)
@@ -65,9 +113,14 @@ class CallbackForm(forms.Form):
             raise forms.ValidationError(_("Проверьте номер телефона."))
         return phone
 
-    def save(self):
-        return Lead.objects.create(
+    def save(self, commit=True):
+        # commit=False нужен, чтобы вью успела проставить IP и user-agent
+        # до записи — они участвуют в защите от ботов.
+        lead = Lead(
             name=self.cleaned_data["name"],
             phone=self.cleaned_data["phone"],
             source=LeadSource.CALLBACK,
         )
+        if commit:
+            lead.save()
+        return lead
