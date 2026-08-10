@@ -94,7 +94,17 @@
   display: flex; align-items: center; gap: var(--s-4);
 }
 .cab-top h1 { font-size: var(--step-2); margin: 0; }
+.cab-top__title { min-width: 0; }
 .cab-top__sub { font-size: var(--step--1); color: var(--muted); margin: 0; }
+
+@media (max-width: 700px) {
+  /* Заголовок занимает свою строку, кнопки раздела уезжают под него.
+     Иначе «Сотрудники» ужималось до многоточия ради кнопки справа. */
+  .cab-top { flex-wrap: wrap; }
+  .cab-top__title { flex: 1 1 100%; order: -1; }
+  .cab-top .spacer { display: none; }
+  .cab-top h1 { font-size: var(--step-1); }
+}
 
 .cab-body { padding: clamp(1rem, 3vw, 2rem); flex: 1; }
 .cab-body > * + * { margin-top: var(--s-5); }
@@ -300,7 +310,9 @@
   font-size: var(--step--1);
   box-shadow: var(--sh-1);
 }
-.kanban__card strong { display: block; }
+/* Имя с ручкой переноса в одной строке: без min-width флекс не даёт
+   длинному имени ужаться, и оно вылезало за карточку. */
+.kanban__card strong { display: block; min-width: 0; overflow-wrap: anywhere; }
 .kanban__card small { color: var(--muted); }
 
 /* --- Перетаскивание заявок --------------------------------------------- */
@@ -312,7 +324,10 @@
 .kanban__card__grip {
   color: var(--muted); flex: none;
   touch-action: none; cursor: grab;
-  margin: calc(var(--s-2) * -1); padding: var(--s-2);
+  /* Тянем зону нажатия вверх, вниз и влево, но не вправо: справа
+     ручка иначе выходит за строку и растягивает карточку. */
+  margin: calc(var(--s-2) * -1) 0 calc(var(--s-2) * -1) calc(var(--s-2) * -1);
+  padding: var(--s-2);
   border-radius: var(--r-sm);
 }
 .kanban__card__grip:hover { color: var(--ink-2); background: var(--surface-2); }

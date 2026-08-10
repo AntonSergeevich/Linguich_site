@@ -12,7 +12,7 @@
         всегда виден в личном кабинете.</p>
     </div>
 
-    <div class="grid grid-4 mb-8">
+    <div class="grid grid-cards mb-8">
       {% for tariff in tariffs %}
         <div class="card card--pad-lg reveal {% if forloop.counter == 2 %}card--accent{% endif %}">
           {% if forloop.counter == 2 %}<span class="badge badge--accent mb-3">выбирают чаще всего</span>{% endif %}

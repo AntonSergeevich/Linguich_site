@@ -20,11 +20,18 @@
   font: inherit;
   font-weight: 600;
   font-size: var(--step-0);
-  line-height: 1;
+  /* Не 1: длинная русская подпись на узком экране переносится на две
+     строки, и при line-height: 1 строки налезали бы друг на друга. */
+  line-height: 1.2;
   letter-spacing: -0.01em;
   cursor: pointer;
   text-align: center;
-  white-space: nowrap;
+  /* Без nowrap. Раньше подпись «Записаться на бесплатный урок» требовала
+     411px и на телефоне вылезала за пределы кнопки, заодно растягивая всю
+     колонку вокруг. Flex и так ужимает кнопку по содержимому, так что
+     перенос случается только когда места действительно нет. */
+  text-wrap: balance;
+  min-width: 0;
   transition: transform var(--t-fast) var(--ease),
               box-shadow var(--t-fast) var(--ease),
               background-color var(--t-fast) var(--ease),
@@ -68,7 +75,9 @@
 
 .btn--sm { padding: 0.5em 0.95em; min-height: 36px; font-size: var(--step--1); }
 .btn--lg { padding: 0.9em 1.9em; min-height: 54px; font-size: var(--step-1); }
-.btn--block { display: flex; width: 100%; }
+/* Ширина у кнопки во всю строку и так задана, а широкие боковые отступы
+   только отнимают место у подписи и гонят её на лишнюю строку. */
+.btn--block { display: flex; width: 100%; padding-inline: var(--s-3); }
 .btn--icon { padding: 0; width: 44px; min-height: 44px; border-radius: var(--r-full); }
 .btn--icon.btn--sm { width: 36px; min-height: 36px; }
 
@@ -111,6 +120,9 @@
 .card-head {
   display: flex; align-items: center; justify-content: space-between;
   gap: var(--s-3); margin-bottom: var(--s-4);
+  /* На телефоне заголовок и кнопка не помещаются в строку, и заголовок
+     сжимался до обрезки. Пусть кнопка уезжает вниз. */
+  flex-wrap: wrap;
 }
 .card-head h3, .card-head h4 { margin: 0; }
 
@@ -241,6 +253,10 @@ select {
 
 .form-grid { display: grid; gap: var(--s-4); grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); }
 .form-grid .field--full { grid-column: 1 / -1; }
+/* Поле выбора файла имеет собственную минимальную ширину («Выберите файл»
+   плюс имя файла) и на узком экране распирало всю форму. */
+.form-grid > * { min-width: 0; }
+input[type="file"] { max-width: 100%; }
 
 /* --- Segmented control ------------------------------------------------- */
 .segmented {
@@ -294,6 +310,16 @@ select {
 .stat__label {
   font-size: var(--step--2); font-weight: 600; color: var(--muted);
   text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: var(--s-2);
+  /* Длинные русские слова вроде «Преподавателей» шире узкой плитки. */
+  hyphens: auto;
+}
+/* На телефоне плитки встают по две в ряд и разрядка перестаёт помещаться:
+   она добавляет к «Преподавателей» лишний десяток пикселей. */
+@media (max-width: 560px) {
+  .stat__label { letter-spacing: 0.01em; }
+  /* Плитки встают по две в ряд, и боковые поля в 24px съедают ту самую
+     полоску, которой не хватает подписи вроде «Администраторов». */
+  .stat { padding: var(--s-4); }
 }
 .stat__value {
   font-size: var(--step-3); font-weight: 700; line-height: 1.05;

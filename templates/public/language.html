@@ -30,7 +30,7 @@
 
     {% if teachers %}
       <h2>Преподаватели</h2>
-      <div class="grid grid-4 mb-6">
+      <div class="grid grid-tiles mb-6">
         {% for teacher in teachers %}
           <div class="card teacher-card">
             {% if teacher.avatar %}<img class="avatar avatar--lg" src="{{ teacher.avatar.url }}" alt="{{ teacher.full_name }}">

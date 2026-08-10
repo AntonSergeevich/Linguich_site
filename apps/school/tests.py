@@ -274,3 +274,53 @@ class ClientIpTests(TestCase):
     def test_falls_back_to_remote_addr(self):
         request = self.make(REMOTE_ADDR="198.51.100.7")
         self.assertEqual(antispam.client_ip(request), "198.51.100.7")
+
+
+class SeedCatalogTests(TestCase):
+    """Команда для боевого сервера: каталог наполняет, людей — нет."""
+
+    def run_command(self, **kwargs):
+        from io import StringIO
+        from django.core.management import call_command
+
+        out = StringIO()
+        call_command("seed_catalog", stdout=out, **kwargs)
+        return out.getvalue()
+
+    def test_catalog_appears(self):
+        self.run_command()
+        self.assertEqual(Language.objects.filter(is_active=True).count(), 7)
+        self.assertTrue(Course.objects.exists())
+        self.assertTrue(FAQ.objects.exists())
+        self.assertTrue(Location.objects.exists())
+
+    def test_no_fictional_people_are_created(self):
+        """Главное отличие от seed_demo: на боевом сервере выдуманным
+        ученикам и платежам не место."""
+        from apps.billing.models import Payment
+
+        self.run_command(with_samples=True)
+        self.assertFalse(User.objects.exists())
+        self.assertFalse(Payment.objects.exists())
+        self.assertFalse(Lead.objects.exists())
+
+    def test_second_run_changes_nothing(self):
+        self.run_command()
+        Course.objects.update(summary="Отредактировано вручную")
+        before = Language.objects.count()
+        self.run_command()
+        self.assertEqual(Language.objects.count(), before)
+        self.assertEqual(Course.objects.first().summary, "Отредактировано вручную")
+
+    def test_samples_are_opt_in(self):
+        self.run_command()
+        self.assertFalse(Review.objects.exists())
+        self.run_command(with_samples=True)
+        self.assertTrue(Review.objects.exists())
+
+    def test_homepage_stops_showing_zero_languages(self):
+        response = self.client.get(reverse("school:home"))
+        self.assertEqual(len(response.context["languages"]), 0)
+        self.run_command()
+        response = self.client.get(reverse("school:home"))
+        self.assertEqual(len(response.context["languages"]), 7)

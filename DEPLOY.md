@@ -164,6 +164,10 @@ sudo -u linguich .venv/bin/python manage.py check --database default
 cd /srv/linguich
 sudo -u linguich .venv/bin/python manage.py migrate
 sudo -u linguich .venv/bin/python manage.py load_placement_questions
+# Каталог школы: языки, курсы, тарифы, офисы, вопросы-ответы. Без него
+# сайт открывается пустым — «0 языков в школе». Людей команда не создаёт,
+# повторный запуск ничего не перезаписывает.
+sudo -u linguich .venv/bin/python manage.py seed_catalog --with-samples
 sudo -u linguich .venv/bin/python manage.py collectstatic --noinput
 
 # nginx работает от www-data и должен попасть в каталог приложения.

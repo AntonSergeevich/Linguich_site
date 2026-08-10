@@ -121,6 +121,11 @@ code, kbd { font-family: var(--font-mono); font-size: 0.9em; }
 /* 160px, а не 220: на телефоне плитки метрик должны ложиться по две в ряд,
    иначе сводка превращается в бесконечную ленту. */
 .grid-4 { grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr)); }
+/* Плитки с текстом, а не с одним числом. При 160px в колонку не влезали
+   ни «Французский», ни «Дмитрий Верещагин» — слово шире самой плитки. */
+.grid-tiles { grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); }
+/* Карточки с абзацем и ценой — им нужно ещё шире. */
+.grid-cards { grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr)); }
 
 /* Асимметричные раскладки «контент + колонка».
    Отдельными классами, а не инлайном: инлайновые grid-template-columns

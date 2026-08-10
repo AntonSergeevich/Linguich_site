@@ -60,7 +60,7 @@
         как через месяц получается то, что не получалось вчера.</p>
     </div>
 
-    <div class="grid grid-4">
+    <div class="grid grid-tiles">
       {% for language in languages %}
         <a class="lang-card reveal" href="{{ language.get_absolute_url }}">
           <span class="lang-card__flag">{{ language.flag_emoji }}</span>
@@ -181,7 +181,7 @@
       <div class="eyebrow" style="justify-content:center">Команда</div>
       <h2>Преподаватели, к которым возвращаются</h2>
     </div>
-    <div class="grid grid-4">
+    <div class="grid grid-tiles">
       {% for teacher in teachers %}
         <div class="card teacher-card reveal">
           {% if teacher.avatar %}

@@ -18,6 +18,7 @@ pip install -r requirements.txt
 cp .env.example .env          # локально можно не заполнять: будет SQLite
 python manage.py migrate
 python manage.py load_placement_questions   # 50 вопросов теста уровня
+python manage.py seed_catalog               # языки, курсы, тарифы, офисы
 python manage.py seed_demo                  # демо-данные, чтобы всё было видно
 python manage.py runserver
 ```
