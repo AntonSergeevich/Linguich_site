@@ -38,7 +38,10 @@ def notify(user, kind, subject, body, url="", lesson=None, scheduled_for=None, d
     scheduled_for = scheduled_for or timezone.now()
     created = []
     for channel in channels or channels_for(user):
-        key = f"{dedupe_key}:{channel}" if dedupe_key else None
+        # Получатель обязан входить в ключ. Иначе одно событие на нескольких
+        # адресатов — заявка владелице и администратору — дойдёт только до
+        # первого: у второго ключ совпадёт и запись отсеется как дубль.
+        key = f"{dedupe_key}:{user.pk}:{channel}" if dedupe_key else None
         try:
             # Собственный savepoint обязателен: если поймать IntegrityError без
             # него, внешняя транзакция (бронирование, выдача домашки) останется

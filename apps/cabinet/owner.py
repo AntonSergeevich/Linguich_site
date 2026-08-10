@@ -32,7 +32,7 @@ from apps.scheduling.models import (
     RecurringSlot,
 )
 from apps.school.models import Course, Lead, LeadStatus, Location
-from apps.utils import json_error, json_ok, owner_required
+from apps.utils import json_error, json_ok, manager_required, owner_required
 
 from .common import as_datetime_range, cabinet_context
 
@@ -49,7 +49,7 @@ def _month_start(offset=0):
     return date(year, month, 1)
 
 
-@owner_required
+@manager_required
 def crm_home(request):
     """The one screen that answers «как идут дела»."""
     today = timezone.localdate()
@@ -141,7 +141,7 @@ def _debtors():
 
 # --- Leads ---------------------------------------------------------------
 
-@owner_required
+@manager_required
 def leads(request):
     queryset = Lead.objects.select_related("language", "course", "assigned_to")
     status = request.GET.get("status", "")
@@ -172,7 +172,7 @@ def leads(request):
     ))
 
 
-@owner_required
+@manager_required
 @require_POST
 def lead_update(request, pk):
     lead = get_object_or_404(Lead, pk=pk)
@@ -188,7 +188,7 @@ def lead_update(request, pk):
     return json_ok("Заявка обновлена.")
 
 
-@owner_required
+@manager_required
 @require_POST
 def lead_convert(request, pk):
     """Turn a lead into a real student account in one click."""
@@ -222,7 +222,7 @@ def lead_convert(request, pk):
 
 # --- Students ------------------------------------------------------------
 
-@owner_required
+@manager_required
 def students(request):
     queryset = (
         User.objects.filter(role=Role.STUDENT)
@@ -274,7 +274,7 @@ def students(request):
     ))
 
 
-@owner_required
+@manager_required
 def student_card(request, pk):
     student = get_object_or_404(User.objects.select_related("student_profile"), pk=pk, role=Role.STUDENT)
     account = StudentAccount(student)
@@ -302,7 +302,7 @@ def student_card(request, pk):
     ))
 
 
-@owner_required
+@manager_required
 @require_POST
 def student_update(request, pk):
     student = get_object_or_404(User, pk=pk, role=Role.STUDENT)
@@ -315,7 +315,7 @@ def student_update(request, pk):
     return json_ok("Карточка обновлена.")
 
 
-@owner_required
+@manager_required
 @require_POST
 def enrollment_create(request, pk):
     student = get_object_or_404(User, pk=pk, role=Role.STUDENT)
@@ -334,7 +334,7 @@ def enrollment_create(request, pk):
 
 # --- Payments ------------------------------------------------------------
 
-@owner_required
+@manager_required
 def payments(request):
     queryset = Payment.objects.select_related("student", "package", "created_by")
     period = request.GET.get("period", "month")
@@ -377,7 +377,7 @@ def payments(request):
     ))
 
 
-@owner_required
+@manager_required
 @require_POST
 def payment_create(request):
     student = get_object_or_404(User, pk=request.POST.get("student"), role=Role.STUDENT)
@@ -421,7 +421,7 @@ def payment_create(request):
     return json_ok("Платёж записан.")
 
 
-@owner_required
+@manager_required
 @require_POST
 def package_create(request):
     student = get_object_or_404(User, pk=request.POST.get("student"), role=Role.STUDENT)
@@ -446,7 +446,7 @@ def package_create(request):
     return json_ok("Абонемент выдан. Долг обновлён.")
 
 
-@owner_required
+@manager_required
 @require_POST
 def debt_remind(request):
     """Nudge every debtor at once — the task the owner does by hand today."""
@@ -467,7 +467,7 @@ def debt_remind(request):
 
 # --- Groups --------------------------------------------------------------
 
-@owner_required
+@manager_required
 def groups(request):
     queryset = (
         Group.objects.select_related("course", "course__language", "teacher", "location", "program")
@@ -484,7 +484,7 @@ def groups(request):
     ))
 
 
-@owner_required
+@manager_required
 @require_POST
 def group_create(request):
     name = (request.POST.get("name") or "").strip()
@@ -511,7 +511,7 @@ def group_create(request):
     return json_ok(f"Группа создана, уроков в расписании: {created}.")
 
 
-@owner_required
+@manager_required
 @require_POST
 def generate_schedule(request):
     weeks = int(json.loads(request.body or "{}").get("weeks", 4))

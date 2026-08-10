@@ -27,6 +27,9 @@ def normalize_phone(value):
 class Role(models.TextChoices):
     STUDENT = "student", _("Ученик")
     TEACHER = "teacher", _("Преподаватель")
+    # Администратор ведёт заявки, учеников и платежи, но не видит зарплат
+    # и не может заводить сотрудников — это остаётся за владелицей.
+    ADMIN = "admin", _("Администратор")
     OWNER = "owner", _("Владелец")
 
 
@@ -151,6 +154,15 @@ class User(AbstractBaseUser, PermissionsMixin):
     @property
     def is_owner(self):
         return self.role == Role.OWNER
+
+    @property
+    def is_manager(self):
+        """Кто работает с учениками и заявками: администратор и владелица.
+
+        Отдельно от `is_owner`, потому что деньги сотрудников и заведение
+        новых сотрудников остаются только у владелицы.
+        """
+        return self.role in {Role.ADMIN, Role.OWNER}
 
     def ensure_telegram_code(self):
         if not self.telegram_link_code:

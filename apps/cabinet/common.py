@@ -4,6 +4,7 @@ from datetime import datetime, time, timedelta
 
 from django.utils import timezone
 
+from apps.accounts.models import Role
 from apps.learning.models import Submission, SubmissionStatus
 from apps.notifications.models import Notification, Status
 from apps.scheduling.models import LessonStatus
@@ -68,19 +69,31 @@ def teacher_nav(user):
     ]
 
 
+def _school_items(include_staff):
+    """Разделы CRM. Состав сотрудников — только владелице."""
+    new_leads = Lead.objects.filter(status=LeadStatus.NEW).count()
+    items = [
+        ("cabinet:crm_home", "Сводка", "i-chart", 0),
+        ("cabinet:crm_leads", "Заявки", "i-inbox", new_leads),
+        ("cabinet:crm_students", "Ученики", "i-users", 0),
+        ("cabinet:crm_payments", "Платежи и долги", "i-card", 0),
+        ("cabinet:crm_groups", "Группы", "i-calendar", 0),
+    ]
+    if include_staff:
+        items.append(("cabinet:crm_staff", "Сотрудники", "i-user", 0))
+    return items
+
+
+def admin_nav(user):
+    """Администратор ведёт школу, но не преподаёт и не видит зарплат."""
+    return [("Школа", _school_items(include_staff=False)), _account_group(user)]
+
+
 def owner_nav(user):
     """The owner runs the school *and* teaches, so she gets both toolsets —
     business first, her own lessons second."""
-    new_leads = Lead.objects.filter(status=LeadStatus.NEW).count()
     return [
-        ("Школа", [
-            ("cabinet:crm_home", "Сводка", "i-chart", 0),
-            ("cabinet:crm_leads", "Заявки", "i-inbox", new_leads),
-            ("cabinet:crm_students", "Ученики", "i-users", 0),
-            ("cabinet:crm_payments", "Платежи и долги", "i-card", 0),
-            ("cabinet:crm_groups", "Группы", "i-calendar", 0),
-            ("cabinet:crm_staff", "Преподаватели", "i-user", 0),
-        ]),
+        ("Школа", _school_items(include_staff=True)),
         ("Моё преподавание", _teaching_items(user)),
         _account_group(user),
     ]
@@ -89,6 +102,8 @@ def owner_nav(user):
 def nav_for(user):
     if user.is_owner:
         return owner_nav(user)
+    if user.role == Role.ADMIN:
+        return admin_nav(user)
     if user.is_teacher:
         return teacher_nav(user)
     return student_nav(user)

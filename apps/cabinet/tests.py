@@ -357,3 +357,52 @@ class ProfilePageTests(CabinetFixture):
                 self.assertTrue(response.context["nav_groups"], "боковое меню пустое")
                 self.assertContains(response, expected)
                 self.assertContains(response, reverse("cabinet:home"))
+
+
+class AdminRoleTests(CabinetFixture):
+    """Администратор ведёт заявки и учеников, но не распоряжается
+    сотрудниками и не видит их зарплат."""
+
+    CRM_DAILY = ["cabinet:crm_home", "cabinet:crm_leads", "cabinet:crm_students",
+                 "cabinet:crm_payments", "cabinet:crm_groups"]
+
+    def setUp(self):
+        super().setUp()
+        self.admin = User.objects.create_user(
+            email="admin@x.ru", password="pass12345", first_name="Ольга", role=Role.ADMIN
+        )
+        self.client.force_login(self.admin)
+
+    def test_admin_can_run_the_daily_crm(self):
+        for name in self.CRM_DAILY:
+            with self.subTest(page=name):
+                self.assertEqual(self.client.get(reverse(name)).status_code, 200)
+
+    def test_admin_cannot_reach_staff_or_payroll(self):
+        self.assertEqual(self.client.get(reverse("cabinet:crm_staff")).status_code, 403)
+
+    def test_admin_cannot_reach_teaching_pages(self):
+        for name in ["cabinet:teacher_home", "cabinet:teacher_review"]:
+            with self.subTest(page=name):
+                self.assertEqual(self.client.get(reverse(name)).status_code, 403)
+
+    def test_admin_lands_in_the_crm(self):
+        response = self.client.get(reverse("cabinet:home"), follow=True)
+        self.assertEqual(response.redirect_chain[-1][0], reverse("cabinet:crm_home"))
+
+    def test_admin_sidebar_hides_staff(self):
+        response = self.client.get(reverse("cabinet:crm_home"))
+        links = [item[0] for _, items in response.context["nav_groups"] for item in items]
+        self.assertIn("cabinet:crm_leads", links)
+        self.assertNotIn("cabinet:crm_staff", links)
+
+    def test_new_leads_reach_admins_too(self):
+        from apps.school.views import _alert_staff_about
+
+        lead = Lead.objects.create(name="Пётр", phone="+79130005566")
+        _alert_staff_about(lead)
+        self.assertTrue(
+            Notification.objects.filter(
+                recipient=self.admin, kind=NotificationKind.NEW_LEAD
+            ).exists()
+        )

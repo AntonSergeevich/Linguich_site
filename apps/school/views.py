@@ -186,7 +186,9 @@ def _stamp_origin(lead, request):
 
 
 def _alert_staff_about(lead):
-    staff = User.objects.filter(role=Role.OWNER, is_active=True)
+    # Администраторы разбирают заявки наравне с владелицей — им тоже
+    # должно прилетать, иначе смысл роли теряется.
+    staff = User.objects.filter(role__in=[Role.OWNER, Role.ADMIN], is_active=True)
     notify_many(
         staff,
         kind=NotificationKind.NEW_LEAD,

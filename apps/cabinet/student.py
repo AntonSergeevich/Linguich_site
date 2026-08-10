@@ -342,7 +342,7 @@ def notifications(request):
 @login_required
 def home_redirect(request):
     """Single /cabinet/ entry point that lands each role where it belongs."""
-    if request.user.is_owner:
+    if request.user.is_manager:
         return redirect("cabinet:crm_home")
     if request.user.is_teacher:
         return redirect("cabinet:teacher_home")

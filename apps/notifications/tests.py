@@ -9,7 +9,7 @@ from django.utils import timezone
 from apps.accounts.models import Role, User
 
 from .models import Channel, Notification, NotificationKind, Status
-from .services import channels_for, flush, notify
+from .services import channels_for, flush, notify, notify_many
 
 
 class ChannelSelectionTests(TestCase):
@@ -108,3 +108,39 @@ class QueueTests(TestCase):
 
         Notification.objects.update(read_at=timezone.now())
         self.assertEqual(unread_count(self.user), 0)
+
+
+class DedupeKeyTests(TestCase):
+    """Регрессия: ключ дедупликации не включал получателя, и одно событие
+    на нескольких адресатов доходило только до первого."""
+
+    def setUp(self):
+        self.first = User.objects.create_user(
+            email="one@x.ru", first_name="Мария", role=Role.OWNER
+        )
+        self.second = User.objects.create_user(
+            email="two@x.ru", first_name="Ольга", role=Role.ADMIN
+        )
+
+    def test_one_event_reaches_every_recipient(self):
+        notify_many(
+            [self.first, self.second],
+            kind=NotificationKind.NEW_LEAD, subject="Новая заявка",
+            body="Пётр", dedupe_key="lead:1",
+        )
+        for user in (self.first, self.second):
+            with self.subTest(user=user.email):
+                self.assertTrue(
+                    Notification.objects.filter(recipient=user, channel=Channel.INAPP).exists()
+                )
+
+    def test_repeating_the_same_event_still_does_not_duplicate(self):
+        for _ in range(3):
+            notify_many(
+                [self.first, self.second],
+                kind=NotificationKind.NEW_LEAD, subject="Новая заявка",
+                body="Пётр", dedupe_key="lead:1",
+            )
+        self.assertEqual(
+            Notification.objects.filter(recipient=self.first, channel=Channel.INAPP).count(), 1
+        )

@@ -69,12 +69,28 @@ def teacher_required(view):
 
 
 def owner_required(view):
+    """Только владелица: зарплаты, состав сотрудников, настройки школы."""
+
     @wraps(view)
     def wrapper(request, *args, **kwargs):
         if not request.user.is_authenticated:
             return redirect(f"/accounts/login/?next={request.path}")
         if not request.user.is_owner:
             raise PermissionDenied("Раздел только для владельца школы.")
+        return view(request, *args, **kwargs)
+
+    return wrapper
+
+
+def manager_required(view):
+    """Администраторы и владелица — повседневная работа CRM."""
+
+    @wraps(view)
+    def wrapper(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return redirect(f"/accounts/login/?next={request.path}")
+        if not request.user.is_manager:
+            raise PermissionDenied("Раздел только для администраторов школы.")
         return view(request, *args, **kwargs)
 
     return wrapper
