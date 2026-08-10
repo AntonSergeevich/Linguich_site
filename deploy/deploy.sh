@@ -7,6 +7,21 @@ APP_DIR="/srv/linguich"
 VENV="$APP_DIR/.venv"
 SERVICE="linguich"
 
+# От root выкатка ломает установку тихо и надолго: git ругается на чужого
+# владельца репозитория, а collectstatic и __pycache__ создают файлы,
+# принадлежащие root, — служба потом не может их перезаписать.
+if [ "$(id -u)" -eq 0 ]; then
+    cat >&2 <<'MSG'
+!! Выкатку запускают от пользователя linguich, а не от root.
+
+   sudo -u linguich -H bash -c 'cd /srv/linguich && ./deploy/deploy.sh'
+
+   Если что-то уже запускалось от root, сначала верните владение:
+   chown -R linguich:linguich /srv/linguich
+MSG
+    exit 1
+fi
+
 cd "$APP_DIR"
 
 echo "==> Забираем изменения"

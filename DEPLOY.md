@@ -265,12 +265,23 @@ cd /srv/linguich && sudo -u linguich .venv/bin/python manage.py check --deploy
 
 ## 10. Обновления
 
-Дальше выкатка — одна команда:
+Дальше выкатка — одна команда, **от пользователя `linguich`**:
 
 ```bash
 ssh linguich@ВАШ_IP
 cd /srv/linguich && ./deploy/deploy.sh
 ```
+
+Если вы уже в сессии root — переключитесь, а не запускайте так:
+
+```bash
+sudo -u linguich -H bash -c 'cd /srv/linguich && ./deploy/deploy.sh'
+```
+
+От root выкатка не пройдёт: git откажется работать с репозиторием чужого
+владельца, а `collectstatic` создаст файлы, которые служба потом не сможет
+перезаписать. Скрипт это проверяет и останавливается сам. Если от root уже
+что-то запускалось: `chown -R linguich:linguich /srv/linguich`.
 
 Скрипт забирает изменения, ставит зависимости, прогоняет `check --deploy`,
 делает резервную копию базы, применяет миграции, собирает статику,
