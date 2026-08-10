@@ -141,6 +141,22 @@
   :root:not([data-theme="light"]) .theme-toggle__moon { display: none; }
 }
 
+/* Тот же переключатель в мобильном меню — там он с подписью и во всю
+   ширину, потому что круглая иконка рядом с крупными пунктами теряется. */
+.mobile-menu__theme {
+  display: flex; align-items: center; justify-content: center;
+  gap: var(--s-2);
+}
+.mobile-menu__theme .icon { width: 20px; height: 20px; }
+:root[data-theme="dark"] .theme-toggle__label--light,
+.theme-toggle__label--dark { display: inline; }
+:root[data-theme="dark"] .theme-toggle__label--dark,
+.theme-toggle__label--light { display: none; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .theme-toggle__label--light { display: inline; }
+  :root:not([data-theme="light"]) .theme-toggle__label--dark { display: none; }
+}
+
 /* --- Hero -------------------------------------------------------------- */
 .hero {
   position: relative;

@@ -90,11 +90,17 @@ def profile_view(request):
         if is_ajax(request):
             return json_form_error(profile_form)
 
-    return render(request, "cabinet/profile.html", {
-        "form": profile_form,
-        "details_form": details_form,
-        "password_form": PasswordChangeForm(request.user),
-    })
+    # cabinet_context даёт боковое меню. Без него страница открывалась
+    # с пустой навигацией, и уйти с неё можно было только кнопкой «назад»
+    # в браузере.
+    from apps.cabinet.common import cabinet_context
+
+    return render(request, "cabinet/profile.html", cabinet_context(
+        request,
+        form=profile_form,
+        details_form=details_form,
+        password_form=PasswordChangeForm(request.user),
+    ))
 
 
 @login_required

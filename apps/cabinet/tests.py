@@ -334,3 +334,26 @@ class StudentCabinetTests(CabinetFixture):
         self.assertEqual(block["done"], 1)
         self.assertEqual(block["total"], 2)
         self.assertEqual(block["percent"], 50)
+
+
+class ProfilePageTests(CabinetFixture):
+    """Профиль живёт в accounts, а шаблон наследует кабинетный каркас.
+
+    Регрессия: страница рендерилась без cabinet_context, боковое меню
+    оказывалось пустым, и уйти с профиля можно было только кнопкой
+    «назад» в браузере.
+    """
+
+    def test_sidebar_navigation_is_present_for_every_role(self):
+        for user, expected in (
+            (self.student, "Расписание"),
+            (self.teacher, "Проверка работ"),
+            (self.owner, "Заявки"),
+        ):
+            with self.subTest(role=user.role):
+                self.client.force_login(user)
+                response = self.client.get(reverse("accounts:profile"))
+                self.assertEqual(response.status_code, 200)
+                self.assertTrue(response.context["nav_groups"], "боковое меню пустое")
+                self.assertContains(response, expected)
+                self.assertContains(response, reverse("cabinet:home"))

@@ -1,5 +1,11 @@
 {% extends 'cabinet/base.html' %}
 {% block page_title %}Профиль{% endblock %}
+{% block page_actions %}
+  <a class="btn btn--ghost btn--sm" href="{% url 'cabinet:home' %}">
+    <svg class="icon icon--sm"><use href="#i-arrow-left"/></svg>
+    <span>В кабинет</span>
+  </a>
+{% endblock %}
 
 {% block cabinet %}
 <div class="grid grid-2" style="align-items:start">

@@ -67,5 +67,15 @@
       <a class="btn btn--ghost btn--block" href="{% url 'accounts:login' %}">Войти в кабинет</a>
     {% endif %}
     <a class="btn btn--ghost btn--block" href="tel:{{ site.phone }}">{{ site.phone }}</a>
+    {% comment %}
+      Кнопка темы в шапке живёт в блоке, который на телефоне скрыт, —
+      без этой копии сменить тему с мобильного было нельзя вообще.
+    {% endcomment %}
+    <button class="btn btn--quiet btn--block mobile-menu__theme" data-theme-toggle type="button">
+      <svg class="icon theme-toggle__sun"><use href="#i-sun"/></svg>
+      <svg class="icon theme-toggle__moon"><use href="#i-moon"/></svg>
+      <span class="theme-toggle__label--light">Светлая тема</span>
+      <span class="theme-toggle__label--dark">Тёмная тема</span>
+    </button>
   </div>
 </div>
