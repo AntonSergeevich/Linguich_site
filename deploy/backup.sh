@@ -7,13 +7,18 @@ cd "$APP_DIR"
 mkdir -p backups
 
 # Пароль читаем из .env: в командной строке он был бы виден всем через ps.
-set -a; . "$APP_DIR/.env"; set +a
+# Именно построчным разбором, а не `. .env` — значения в файле не
+# экранированы под шелл, и SECRET_KEY со скобками рушил весь скрипт.
+source "$APP_DIR/deploy/env_value.sh"
+DB_NAME=$(env_value POSTGRES_DB "$APP_DIR/.env")
+DB_USER=$(env_value POSTGRES_USER "$APP_DIR/.env")
+DB_HOST=$(env_value POSTGRES_HOST "$APP_DIR/.env")
 
 STAMP=$(date +%Y%m%d)
-PGPASSWORD="$POSTGRES_PASSWORD" pg_dump \
-    -h "${POSTGRES_HOST:-localhost}" \
-    -U "$POSTGRES_USER" \
-    "$POSTGRES_DB" \
+PGPASSWORD="$(env_value POSTGRES_PASSWORD "$APP_DIR/.env")" pg_dump \
+    -h "${DB_HOST:-localhost}" \
+    -U "${DB_USER:-linguich}" \
+    "${DB_NAME:-linguich}" \
     | gzip > "backups/nightly-$STAMP.sql.gz"
 
 # Пустой дамп означает, что что-то пошло не так, — такой файл лучше убрать,

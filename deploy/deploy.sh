@@ -38,10 +38,21 @@ echo "==> Резервная копия базы"
 mkdir -p "$APP_DIR/backups"
 STAMP=$(date +%Y%m%d-%H%M%S)
 # Пароль берём из .env, чтобы не светить его в списке процессов.
-set -a; . "$APP_DIR/.env"; set +a
-PGPASSWORD="$POSTGRES_PASSWORD" pg_dump \
-    -h "${POSTGRES_HOST:-localhost}" -U "$POSTGRES_USER" "$POSTGRES_DB" \
+# Читаем через env_value, а не через `. .env`: значения там не экранированы
+# под шелл, и SECRET_KEY со скобками обрывал выкатку до миграций.
+source "$APP_DIR/deploy/env_value.sh"
+DB_NAME=$(env_value POSTGRES_DB "$APP_DIR/.env")
+DB_USER=$(env_value POSTGRES_USER "$APP_DIR/.env")
+DB_HOST=$(env_value POSTGRES_HOST "$APP_DIR/.env")
+PGPASSWORD="$(env_value POSTGRES_PASSWORD "$APP_DIR/.env")" pg_dump \
+    -h "${DB_HOST:-localhost}" -U "${DB_USER:-linguich}" "${DB_NAME:-linguich}" \
     | gzip > "$APP_DIR/backups/db-$STAMP.sql.gz"
+
+if [ ! -s "$APP_DIR/backups/db-$STAMP.sql.gz" ]; then
+    echo "!! Резервная копия пустая — выкатку останавливаю, чтобы было куда откатиться." >&2
+    rm -f "$APP_DIR/backups/db-$STAMP.sql.gz"
+    exit 1
+fi
 # Держим последние 30 копий.
 ls -1t "$APP_DIR/backups"/*.sql.gz 2>/dev/null | tail -n +31 | xargs -r rm --
 

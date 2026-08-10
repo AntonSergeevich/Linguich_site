@@ -339,6 +339,8 @@ sudo -u linguich psql linguich -c "\dt+"          # размер таблиц
 | CSRF verification failed | `DJANGO_CSRF_TRUSTED_ORIGINS` без `https://` |
 | Статика без стилей | 403 в `linguich.error.log` → `chmod 711 /srv/linguich`; иначе `collectstatic` |
 | Письма не уходят | пароль приложения, а не от почты; `From` = `EMAIL_HOST_USER`; `logs/cron.log` |
+| `syntax error` при выкатке | старый `deploy.sh` подключал `.env` шеллом; обновите репозиторий |
+| `column ... does not exist` | выкатка оборвалась до миграций — запустите `deploy.sh` заново |
 | Напоминания молчат | `sudo -u linguich crontab -l`, затем `logs/cron.log` |
 | Не грузятся файлы домашек | права на `/srv/linguich/media/`, `client_max_body_size` |
 
