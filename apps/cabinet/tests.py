@@ -1,10 +1,12 @@
 """Кабинеты: разграничение доступа и сквозные сценарии обучения."""
 
 import json
+import re
 from datetime import timedelta
 from decimal import Decimal
 
-from django.test import TestCase
+from django.conf import settings
+from django.test import SimpleTestCase, TestCase
 from django.urls import reverse
 from django.utils import timezone
 
@@ -744,3 +746,36 @@ class StaffEditingTests(CabinetFixture):
         self.assertIn('data-setheadline="Английский"', html)
         # У владелицы кнопки правки нет: роль и доступ она себе не меняет.
         self.assertNotIn(reverse("cabinet:crm_staff_update", args=[self.owner.pk]), html)
+
+
+class FormPropertyShadowingTests(SimpleTestCase):
+    """Поля формы становятся её свойствами по атрибуту name.
+
+    Из-за этого <select name="method"> подменял form.method самим элементом
+    («options.method.toUpperCase is not a function» при внесении платежа),
+    а кнопки name="action" превращали form.action в список узлов — запрос
+    улетал не по тому адресу и работа тихо не сохранялась.
+
+    Автоматической проверки JS в проекте нет, поэтому стережём исходник:
+    адрес и метод формы читаются только через getAttribute.
+    """
+
+    def code(self):
+        """Исходник без комментариев: пояснения к правилу сами упоминают
+        form.action и form.method, и проверка ловила бы их."""
+        source = (settings.BASE_DIR / "static" / "js" / "app.js").read_text(encoding="utf-8")
+        source = re.sub(r"/\*.*?\*/", "", source, flags=re.S)
+        return re.sub(r"//[^\n]*", "", source)
+
+    def test_form_action_and_method_are_read_as_attributes(self):
+        found = re.findall(r"\bform\.(action|method)\b", self.code())
+        if found:
+            self.fail(
+                f"form.{found[0]} читается как свойство — его подменит поле формы "
+                f"с таким же name. Нужен getAttribute или setAttribute."
+            )
+
+    def test_the_safe_form_is_actually_used(self):
+        code = self.code()
+        self.assertIn('form.getAttribute("action")', code)
+        self.assertIn('form.getAttribute("method")', code)

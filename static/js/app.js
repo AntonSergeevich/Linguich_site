@@ -91,8 +91,14 @@
           if (event.submitter && event.submitter.name && !body.has(event.submitter.name)) {
             body.append(event.submitter.name, event.submitter.value);
           }
-          const data = await api(form.action || location.pathname, {
-            method: form.method || "POST",
+          // Только getAttribute. Поля формы становятся её свойствами по
+          // атрибуту name, поэтому select с именем «метод» подменяет одно
+          // свойство самим элементом, а кнопки с именем «действие» — другое
+          // списком узлов. Отсюда «options.method.toUpperCase is not a
+          // function» при внесении платежа и молчаливый промах мимо адреса
+          // при проверке домашней работы.
+          const data = await api(form.getAttribute("action") || location.pathname, {
+            method: form.getAttribute("method") || "POST",
             body: body,
           });
           if (data.redirect) { location.href = data.redirect; return; }
@@ -259,7 +265,9 @@
         // иначе пришлось бы печатать её копию для каждого сотрудника.
         if (trigger.dataset.formAction) {
           const form = modal.querySelector("form");
-          if (form) form.action = trigger.dataset.formAction;
+          // setAttribute, а не присваивание свойству: оно ломается ровно
+          // так же, если в форме есть поле с именем «действие».
+          if (form) form.setAttribute("action", trigger.dataset.formAction);
         }
         const first = modal.querySelector("input, textarea, select, button");
         if (first) first.focus();
