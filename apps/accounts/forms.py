@@ -1,3 +1,5 @@
+import re
+
 from django import forms
 from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
@@ -85,8 +87,31 @@ class ProfileForm(forms.ModelForm):
     class Meta:
         model = User
         fields = ["first_name", "last_name", "email", "phone", "avatar", "timezone",
-                  "notify_email", "notify_telegram"]
-        widgets = {"phone": PhoneInput}
+                  "telegram_chat_id", "notify_email", "notify_telegram"]
+        widgets = {
+            "phone": PhoneInput,
+            "telegram_chat_id": forms.TextInput(attrs={
+                "inputmode": "numeric", "placeholder": "например 123456789", "autocomplete": "off",
+            }),
+        }
+
+    def clean_telegram_chat_id(self):
+        """Chat ID — только цифры (у групп ещё и минус впереди).
+
+        Люди по привычке вписывают сюда @имя_пользователя, а Bot API по имени
+        писать не умеет: он принимает исключительно числовой идентификатор.
+        Молча сохранить такое — значит получить канал, который никогда не
+        сработает, и искать причину потом неделю.
+        """
+        raw = (self.cleaned_data.get("telegram_chat_id") or "").strip()
+        if not raw:
+            return ""
+        if raw.startswith("@") or not re.fullmatch(r"-?\d{5,20}", raw):
+            raise ValidationError(
+                "Нужен числовой ID, а не имя пользователя. Узнать свой: "
+                "напишите боту @userinfobot — он ответит числом."
+            )
+        return raw
 
     def clean_phone(self):
         phone = normalize_phone(self.cleaned_data.get("phone"))

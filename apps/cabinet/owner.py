@@ -1,4 +1,5 @@
 import json
+import re
 from datetime import date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 
@@ -731,6 +732,13 @@ def staff_update(request, pk):
     for field in ("first_name", "last_name"):
         if field in data:
             setattr(member, field, str(data[field]).strip())
+    if "telegram_chat_id" in data:
+        chat_id = str(data["telegram_chat_id"]).strip()
+        # Bot API умеет писать только по числовому ID: имя вида @user он
+        # не примет, и канал молча останется мёртвым.
+        if chat_id and not re.fullmatch(r"-?\d{5,20}", chat_id):
+            return json_error("Telegram ID — это число, а не имя пользователя.")
+        member.telegram_chat_id = chat_id
     if data.get("role") in {Role.TEACHER, Role.ADMIN} and not member.is_owner:
         member.role = data["role"]
     member.save()

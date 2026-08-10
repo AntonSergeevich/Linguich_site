@@ -20,6 +20,11 @@
         <label class="field"><span class="label">Email</span>{{ form.email }}</label>
         <label class="field"><span class="label">Телефон</span>{{ form.phone }}</label>
         <label class="field"><span class="label">Часовой пояс</span>{{ form.timezone }}</label>
+        <label class="field"><span class="label">Telegram ID</span>
+          {{ form.telegram_chat_id }}
+          {% if form.telegram_chat_id.errors %}<span class="error">{{ form.telegram_chat_id.errors.0 }}</span>{% endif %}
+          <span class="tiny muted">Числовой ID, его выдаёт бот @userinfobot</span>
+        </label>
         <label class="field"><span class="label">Фото</span>{{ form.avatar }}</label>
       </div>
 
@@ -46,17 +51,48 @@
       {% if request.user.telegram_chat_id %}
         <div class="alert alert--ok">
           <svg class="icon icon--lg"><use href="#i-check"/></svg>
-          <div><strong>Telegram подключён</strong>Напоминания об уроках приходят мгновенно.</div>
+          <div><strong>Telegram подключён</strong>
+            ID <code>{{ request.user.telegram_chat_id }}</code>. Напоминания приходят мгновенно.</div>
         </div>
-        <button class="btn btn--ghost btn--sm mt-4"
-                data-action="{% url 'accounts:unlink_telegram' %}" data-reload
-                data-confirm="Отключить Telegram-уведомления?">Отвязать</button>
+        <div class="row mt-4" style="gap:var(--s-2)">
+          <button class="btn btn--soft btn--sm" data-action="{% url 'accounts:telegram_test' %}">
+            <svg class="icon icon--sm"><use href="#i-telegram"/></svg>
+            <span>Отправить проверку</span>
+          </button>
+          <button class="btn btn--ghost btn--sm"
+                  data-action="{% url 'accounts:unlink_telegram' %}" data-reload
+                  data-confirm="Отключить Telegram-уведомления?">Отвязать</button>
+        </div>
       {% else %}
         <p class="muted tiny">Подключите бота — напоминание об уроке придёт за сутки и за час,
           и вы точно ничего не пропустите.</p>
-        <a class="btn btn--soft" href="{{ request.user.telegram_link_url }}" target="_blank" rel="noopener">
-          Подключить Telegram
+
+        <a class="btn btn--soft btn--block" href="{{ request.user.telegram_link_url }}"
+           target="_blank" rel="noopener">
+          <svg class="icon icon--sm"><use href="#i-telegram"/></svg>
+          <span>Открыть бота и подключить</span>
         </a>
+
+        {% comment %}
+          Кнопка выше работает, только если бот умеет обрабатывать «/start код».
+          Пока он этого не умеет, привязать аккаунт нечем — поэтому рядом
+          ручной ввод. Это же нужно, когда доступ настраивает администратор.
+        {% endcomment %}
+        <details class="mt-4">
+          <summary class="tiny muted" style="cursor:pointer">Кнопка не сработала — ввести ID вручную</summary>
+          <div class="stack mt-3">
+            <p class="tiny muted mb-0">
+              Напишите боту <strong>@userinfobot</strong> — он ответит вашим числовым ID.
+              Впишите это число в поле «Telegram ID» слева и сохраните профиль.
+              Затем откройте <strong>@{{ bot_username|default:"бота школы" }}</strong>
+              и нажмите «Start» — без этого бот не имеет права написать вам первым.
+            </p>
+            <p class="tiny muted mb-0">
+              Код для привязки через бота, если он её поддерживает:
+              <code>/start {{ request.user.ensure_telegram_code }}</code>
+            </p>
+          </div>
+        </details>
       {% endif %}
     </div>
 

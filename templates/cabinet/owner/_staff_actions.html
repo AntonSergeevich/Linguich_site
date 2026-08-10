@@ -12,6 +12,7 @@
             data-setrole="{{ member.role }}"
             data-setpay_rate="{{ member.teacher_profile.pay_rate|default_if_none:0|floatformat:0 }}"
             data-setheadline="{{ member.teacher_profile.headline|default:'' }}"
+            data-settelegram_chat_id="{{ member.telegram_chat_id }}"
             data-setwho="{{ member.full_name }}">
       <svg class="icon icon--sm"><use href="#i-edit"/></svg>
     </button>

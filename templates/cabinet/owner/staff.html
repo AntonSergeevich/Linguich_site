@@ -169,8 +169,13 @@
           </select></label>
         <label class="field"><span class="label">Ставка за урок, ₽</span>
           <input type="text" name="pay_rate" inputmode="decimal"></label>
-        <label class="field field--full"><span class="label">Специализация</span>
+        <label class="field"><span class="label">Специализация</span>
           <input type="text" name="headline"></label>
+        <label class="field"><span class="label">Telegram ID</span>
+          <input type="text" name="telegram_chat_id" inputmode="numeric"
+                 placeholder="например 123456789">
+          <span class="tiny muted">Числовой ID из @userinfobot — туда пойдут уведомления</span>
+        </label>
       </div>
       <p class="tiny muted">Ставка и специализация действуют только для преподавателей.</p>
       <button class="btn btn--block mt-3" type="submit">Сохранить</button>

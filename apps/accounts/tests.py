@@ -1,5 +1,7 @@
 """Вход по email или телефону, регистрация, привязка Telegram."""
 
+from unittest import mock
+
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
@@ -395,3 +397,105 @@ class LoginPageTests(TestCase):
     def test_field_mentions_the_issued_login(self):
         """Ученику диктуют логин — он должен понимать, что вводить."""
         self.assertContains(self.client.get(reverse("accounts:login")), "Логин, email или телефон")
+
+
+class TelegramManualSetupTests(TestCase):
+    """Кнопка «Подключить Telegram» работает, только если бот умеет
+    обрабатывать «/start код». Пока не умеет — ID вписывают руками,
+    и этот путь обязан быть рабочим и защищённым от опечаток."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email="jane@x.ru", password="pass12345", first_name="Евгения", role=Role.OWNER
+        )
+        self.client.force_login(self.user)
+
+    def save_profile(self, chat_id):
+        return self.client.post(reverse("accounts:profile"), {
+            "first_name": "Евгения", "last_name": "", "email": "jane@x.ru",
+            "phone": "", "timezone": "Asia/Krasnoyarsk", "telegram_chat_id": chat_id,
+        })
+
+    def test_numeric_id_is_saved(self):
+        self.save_profile("123456789")
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.telegram_chat_id, "123456789")
+
+    def test_username_is_refused_with_a_useful_message(self):
+        """Bot API по @имени писать не умеет — сохранить это значит
+        получить канал, который молча никогда не сработает."""
+        response = self.save_profile("@linguich_jane")
+        self.assertContains(response, "числовой ID")
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.telegram_chat_id, "")
+
+    def test_letters_are_refused(self):
+        self.save_profile("не помню")
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.telegram_chat_id, "")
+
+    def test_group_id_with_a_minus_is_allowed(self):
+        self.save_profile("-1001234567890")
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.telegram_chat_id, "-1001234567890")
+
+    def test_clearing_the_field_unlinks(self):
+        self.user.telegram_chat_id = "123456789"
+        self.user.save(update_fields=["telegram_chat_id"])
+        self.save_profile("")
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.telegram_chat_id, "")
+
+    def test_profile_offers_the_manual_path(self):
+        html = self.client.get(reverse("accounts:profile")).content.decode()
+        self.assertIn("userinfobot", html)
+        self.assertIn('name="telegram_chat_id"', html)
+
+
+@override_settings(TELEGRAM_BOT_TOKEN="test-token")
+class TelegramTestSendTests(TestCase):
+    """Проверочная отправка. Без неё об ошибке в chat_id узнают в тот день,
+    когда не пришло напоминание об уроке."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email="jane@x.ru", password="pass12345", first_name="Евгения", role=Role.OWNER
+        )
+        self.client.force_login(self.user)
+
+    def call(self):
+        return self.client.post(reverse("accounts:telegram_test"))
+
+    def test_without_an_id_it_says_what_to_do(self):
+        response = self.call()
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("Telegram ID", response.json()["error"])
+
+    def test_successful_send(self):
+        self.user.telegram_chat_id = "123456789"
+        self.user.save(update_fields=["telegram_chat_id"])
+        with mock.patch("apps.notifications.services._deliver_telegram", return_value=True):
+            response = self.call()
+        self.assertEqual(response.status_code, 200)
+
+    def test_blocked_bot_is_explained_in_plain_words(self):
+        """«403» само по себе человеку ничего не говорит."""
+        self.user.telegram_chat_id = "123456789"
+        self.user.save(update_fields=["telegram_chat_id"])
+        with mock.patch("apps.notifications.services._deliver_telegram",
+                        side_effect=Exception("HTTP Error 403: Forbidden")):
+            response = self.call()
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("Start", response.json()["error"])
+
+    def test_wrong_chat_id_is_explained(self):
+        self.user.telegram_chat_id = "999999999"
+        self.user.save(update_fields=["telegram_chat_id"])
+        with mock.patch("apps.notifications.services._deliver_telegram",
+                        side_effect=Exception("HTTP Error 400: Bad Request")):
+            response = self.call()
+        self.assertIn("userinfobot", response.json()["error"])
+
+    def test_a_stranger_cannot_probe_the_endpoint(self):
+        self.client.logout()
+        self.assertEqual(self.call().status_code, 302)

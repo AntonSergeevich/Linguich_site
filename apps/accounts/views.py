@@ -113,6 +113,7 @@ def profile_view(request):
         form=profile_form,
         details_form=details_form,
         password_form=PasswordChangeForm(request.user),
+        bot_username=getattr(settings, "TELEGRAM_BOT_USERNAME", ""),
     ))
 
 
@@ -155,6 +156,50 @@ def set_password(request):
             return redirect("cabinet:home")
 
     return render(request, "registration/set_password.html", {"form": form})
+
+
+@login_required
+@require_POST
+def telegram_test(request):
+    """Отправить себе проверочное сообщение прямо сейчас, минуя очередь.
+
+    Chat ID вписывают руками и легко ошибаются: чужой номер, ID канала
+    вместо личного чата, не нажатый «Start». Без немедленной проверки об
+    ошибке узнают в день, когда не пришло напоминание об уроке.
+    """
+    from apps.notifications.models import Channel, Notification
+    from apps.notifications.services import _deliver_telegram
+
+    if not request.user.telegram_chat_id:
+        return json_error("Сначала укажите Telegram ID и сохраните профиль.")
+
+    # Объект намеренно не сохраняем: это разовая проверка канала,
+    # в истории уведомлений ей не место.
+    probe = Notification(
+        recipient=request.user, channel=Channel.TELEGRAM,
+        subject="Проверка связи",
+        body="Если вы это видите — уведомления школы будут приходить сюда.",
+    )
+    try:
+        delivered = _deliver_telegram(probe)
+    except Exception as exc:
+        return json_error(_telegram_hint(exc))
+    if not delivered:
+        return json_error("Не настроен токен бота — обратитесь к разработчику.")
+    return json_ok("Отправили сообщение в Telegram. Проверьте бота.")
+
+
+def _telegram_hint(error):
+    """Ответы Telegram лаконичны до бесполезности — переводим их в действие."""
+    text = str(error)
+    if "403" in text:
+        return ("Бот не может написать вам первым. Откройте бота в Telegram "
+                "и нажмите «Start», затем повторите проверку.")
+    if "400" in text:
+        return "Telegram не знает такой chat_id. Проверьте число — его выдаёт @userinfobot."
+    if "401" in text:
+        return "Токен бота неверный — обратитесь к разработчику."
+    return f"Telegram ответил ошибкой: {text}"
 
 
 @login_required
