@@ -98,7 +98,7 @@
           if (data.redirect) { location.href = data.redirect; return; }
           if (data.replace) {
             const target = document.querySelector(form.dataset.target || "");
-            if (target) { target.outerHTML = data.replace; bindAsyncForms(document); }
+            if (target) { target.outerHTML = data.replace; bindAsyncForms(document); initPhoneInputs(document); }
           }
           if (form.dataset.successHtml) {
             const box = document.querySelector(form.dataset.successHtml);
@@ -149,7 +149,7 @@
           if (el.dataset.reload !== undefined) { location.reload(); return; }
           if (data.replace && el.dataset.target) {
             const target = document.querySelector(el.dataset.target);
-            if (target) { target.outerHTML = data.replace; bindActions(document); bindAsyncForms(document); }
+            if (target) { target.outerHTML = data.replace; bindActions(document); bindAsyncForms(document); initPhoneInputs(document); }
           }
           if (el.dataset.remove !== undefined) {
             const node = el.closest(el.dataset.remove || "*");
@@ -306,22 +306,100 @@
   }
 
   // --- Phone mask --------------------------------------------------------
-  function initPhoneInputs() {
-    document.querySelectorAll('input[type="tel"]').forEach(function (input) {
-      input.addEventListener("input", function () {
-        let digits = input.value.replace(/\D/g, "");
-        if (digits.startsWith("8")) digits = "7" + digits.slice(1);
-        if (!digits.startsWith("7")) digits = "7" + digits;
-        digits = digits.slice(0, 11);
-        const parts = ["+7"];
-        if (digits.length > 1) parts.push(" (" + digits.slice(1, 4));
-        if (digits.length >= 5) parts.push(") " + digits.slice(4, 7));
-        if (digits.length >= 8) parts.push("-" + digits.slice(7, 9));
-        if (digits.length >= 10) parts.push("-" + digits.slice(9, 11));
-        input.value = parts.join("");
+  // Школа российская, номер всегда +7. Что бы человек ни начал набирать —
+  // 8, +7 или сразу 9 — на выходе один формат: +7 (999) 123-45-67.
+  const isDigit = function (ch) { return ch >= "0" && ch <= "9"; };
+  const digitsOf = function (value) { return (value || "").replace(/\D/g, ""); };
+
+  function phoneDigits(value) {
+    let d = digitsOf(value);
+    if (!d) return "";
+    // 8 — это тот же код страны на старый лад, а любую другую первую цифру
+    // считаем началом самого номера и дописываем семёрку перед ней.
+    if (d[0] === "8") d = "7" + d.slice(1);
+    else if (d[0] !== "7") d = "7" + d;
+    return d.slice(0, 11);
+  }
+
+  function phoneFormat(d) {
+    if (!d) return "";
+    let out = "+7";
+    if (d.length > 1) out += " (" + d.slice(1, 4);
+    if (d.length >= 5) out += ") " + d.slice(4, 7);
+    if (d.length >= 8) out += "-" + d.slice(7, 9);
+    if (d.length >= 10) out += "-" + d.slice(9, 11);
+    return out;
+  }
+
+  // Каретку держим не по номеру символа, а по количеству цифр слева от неё:
+  // разделители появляются и исчезают, а цифры — единственный устойчивый
+  // ориентир. Без этого курсор прыгает в конец на каждом нажатии.
+  function caretForDigits(formatted, wanted, skipSeparators) {
+    let index = 0;
+    let seen = 0;
+    while (index < formatted.length && seen < wanted) {
+      if (isDigit(formatted[index])) seen++;
+      index++;
+    }
+    if (skipSeparators) {
+      while (index < formatted.length && !isDigit(formatted[index])) index++;
+    }
+    return index;
+  }
+
+  function applyPhoneMask(input, movingForward) {
+    const raw = input.value;
+    const caret = input.selectionStart === null ? raw.length : input.selectionStart;
+    const rawDigits = digitsOf(raw);
+    // Если код страны дописали мы, слева от каретки стало на цифру больше.
+    const added = rawDigits && rawDigits[0] !== "7" && rawDigits[0] !== "8" ? 1 : 0;
+    const wanted = digitsOf(raw.slice(0, caret)).length + added;
+
+    const formatted = phoneFormat(phoneDigits(raw));
+    if (formatted !== raw) input.value = formatted;
+    const position = caretForDigits(formatted, wanted, movingForward);
+    try {
+      input.setSelectionRange(position, position);
+    } catch (err) {
+      /* поле может не поддерживать выделение — не страшно */
+    }
+  }
+
+  function initPhoneInputs(scope) {
+    (scope || document).querySelectorAll('input[type="tel"]').forEach(function (input) {
+      if (input.dataset.phoneMask) return;
+      input.dataset.phoneMask = "1";
+
+      // Backspace через разделитель должен стирать цифру, а не упираться
+      // в скобку: иначе номер невозможно исправить, не очистив его целиком.
+      input.addEventListener("keydown", function (event) {
+        if (event.key !== "Backspace") return;
+        const start = input.selectionStart;
+        if (start === null || start !== input.selectionEnd || start === 0) return;
+        let cut = start - 1;
+        while (cut >= 0 && !isDigit(input.value[cut])) cut--;
+        if (cut === start - 1) return; // слева цифра, обычное поведение
+        event.preventDefault();
+        input.value = cut < 0 ? "" : input.value.slice(0, cut) + input.value.slice(start);
+        input.setSelectionRange(Math.max(cut, 0), Math.max(cut, 0));
+        applyPhoneMask(input, false);
       });
+
+      input.addEventListener("input", function (event) {
+        applyPhoneMask(input, event.inputType !== "deleteContentBackward");
+      });
+
       input.addEventListener("focus", function () {
-        if (!input.value) input.value = "+7 (";
+        if (!input.value) {
+          input.value = "+7 ";
+          input.setSelectionRange(input.value.length, input.value.length);
+        }
+      });
+
+      // Пустая заготовка «+7» не должна уходить на сервер как «номер с
+      // опечаткой» — обязательное поле обязано ругаться, что оно пустое.
+      input.addEventListener("blur", function () {
+        if (phoneDigits(input.value).length <= 1) input.value = "";
       });
     });
   }

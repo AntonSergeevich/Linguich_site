@@ -2,6 +2,7 @@ from django import forms
 from django.utils.translation import gettext_lazy as _
 
 from apps.accounts.models import normalize_phone
+from apps.accounts.widgets import PhoneInput
 
 from .models import Course, Language, Lead, LeadSource
 
@@ -22,7 +23,7 @@ class LeadForm(forms.ModelForm):
         fields = ["name", "phone", "email", "message", "language", "course", "preferred_format"]
         widgets = {
             "name": forms.TextInput(attrs={"placeholder": "Как к вам обращаться", "autocomplete": "name"}),
-            "phone": forms.TextInput(attrs={"type": "tel", "placeholder": "+7 (___) ___-__-__", "autocomplete": "tel"}),
+            "phone": PhoneInput,
             "email": forms.EmailInput(attrs={"placeholder": "email (необязательно)", "autocomplete": "email"}),
             "message": forms.Textarea(attrs={"rows": 3, "placeholder": "Что хотите изучать и с какой целью?"}),
         }
@@ -55,7 +56,7 @@ class CallbackForm(forms.Form):
     """Two-field version for the sticky «перезвоните мне» widget."""
 
     name = forms.CharField(max_length=120)
-    phone = forms.CharField(max_length=20)
+    phone = forms.CharField(max_length=20, widget=PhoneInput)
     consent = forms.BooleanField(required=True)
 
     def clean_phone(self):

@@ -199,3 +199,40 @@ class TelegramBotApiTests(TestCase):
     @override_settings(TELEGRAM_LINK_API_KEY="")
     def test_endpoint_is_closed_when_no_key_configured(self):
         self.assertEqual(self.call({"code": self.code, "chat_id": 777}, key="").status_code, 403)
+
+
+class PhoneWidgetTests(TestCase):
+    """Маска в app.js ищет поля по type="tel". Поле, отрендеренное обычным
+    текстовым, тихо остаётся без форматирования — заметить это на глаз в
+    большой форме почти невозможно, поэтому проверяем разметкой."""
+
+    def assertMasked(self, html, field):
+        self.assertIn('type="tel"', html, f"{field}: маска не привяжется")
+        self.assertIn('inputmode="tel"', html, f"{field}: нет цифровой клавиатуры на телефоне")
+
+    def test_registration_phone_is_a_tel_field(self):
+        from .forms import RegistrationForm
+
+        self.assertMasked(str(RegistrationForm()["phone"]), "регистрация")
+
+    def test_profile_phone_is_a_tel_field(self):
+        from .forms import ProfileForm
+
+        self.assertMasked(str(ProfileForm()["phone"]), "профиль")
+
+    def test_parent_phone_is_a_tel_field(self):
+        from .forms import StudentDetailsForm
+
+        self.assertMasked(str(StudentDetailsForm()["parent_phone"]), "телефон родителя")
+
+    def test_public_forms_are_tel_fields(self):
+        from apps.school.forms import CallbackForm, LeadForm
+
+        self.assertMasked(str(LeadForm()["phone"]), "заявка")
+        self.assertMasked(str(CallbackForm()["phone"]), "обратный звонок")
+
+    def test_typed_number_survives_normalisation(self):
+        """То, что отдаёт маска, сервер обязан принять без правок."""
+        from .models import normalize_phone
+
+        self.assertEqual(normalize_phone("+7 (913) 000-11-22"), "+79130001122")

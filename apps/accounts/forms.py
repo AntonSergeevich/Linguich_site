@@ -5,6 +5,7 @@ from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 
 from .models import Role, StudentProfile, User, normalize_phone
+from .widgets import PhoneInput
 
 
 class LoginForm(forms.Form):
@@ -36,7 +37,7 @@ class RegistrationForm(forms.Form):
     first_name = forms.CharField(label=_("Имя"), max_length=80)
     last_name = forms.CharField(label=_("Фамилия"), max_length=80, required=False)
     email = forms.EmailField(label=_("Email"))
-    phone = forms.CharField(label=_("Телефон"), max_length=20)
+    phone = forms.CharField(label=_("Телефон"), max_length=20, widget=PhoneInput)
     password1 = forms.CharField(label=_("Пароль"), widget=forms.PasswordInput)
     password2 = forms.CharField(label=_("Повторите пароль"), widget=forms.PasswordInput)
     consent = forms.BooleanField(label=_("Согласен на обработку персональных данных"))
@@ -85,6 +86,7 @@ class ProfileForm(forms.ModelForm):
         model = User
         fields = ["first_name", "last_name", "email", "phone", "avatar", "timezone",
                   "notify_email", "notify_telegram"]
+        widgets = {"phone": PhoneInput}
 
     def clean_phone(self):
         phone = normalize_phone(self.cleaned_data.get("phone"))
@@ -100,4 +102,5 @@ class StudentDetailsForm(forms.ModelForm):
         widgets = {
             "birth_date": forms.DateInput(attrs={"type": "date"}),
             "goal": forms.Textarea(attrs={"rows": 3}),
+            "parent_phone": PhoneInput,
         }
