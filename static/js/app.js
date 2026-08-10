@@ -404,6 +404,169 @@
     });
   }
 
+  // --- Доска заявок: перетаскивание --------------------------------------
+  // Родной HTML5 drag-and-drop на телефонах не работает вообще, а заявки
+  // разбирают в том числе с телефона. Поэтому всё на pointer-событиях —
+  // одна ветка кода и для мыши, и для пальца.
+  function initLeadBoard() {
+    const board = document.querySelector("[data-lead-board]");
+    if (!board) return;
+
+    const template = board.dataset.updateUrl || "";
+    let drag = null;
+
+    function columnAt(x, y) {
+      const node = document.elementFromPoint(x, y);
+      return node ? node.closest(".kanban__col") : null;
+    }
+
+    function highlight(column) {
+      board.querySelectorAll(".kanban__col.is-target").forEach(function (col) {
+        if (col !== column) col.classList.remove("is-target");
+      });
+      if (column) column.classList.add("is-target");
+    }
+
+    function refreshCounts() {
+      board.querySelectorAll(".kanban__col").forEach(function (column) {
+        const counter = column.querySelector("[data-count]");
+        if (counter) counter.textContent = column.querySelectorAll(".kanban__card").length;
+      });
+    }
+
+    function start(card, event) {
+      const box = card.getBoundingClientRect();
+      const ghost = card.cloneNode(true);
+      ghost.classList.add("kanban__drag");
+      ghost.classList.remove("is-dragging");
+      ghost.style.setProperty("--drag-w", box.width + "px");
+      document.body.appendChild(ghost);
+      card.classList.add("is-dragging");
+      board.classList.add("is-dragging-any");
+      drag.ghost = ghost;
+      drag.offsetX = event.clientX - box.left;
+      drag.offsetY = event.clientY - box.top;
+      move(event);
+    }
+
+    // На телефоне колонки идут одна под другой, и нужная почти всегда за
+    // краем экрана. Пока палец удерживается у границы — прокручиваем сами,
+    // иначе до дальней колонки не дотянуться в принципе.
+    const EDGE = 72;
+    let scrollTimer = null;
+
+    function autoScroll(y) {
+      let speed = 0;
+      if (y < EDGE) speed = -(EDGE - y) / 6;
+      else if (y > window.innerHeight - EDGE) speed = (y - (window.innerHeight - EDGE)) / 6;
+
+      if (!speed) {
+        stopScrolling();
+        return;
+      }
+      if (scrollTimer) return;
+      const step = function () {
+        if (!drag) return stopScrolling();
+        window.scrollBy(0, speed);
+        scrollTimer = requestAnimationFrame(step);
+      };
+      scrollTimer = requestAnimationFrame(step);
+    }
+
+    function stopScrolling() {
+      if (scrollTimer) cancelAnimationFrame(scrollTimer);
+      scrollTimer = null;
+    }
+
+    function move(event) {
+      if (!drag || !drag.ghost) return;
+      drag.ghost.style.left = event.clientX - drag.offsetX + "px";
+      drag.ghost.style.top = event.clientY - drag.offsetY + "px";
+      highlight(columnAt(event.clientX, event.clientY));
+      autoScroll(event.clientY);
+    }
+
+    function finish(event) {
+      if (!drag) return;
+      const card = drag.card;
+      const started = drag.started;
+      stopScrolling();
+      if (drag.ghost) drag.ghost.remove();
+      card.classList.remove("is-dragging");
+      board.classList.remove("is-dragging-any");
+      highlight(null);
+      const target = started ? columnAt(event.clientX, event.clientY) : null;
+      drag = null;
+      if (!target) return;
+
+      const origin = card.closest(".kanban__col");
+      if (!origin || target === origin) return;
+      const dropzone = target.querySelector(".kanban__drop") || target;
+      dropzone.appendChild(card);
+      refreshCounts();
+      save(card, target, origin);
+    }
+
+    function save(card, target, origin) {
+      const status = target.dataset.status;
+      card.classList.add("is-saving");
+      api(template.replace("__pk__", card.dataset.lead), {
+        method: "POST",
+        json: { status: status },
+      })
+        .then(function () {
+          card.classList.remove("is-saving");
+          card.setAttribute(
+            "aria-label",
+            "Заявка: " + (card.querySelector("strong") || {}).textContent +
+              ". Колонка: " + target.dataset.label
+          );
+          toast("Заявка перенесена в «" + target.dataset.label + "»", "ok");
+        })
+        .catch(function (error) {
+          // Сервер не принял — возвращаем карточку назад, иначе на экране
+          // будет одно, а в базе другое.
+          card.classList.remove("is-saving");
+          (origin.querySelector(".kanban__drop") || origin).appendChild(card);
+          refreshCounts();
+          toast(error.message || "Не удалось перенести заявку", "err");
+        });
+    }
+
+    board.addEventListener("pointerdown", function (event) {
+      if (event.button !== 0 && event.pointerType === "mouse") return;
+      const card = event.target.closest(".kanban__card");
+      // По кнопкам и ссылкам внутри карточки надо кликать, а не тащить.
+      if (!card || event.target.closest("a, button, select, input")) return;
+      // Мышью тащим за любое место карточки, пальцем — только за ручку:
+      // иначе жест переноса съедает прокрутку страницы.
+      if (event.pointerType !== "mouse" && !event.target.closest("[data-drag-handle]")) return;
+      drag = { card: card, startX: event.clientX, startY: event.clientY, started: false };
+      try {
+        card.setPointerCapture(event.pointerId);
+      } catch (err) {
+        /* без захвата просто получим события от документа */
+      }
+    });
+
+    board.addEventListener("pointermove", function (event) {
+      if (!drag) return;
+      if (!drag.started) {
+        // Порог, чтобы обычный клик по карточке не превращался в перенос.
+        const shift = Math.abs(event.clientX - drag.startX) + Math.abs(event.clientY - drag.startY);
+        if (shift < 6) return;
+        drag.started = true;
+        start(drag.card, event);
+        return;
+      }
+      event.preventDefault();
+      move(event);
+    });
+
+    board.addEventListener("pointerup", finish);
+    board.addEventListener("pointercancel", finish);
+  }
+
   // --- Bootstrap ---------------------------------------------------------
   function init() {
     initTheme();
@@ -412,6 +575,7 @@
     initModals();
     initCountdowns();
     initPhoneInputs();
+    initLeadBoard();
     bindAsyncForms(document);
     bindActions(document);
   }

@@ -178,12 +178,23 @@ def lead_update(request, pk):
     lead = get_object_or_404(Lead, pk=pk)
     data = json.loads(request.body or "{}") if request.content_type == "application/json" else request.POST
 
-    if data.get("status") in dict(LeadStatus.choices):
+    if "status" in data:
+        # Молча игнорировать неизвестный статус нельзя: доска покажет
+        # карточку в новой колонке, а в базе останется старая — расхождение
+        # заметят только через день.
+        if data["status"] not in dict(LeadStatus.choices):
+            return json_error("Неизвестный статус заявки.")
         lead.status = data["status"]
     if "admin_notes" in data:
         lead.admin_notes = data["admin_notes"]
     if data.get("assigned_to"):
-        lead.assigned_to_id = data["assigned_to"]
+        manager = User.objects.filter(
+            pk=data["assigned_to"], is_active=True,
+            role__in=[Role.OWNER, Role.ADMIN, Role.TEACHER],
+        ).first()
+        if manager is None:
+            return json_error("Такого сотрудника нет.")
+        lead.assigned_to = manager
     lead.save()
     return json_ok("Заявка обновлена.")
 

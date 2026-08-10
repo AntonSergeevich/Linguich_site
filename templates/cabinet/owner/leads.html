@@ -70,37 +70,48 @@
   </div>
 
 {% else %}
-  <div class="kanban">
+  <p class="tiny muted mb-3">
+    Перетащите карточку в нужную колонку. Если удобнее списком —
+    <a href="?view=list">переключитесь в список</a>, там статус меняется выбором.
+  </p>
+
+  <div class="kanban" data-lead-board data-update-url="/cabinet/crm/leads/__pk__/update/">
     {% for column in columns %}
-      <div class="kanban__col">
-        <h5>{{ column.label }} <span>{{ column.count }}</span></h5>
-        {% for lead in column.items %}
-          <div class="kanban__card">
-            <strong>{{ lead.name }}</strong>
-            <small><a href="tel:{{ lead.phone }}">{{ lead.phone }}</a></small>
-            <div class="row row--between mt-3" style="gap:var(--s-2)">
-              <span class="tiny muted">{{ lead.created_at|date:"d.m" }}</span>
-              {% if lead.placement_level %}<span class="badge badge--brand">{{ lead.placement_level }}</span>{% endif %}
-            </div>
-            <div class="row mt-3" style="gap:var(--s-2)">
-              <select class="tiny" style="min-height:30px;padding:3px 6px;flex:1"
-                      onchange="Linguich.api('/cabinet/crm/leads/{{ lead.pk }}/update/',{method:'POST',json:{status:this.value}}).then(function(){location.reload()})">
-                {% for value, label in statuses %}
-                  <option value="{{ value }}" {% if lead.status == value %}selected{% endif %}>{{ label }}</option>
-                {% endfor %}
-              </select>
+      <div class="kanban__col" data-status="{{ column.value }}" data-label="{{ column.label }}">
+        <h5>{{ column.label }} <span data-count>{{ column.count }}</span></h5>
+        <div class="kanban__drop">
+          {% for lead in column.items %}
+            {# Без draggable: родной HTML5-механизм перехватывал бы pointer-события,
+               а он всё равно не работает на телефоне. Перетаскивание своё. #}
+            <div class="kanban__card" data-lead="{{ lead.pk }}"
+                 tabindex="0" role="button"
+                 aria-label="Заявка: {{ lead.name }}. Колонка: {{ column.label }}">
+              <div class="row row--between" style="gap:var(--s-2)">
+                <strong>{{ lead.name }}</strong>
+                <span class="kanban__card__grip" data-drag-handle
+                      title="Перетащить в другую колонку" aria-hidden="true">
+                  <svg class="icon icon--sm"><use href="#i-drag"/></svg>
+                </span>
+              </div>
+              <small><a href="tel:{{ lead.phone }}">{{ lead.phone }}</a></small>
+              <div class="row row--between mt-3" style="gap:var(--s-2)">
+                <span class="tiny muted">{{ lead.created_at|date:"d.m" }}</span>
+                {% if lead.placement_level %}<span class="badge badge--brand">{{ lead.placement_level }}</span>{% endif %}
+              </div>
               {% if not lead.converted_user %}
-                <button class="btn btn--soft btn--sm" title="Создать ученика"
-                        data-action="{% url 'cabinet:crm_lead_convert' lead.pk %}"
-                        data-confirm="Создать ученика из этой заявки?">
-                  <svg class="icon icon--sm"><use href="#i-user"/></svg>
-                </button>
+                <div class="row mt-3" style="gap:var(--s-2)">
+                  <button class="btn btn--soft btn--sm btn--block" title="Создать ученика"
+                          data-action="{% url 'cabinet:crm_lead_convert' lead.pk %}"
+                          data-confirm="Создать ученика из этой заявки?">
+                    <svg class="icon icon--sm"><use href="#i-user"/></svg>
+                    <span>В ученики</span>
+                  </button>
+                </div>
               {% endif %}
             </div>
-          </div>
-        {% empty %}
-          <p class="tiny muted" style="padding:var(--s-3)">Пусто</p>
-        {% endfor %}
+          {% endfor %}
+        </div>
+        <p class="tiny muted kanban__empty" style="padding:var(--s-3)">Пусто</p>
       </div>
     {% endfor %}
   </div>

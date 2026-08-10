@@ -279,6 +279,13 @@
   padding: var(--s-3);
   min-height: 200px;
 }
+/* Зона приёма должна оставаться высокой, даже когда колонка пуста, —
+   иначе в неё нечем попасть пальцем. */
+.kanban__drop { min-height: 60px; }
+/* «Пусто» показываем только когда карточек действительно нет. Через CSS,
+   а не через JS: после перетаскивания подпись обновляется сама. */
+.kanban__empty { display: none; }
+.kanban__drop:not(:has(.kanban__card)) + .kanban__empty { display: block; }
 .kanban__col h5 {
   font-size: var(--step--2); text-transform: uppercase; letter-spacing: 0.06em;
   color: var(--muted); padding: var(--s-2);
@@ -295,6 +302,40 @@
 }
 .kanban__card strong { display: block; }
 .kanban__card small { color: var(--muted); }
+
+/* --- Перетаскивание заявок --------------------------------------------- */
+.kanban__card[data-lead] { cursor: grab; }
+.kanban__card[data-lead]:active { cursor: grabbing; }
+/* touch-action отключаем только на ручке, а не на всей карточке: иначе
+   палец, начавший движение на карточке, не сможет прокрутить страницу —
+   а на телефоне колонки идут одна под другой, и прокрутка нужна постоянно. */
+.kanban__card__grip {
+  color: var(--muted); flex: none;
+  touch-action: none; cursor: grab;
+  margin: calc(var(--s-2) * -1); padding: var(--s-2);
+  border-radius: var(--r-sm);
+}
+.kanban__card__grip:hover { color: var(--ink-2); background: var(--surface-2); }
+
+/* Карточка под пальцем летит за курсором, а на её месте остаётся
+   полупрозрачный след — иначе колонка «схлопывается» и цель уезжает. */
+.kanban__card.is-dragging { opacity: 0.35; }
+.kanban__drag {
+  position: fixed; z-index: 90; pointer-events: none;
+  width: var(--drag-w, 240px);
+  box-shadow: var(--sh-3);
+  transform: rotate(1.5deg);
+  margin: 0;
+}
+.kanban__col.is-target {
+  outline: 2px dashed var(--brand-400);
+  outline-offset: -2px;
+  background: var(--brand-50);
+}
+.kanban__card.is-saving { opacity: 0.5; }
+
+/* Пока идёт перетаскивание, текст не должен выделяться под пальцем. */
+.kanban.is-dragging-any { user-select: none; }
 
 /* --- Simple bar chart (revenue) ---------------------------------------- */
 .bars {

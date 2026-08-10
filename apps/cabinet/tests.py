@@ -1,5 +1,6 @@
 """Кабинеты: разграничение доступа и сквозные сценарии обучения."""
 
+import json
 from datetime import timedelta
 from decimal import Decimal
 
@@ -406,3 +407,56 @@ class AdminRoleTests(CabinetFixture):
                 recipient=self.admin, kind=NotificationKind.NEW_LEAD
             ).exists()
         )
+
+
+class LeadBoardTests(CabinetFixture):
+    """Доска заявок переносит карточки перетаскиванием, а сервер обязан
+    либо сохранить статус, либо честно отказать — иначе экран и база
+    разойдутся молча."""
+
+    def setUp(self):
+        super().setUp()
+        self.lead = Lead.objects.create(name="Пётр", phone="+79130007788")
+        self.client.force_login(self.owner)
+
+    def move(self, status, **extra):
+        payload = {"status": status}
+        payload.update(extra)
+        return self.client.post(
+            reverse("cabinet:crm_lead_update", args=[self.lead.pk]),
+            data=json.dumps(payload), content_type="application/json",
+        )
+
+    def test_moving_to_a_real_column_saves(self):
+        response = self.move(LeadStatus.SCHEDULED)
+        self.assertEqual(response.status_code, 200)
+        self.lead.refresh_from_db()
+        self.assertEqual(self.lead.status, LeadStatus.SCHEDULED)
+
+    def test_unknown_status_is_refused_instead_of_ignored(self):
+        response = self.move("на_подумать")
+        self.assertEqual(response.status_code, 400)
+        self.lead.refresh_from_db()
+        self.assertEqual(self.lead.status, LeadStatus.NEW)
+
+    def test_assigning_to_a_student_is_refused(self):
+        response = self.move(LeadStatus.NEW, assigned_to=self.student.pk)
+        self.assertEqual(response.status_code, 400)
+        self.lead.refresh_from_db()
+        self.assertIsNone(self.lead.assigned_to)
+
+    def test_assigning_to_a_teacher_works(self):
+        response = self.move(LeadStatus.NEW, assigned_to=self.teacher.pk)
+        self.assertEqual(response.status_code, 200)
+        self.lead.refresh_from_db()
+        self.assertEqual(self.lead.assigned_to, self.teacher)
+
+    def test_board_markup_carries_what_the_dragger_needs(self):
+        response = self.client.get(reverse("cabinet:crm_leads"))
+        html = response.content.decode()
+        self.assertIn("data-lead-board", html)
+        self.assertIn(f'data-lead="{self.lead.pk}"', html)
+        self.assertIn('data-status="scheduled"', html)
+        self.assertIn("data-drag-handle", html)
+        # draggable запускает родной механизм браузера и глушит pointer-события.
+        self.assertNotIn("draggable=", html)
