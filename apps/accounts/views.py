@@ -1,9 +1,10 @@
 import json
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import login as auth_login, logout as auth_logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.forms import PasswordChangeForm
+from django.contrib.auth.forms import PasswordChangeForm, SetPasswordForm
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.views.decorators.csrf import csrf_exempt
@@ -36,12 +37,24 @@ def login_view(request):
         if is_ajax(request):
             return json_form_error(form, "Не удалось войти.")
 
-    return render(request, "registration/login.html", {"form": form, "next": request.GET.get("next", "")})
+    return render(request, "registration/login.html", {
+        "form": form,
+        "next": request.GET.get("next", ""),
+        "registration_open": getattr(settings, "PUBLIC_REGISTRATION_ENABLED", False),
+    })
 
 
 def register_view(request):
+    """Самостоятельная регистрация.
+
+    По умолчанию закрыта: аккаунт ученику заводит школа, чтобы в кабинете
+    не заводились люди, которых никто не знает. Открывается настройкой,
+    если школа решит вернуть свободную запись.
+    """
     if request.user.is_authenticated:
         return redirect("cabinet:home")
+    if not getattr(settings, "PUBLIC_REGISTRATION_ENABLED", False):
+        return render(request, "registration/register_closed.html", status=403)
 
     form = RegistrationForm()
     if request.method == "POST":
@@ -110,8 +123,38 @@ def change_password(request):
     if not form.is_valid():
         return json_form_error(form, "Не удалось сменить пароль.")
     user = form.save()
+    _clear_temporary_password(user)
     update_session_auth_hash(request, user)
     return json_ok("Пароль обновлён.")
+
+
+def _clear_temporary_password(user):
+    if user.must_change_password:
+        user.must_change_password = False
+        user.save(update_fields=["must_change_password"])
+
+
+@login_required
+def set_password(request):
+    """Обязательная смена пароля, выданного школой.
+
+    Отдельная страница, а не блок в профиле: пока пароль временный,
+    кабинет закрыт целиком, и человеку нужен один экран с одним действием.
+    """
+    if not request.user.must_change_password:
+        return redirect("cabinet:home")
+
+    form = SetPasswordForm(request.user)
+    if request.method == "POST":
+        form = SetPasswordForm(request.user, request.POST)
+        if form.is_valid():
+            user = form.save()
+            _clear_temporary_password(user)
+            update_session_auth_hash(request, user)
+            messages.success(request, "Пароль сохранён. Добро пожаловать!")
+            return redirect("cabinet:home")
+
+    return render(request, "registration/set_password.html", {"form": form})
 
 
 @login_required

@@ -3,6 +3,7 @@
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
+from . import provisioning
 from .models import Role, StudentProfile, User
 
 
@@ -83,7 +84,11 @@ class LoginTests(TestCase):
         self.assertEqual(response.url, "/cabinet/homework/")
 
 
+@override_settings(PUBLIC_REGISTRATION_ENABLED=True)
 class RegistrationTests(TestCase):
+    """Свободная регистрация выключена по умолчанию, но код её остаётся
+    рабочим — школа может вернуть её настройкой."""
+
     def payload(self, **overrides):
         data = {
             "first_name": "Полина", "last_name": "Крылова",
@@ -124,6 +129,24 @@ class RegistrationTests(TestCase):
             reverse("accounts:register"), self.payload(password1="123", password2="123")
         )
         self.assertIn("password1", response.context["form"].errors)
+
+
+class ClosedRegistrationTests(TestCase):
+    """По умолчанию аккаунт заводит школа: посторонний не должен уметь
+    создать себе кабинет сам."""
+
+    def test_page_explains_instead_of_showing_a_form(self):
+        response = self.client.get(reverse("accounts:register"))
+        self.assertEqual(response.status_code, 403)
+        self.assertContains(response, "Кабинет заводит школа", status_code=403)
+
+    def test_posting_the_form_creates_nothing(self):
+        response = self.client.post(reverse("accounts:register"), {
+            "first_name": "Чужой", "email": "stranger@mail.ru", "phone": "89130009911",
+            "password1": "verysecret123", "password2": "verysecret123", "consent": "on",
+        })
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(User.objects.filter(email="stranger@mail.ru").exists())
 
 
 @override_settings(TELEGRAM_WEBHOOK_SECRET="s3cret")
@@ -236,3 +259,139 @@ class PhoneWidgetTests(TestCase):
         from .models import normalize_phone
 
         self.assertEqual(normalize_phone("+7 (913) 000-11-22"), "+79130001122")
+
+
+class ProvisioningTests(TestCase):
+    """Логин и пароль придумывает система, а не человек: иначе в базе
+    заводятся «ivan» с паролем «123456»."""
+
+    def test_login_is_built_from_the_surname(self):
+        self.assertEqual(provisioning.generate_username("Иванов", "Пётр"), "ivanov")
+
+    def test_tricky_letters_survive_transliteration(self):
+        self.assertEqual(provisioning.generate_username("Щукина", "Юлия"), "schukina")
+        self.assertEqual(provisioning.generate_username("Объедков", "Ян"), "obedkov")
+
+    def test_namesakes_get_readable_logins_not_random_ones(self):
+        first = provisioning.create_account(role=Role.STUDENT, first_name="Пётр", last_name="Иванов")[0]
+        second = provisioning.create_account(role=Role.STUDENT, first_name="Мария", last_name="Иванов")[0]
+        third = provisioning.create_account(role=Role.STUDENT, first_name="Мия", last_name="Иванов")[0]
+        self.assertEqual(first.username, "ivanov")
+        self.assertEqual(second.username, "ivanovm")   # инициал понятнее числа
+        self.assertEqual(third.username, "ivanov2")
+        self.assertEqual(len({first.username, second.username, third.username}), 3)
+
+    def test_missing_surname_still_yields_a_login(self):
+        user = provisioning.create_account(role=Role.STUDENT, first_name="Айгуль")[0]
+        self.assertTrue(user.username)
+
+    def test_password_avoids_letters_that_get_misheard(self):
+        for _ in range(30):
+            password = provisioning.generate_password()
+            self.assertNotRegex(password, r"[ilo015]", f"спорный символ в {password}")
+            self.assertGreaterEqual(len(password.replace("-", "")), 12)
+
+    def test_passwords_do_not_repeat(self):
+        self.assertEqual(len({provisioning.generate_password() for _ in range(200)}), 200)
+
+    def test_new_account_must_replace_the_issued_password(self):
+        user, password = provisioning.create_account(
+            role=Role.STUDENT, first_name="Пётр", last_name="Иванов"
+        )
+        self.assertTrue(user.must_change_password)
+        self.assertTrue(user.check_password(password))
+        self.assertTrue(hasattr(user, "student_profile"))
+
+    def test_teacher_gets_a_teaching_profile(self):
+        user, _ = provisioning.create_account(
+            role=Role.TEACHER, first_name="Анна", last_name="Белова"
+        )
+        self.assertTrue(hasattr(user, "teacher_profile"))
+
+    def test_reset_issues_a_working_password(self):
+        user, old = provisioning.create_account(
+            role=Role.STUDENT, first_name="Пётр", last_name="Иванов"
+        )
+        new = provisioning.reset_password(user)
+        user.refresh_from_db()
+        self.assertNotEqual(new, old)
+        self.assertTrue(user.check_password(new))
+        self.assertFalse(user.check_password(old))
+
+
+class LoginByGeneratedCredentialsTests(TestCase):
+    def setUp(self):
+        self.user, self.password = provisioning.create_account(
+            role=Role.STUDENT, first_name="Пётр", last_name="Иванов", phone="89130004455"
+        )
+
+    def test_login_works_by_the_issued_username(self):
+        self.assertTrue(self.client.login(username="ivanov", password=self.password))
+
+    def test_login_is_case_insensitive(self):
+        self.assertTrue(self.client.login(username="IVANOV", password=self.password))
+
+    def test_phone_still_works(self):
+        self.assertTrue(self.client.login(username="+79130004455", password=self.password))
+
+    def test_wrong_password_is_refused(self):
+        self.assertFalse(self.client.login(username="ivanov", password="nope"))
+
+
+class ForcedPasswordChangeTests(TestCase):
+    """Выданный пароль знает и администратор — до замены кабинет закрыт."""
+
+    def setUp(self):
+        self.user, self.password = provisioning.create_account(
+            role=Role.STUDENT, first_name="Пётр", last_name="Иванов"
+        )
+        self.client.force_login(self.user)
+
+    def test_cabinet_redirects_to_the_password_page(self):
+        response = self.client.get(reverse("cabinet:home"))
+        self.assertRedirects(response, reverse("accounts:set_password"))
+
+    def test_profile_is_closed_too(self):
+        response = self.client.get(reverse("accounts:profile"))
+        self.assertRedirects(response, reverse("accounts:set_password"))
+
+    def test_the_password_page_itself_opens(self):
+        """Иначе редирект указывал бы сам на себя — вечный цикл."""
+        response = self.client.get(reverse("accounts:set_password"))
+        self.assertEqual(response.status_code, 200)
+
+    def test_public_site_stays_open(self):
+        self.assertEqual(self.client.get(reverse("school:home")).status_code, 200)
+
+    def test_setting_a_password_opens_the_cabinet(self):
+        response = self.client.post(reverse("accounts:set_password"), {
+            "new_password1": "svoy-parol-2026", "new_password2": "svoy-parol-2026",
+        })
+        # У ученика /cabinet/ отрисовывает сводку сам, без ещё одного редиректа.
+        self.assertRedirects(response, reverse("cabinet:home"))
+        self.user.refresh_from_db()
+        self.assertFalse(self.user.must_change_password)
+        self.assertTrue(self.user.check_password("svoy-parol-2026"))
+        self.assertEqual(self.client.get(reverse("accounts:profile")).status_code, 200)
+
+    def test_session_survives_the_change(self):
+        self.client.post(reverse("accounts:set_password"), {
+            "new_password1": "svoy-parol-2026", "new_password2": "svoy-parol-2026",
+        })
+        self.assertEqual(self.client.get(reverse("cabinet:home"), follow=True).status_code, 200)
+
+
+class LoginPageTests(TestCase):
+    def test_page_offers_a_way_forward_when_registration_is_closed(self):
+        response = self.client.get(reverse("accounts:login"))
+        self.assertNotContains(response, "Зарегистрироваться")
+        self.assertContains(response, "Записаться на занятие")
+
+    @override_settings(PUBLIC_REGISTRATION_ENABLED=True)
+    def test_registration_link_returns_when_the_school_opens_it(self):
+        response = self.client.get(reverse("accounts:login"))
+        self.assertContains(response, "Зарегистрироваться")
+
+    def test_field_mentions_the_issued_login(self):
+        """Ученику диктуют логин — он должен понимать, что вводить."""
+        self.assertContains(self.client.get(reverse("accounts:login")), "Логин, email или телефон")

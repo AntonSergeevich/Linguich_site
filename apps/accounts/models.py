@@ -47,8 +47,8 @@ class UserManager(BaseUserManager):
     use_in_migrations = True
 
     def _create(self, email, phone, password, **extra):
-        if not email and not phone:
-            raise ValueError("Нужен email или телефон")
+        if not email and not phone and not extra.get("username"):
+            raise ValueError("Нужен email, телефон или логин")
         email = self.normalize_email(email) if email else None
         phone = normalize_phone(phone) or None
         user = self.model(email=email, phone=phone, **extra)
@@ -82,6 +82,11 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     email = models.EmailField(_("Email"), unique=True, null=True, blank=True)
     phone = models.CharField(_("Телефон"), max_length=20, unique=True, null=True, blank=True)
+    # Логин выдаёт школа, когда заводит ученика: у школьника может не быть
+    # ни почты, ни своего телефона, а войти в кабинет ему всё равно нужно.
+    username = models.CharField(
+        _("Логин"), max_length=32, unique=True, null=True, blank=True, db_index=True
+    )
     first_name = models.CharField(_("Имя"), max_length=80)
     last_name = models.CharField(_("Фамилия"), max_length=80, blank=True)
     role = models.CharField(_("Роль"), max_length=16, choices=Role.choices, default=Role.STUDENT, db_index=True)
@@ -95,6 +100,9 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
+    # Пароль, выданный школой, знает не только владелец аккаунта — значит,
+    # он временный и должен быть заменён при первом входе.
+    must_change_password = models.BooleanField(_("Сменить пароль при входе"), default=False)
     date_joined = models.DateTimeField(default=tz_now)
 
     objects = UserManager()
@@ -112,12 +120,15 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def clean(self):
         super().clean()
-        if not self.email and not self.phone:
-            raise ValidationError(_("Укажите email или телефон."))
+        if not self.email and not self.phone and not self.username:
+            raise ValidationError(_("Укажите email, телефон или логин."))
 
     def save(self, *args, **kwargs):
         self.phone = normalize_phone(self.phone) or None
         self.email = (self.email or "").strip().lower() or None
+        # Логин нечувствителен к регистру: ученик, которому его продиктовали,
+        # наберёт как получится, а уникальность должна остаться настоящей.
+        self.username = (self.username or "").strip().lower() or None
         super().save(*args, **kwargs)
 
     @property

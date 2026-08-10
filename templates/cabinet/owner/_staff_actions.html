@@ -1,0 +1,33 @@
+{% comment %}
+Действия над сотрудником. Владелицу не трогаем: собственный аккаунт
+нельзя ни отключить, ни удалить — иначе школа останется без доступа.
+{% endcomment %}
+<div class="row row--nowrap" style="gap:var(--s-1);justify-content:flex-end">
+  <button class="btn btn--quiet btn--icon btn--sm" type="button"
+          title="Выдать новый пароль"
+          data-action="{% url 'cabinet:crm_credentials_reset' member.pk %}"
+          data-confirm="Выдать {{ member.full_name }} новый пароль? Старый перестанет работать.">
+    <svg class="icon icon--sm"><use href="#i-key"/></svg>
+  </button>
+  {% if member.pk != request.user.pk and not member.is_owner %}
+    {% if member.is_active %}
+      <button class="btn btn--quiet btn--icon btn--sm" type="button" title="Отключить доступ" data-reload
+              data-action="{% url 'cabinet:crm_staff_update' member.pk %}"
+              data-payload='{"is_active": "0"}'
+              data-confirm="Отключить доступ для {{ member.full_name }}?">
+        <svg class="icon icon--sm"><use href="#i-logout"/></svg>
+      </button>
+    {% else %}
+      <button class="btn btn--quiet btn--icon btn--sm" type="button" title="Вернуть доступ" data-reload
+              data-action="{% url 'cabinet:crm_staff_update' member.pk %}"
+              data-payload='{"is_active": "1"}'>
+        <svg class="icon icon--sm"><use href="#i-check"/></svg>
+      </button>
+    {% endif %}
+    <button class="btn btn--quiet btn--icon btn--sm" type="button" title="Удалить" data-reload
+            data-action="{% url 'cabinet:crm_staff_delete' member.pk %}"
+            data-confirm="Удалить {{ member.full_name }}? Если за ним числятся уроки, аккаунт будет отключён, а не удалён.">
+      <svg class="icon icon--sm"><use href="#i-trash"/></svg>
+    </button>
+  {% endif %}
+</div>

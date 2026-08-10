@@ -8,10 +8,10 @@ UserModel = get_user_model()
 
 
 class EmailOrPhoneBackend(ModelBackend):
-    """Authenticate against either the email or the phone field.
+    """Authenticate against the email, the phone or the school-issued login.
 
-    Both identifiers are unique, so the lookup can never be ambiguous. We still
-    run ``set_password``-style hashing on a miss to keep timing uniform.
+    All three identifiers are unique, so the lookup can never be ambiguous. We
+    still run ``set_password``-style hashing on a miss to keep timing uniform.
     """
 
     def authenticate(self, request, username=None, password=None, **kwargs):
@@ -20,7 +20,7 @@ class EmailOrPhoneBackend(ModelBackend):
             return None
 
         identifier = identifier.strip()
-        lookup = Q(email__iexact=identifier)
+        lookup = Q(email__iexact=identifier) | Q(username__iexact=identifier)
         phone = normalize_phone(identifier)
         if phone:
             lookup |= Q(phone=phone)

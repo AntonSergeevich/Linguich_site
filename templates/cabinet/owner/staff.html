@@ -1,7 +1,12 @@
 {% extends 'cabinet/base.html' %}
 {% load humanize %}
-{% block page_title %}Преподаватели{% endblock %}
+{% block page_title %}Сотрудники{% endblock %}
 {% block page_sub %}<p class="cab-top__sub">Нагрузка и расчёт с {{ month_start|date:"d.m.Y" }}</p>{% endblock %}
+{% block page_actions %}
+  <button class="btn btn--sm" type="button" data-modal-open="#staff-modal">
+    <svg class="icon icon--sm"><use href="#i-plus"/></svg> Добавить сотрудника
+  </button>
+{% endblock %}
 
 {% block cabinet %}
 <div class="grid grid-4">
@@ -14,24 +19,34 @@
     <div class="stat__label">Преподавателей</div>
     <div class="stat__value">{{ rows|length }}</div>
   </div>
+  <div class="stat">
+    <div class="stat__label">Администраторов</div>
+    <div class="stat__value">{{ admins|length }}</div>
+    <div class="stat__meta">ведут заявки и учеников</div>
+  </div>
 </div>
 
+<h3>Преподаватели</h3>
 <div class="table-wrap">
   <table class="table">
     <thead>
       <tr><th>Преподаватель</th><th>Языки</th><th class="num">Проведено за месяц</th>
         <th class="num">Ставка</th><th class="num">К выплате</th>
-        <th class="num">Учеников</th><th class="num">Впереди</th></tr>
+        <th class="num">Учеников</th><th class="num">Впереди</th><th></th></tr>
     </thead>
     <tbody>
       {% for row in rows %}
-        <tr>
+        <tr {% if not row.teacher.is_active %}class="is-muted"{% endif %}>
           <td>
             <div class="row row--nowrap">
               <span class="avatar avatar--sm">{{ row.teacher.initials }}</span>
               <div style="min-width:0">
                 <strong>{{ row.teacher.full_name }}</strong>
-                <div class="tiny muted">{{ row.teacher.teacher_profile.headline|default:row.teacher.get_role_display }}</div>
+                {% if not row.teacher.is_active %}<span class="badge">отключён</span>{% endif %}
+                <div class="tiny muted">
+                  {{ row.teacher.teacher_profile.headline|default:row.teacher.get_role_display }}
+                  {% if row.teacher.username %} · логин {{ row.teacher.username }}{% endif %}
+                </div>
               </div>
             </div>
           </td>
@@ -45,10 +60,43 @@
           <td class="num"><strong>{{ row.payroll|floatformat:0|intcomma }} ₽</strong></td>
           <td class="num">{{ row.students }}</td>
           <td class="num muted">{{ row.upcoming }}</td>
+          <td class="num">{% include 'cabinet/owner/_staff_actions.html' with member=row.teacher %}</td>
         </tr>
       {% empty %}
-        <tr><td colspan="7"><div class="empty"><h4>Преподаватели не заведены</h4>
-          <p>Добавьте их через админку — там же задаётся ставка за урок.</p></div></td></tr>
+        <tr><td colspan="8"><div class="empty"><h4>Преподаватели не заведены</h4>
+          <p>Нажмите «Добавить сотрудника» — логин и пароль сгенерируются сами.</p></div></td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<h3>Администраторы</h3>
+<div class="table-wrap">
+  <table class="table">
+    <thead><tr><th>Администратор</th><th>Контакты</th><th>Логин</th><th></th></tr></thead>
+    <tbody>
+      {% for member in admins %}
+        <tr {% if not member.is_active %}class="is-muted"{% endif %}>
+          <td>
+            <div class="row row--nowrap">
+              <span class="avatar avatar--sm">{{ member.initials }}</span>
+              <div style="min-width:0">
+                <strong>{{ member.full_name }}</strong>
+                {% if not member.is_active %}<span class="badge">отключён</span>{% endif %}
+              </div>
+            </div>
+          </td>
+          <td class="tiny muted">
+            {% if member.phone %}<a href="tel:{{ member.phone }}">{{ member.phone }}</a>{% endif %}
+            {% if member.email %}<div>{{ member.email }}</div>{% endif %}
+          </td>
+          <td><code class="tiny">{{ member.username|default:"—" }}</code></td>
+          <td class="num">{% include 'cabinet/owner/_staff_actions.html' with member=member %}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="4"><div class="empty"><h4>Администраторов нет</h4>
+          <p>Администратор ведёт заявки, учеников и платежи, но не видит зарплат
+            и не может заводить сотрудников.</p></div></td></tr>
       {% endfor %}
     </tbody>
   </table>
@@ -62,4 +110,39 @@
     Пока преподаватель не отметил журнал, урок в расчёт не попадает.
   </div>
 </div>
+
+<div class="modal" id="staff-modal">
+  <div class="modal__panel">
+    <div class="card-head"><h3>Новый сотрудник</h3>
+      <button class="btn btn--quiet btn--icon btn--sm" data-modal-close type="button">
+        <svg class="icon"><use href="#i-x"/></svg></button></div>
+    <form data-async method="post" action="{% url 'cabinet:crm_staff_create' %}">
+      {% csrf_token %}
+      <div class="form-grid">
+        <label class="field"><span class="label">Роль *</span>
+          <select name="role" required>
+            <option value="teacher">Преподаватель</option>
+            <option value="admin">Администратор</option>
+          </select></label>
+        <label class="field"><span class="label">Имя *</span>
+          <input type="text" name="first_name" required autocomplete="off"></label>
+        <label class="field"><span class="label">Фамилия</span>
+          <input type="text" name="last_name" autocomplete="off"></label>
+        <label class="field"><span class="label">Телефон</span>
+          <input type="tel" name="phone" inputmode="tel" maxlength="18"
+                 placeholder="+7 (___) ___-__-__"></label>
+        <label class="field"><span class="label">Email</span>
+          <input type="email" name="email" autocomplete="off"></label>
+        <label class="field"><span class="label">Ставка за урок, ₽</span>
+          <input type="text" name="pay_rate" inputmode="decimal" placeholder="0"></label>
+        <label class="field field--full"><span class="label">Специализация</span>
+          <input type="text" name="headline" placeholder="Английский, подготовка к экзаменам"></label>
+      </div>
+      <p class="tiny muted">Логин соберётся из фамилии, пароль сгенерируется — оба покажутся сразу после создания.</p>
+      <button class="btn btn--block mt-3" type="submit">Создать и выдать доступ</button>
+    </form>
+  </div>
+</div>
+
+{% include 'components/credentials_modal.html' %}
 {% endblock %}

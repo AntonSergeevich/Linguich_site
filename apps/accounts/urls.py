@@ -10,6 +10,8 @@ urlpatterns = [
     path("logout/", views.logout_view, name="logout"),
     path("profile/", views.profile_view, name="profile"),
     path("profile/password/", views.change_password, name="change_password"),
+    # Разовый пароль, выданный школой, меняется здесь — до этого кабинет закрыт.
+    path("set-password/", views.set_password, name="set_password"),
     path("profile/telegram/unlink/", views.unlink_telegram, name="unlink_telegram"),
     # Два способа привязать чат: свой бот школы зовёт link, либо платформа
     # сама принимает апдейты через webhook. Одновременно — не нужно.

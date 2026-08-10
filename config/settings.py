@@ -69,6 +69,7 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "apps.accounts.middleware.TimezoneMiddleware",
+    "apps.accounts.middleware.ForcePasswordChangeMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"
@@ -231,6 +232,10 @@ SITE_URL = env("SITE_URL", "http://127.0.0.1:8000")
 # Защита форм заявки от ботов. Выключать стоит только при отладке форм —
 # без неё в CRM за ночь набивается сотня мусорных карточек.
 LEAD_ANTISPAM_ENABLED = env_bool("LEAD_ANTISPAM_ENABLED", True)
+# Аккаунт ученику заводит школа: логин и пароль генерируются и выдаются
+# на руки. Свободная регистрация выключена, чтобы в кабинете не заводились
+# люди, которых никто не звал.
+PUBLIC_REGISTRATION_ENABLED = env_bool("PUBLIC_REGISTRATION_ENABLED", False)
 
 # --- Security (production) -------------------------------------------------
 if not DEBUG:

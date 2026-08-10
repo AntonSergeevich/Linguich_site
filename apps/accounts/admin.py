@@ -20,13 +20,13 @@ class StudentProfileInline(admin.StackedInline):
 class UserAdmin(BaseUserAdmin):
     change_password_form = AdminPasswordChangeForm
     ordering = ["-date_joined"]
-    list_display = ["full_name", "email", "phone", "role", "is_active", "date_joined"]
-    list_filter = ["role", "is_active", "is_staff"]
-    search_fields = ["first_name", "last_name", "email", "phone"]
+    list_display = ["full_name", "username", "email", "phone", "role", "is_active", "date_joined"]
+    list_filter = ["role", "is_active", "is_staff", "must_change_password"]
+    search_fields = ["first_name", "last_name", "username", "email", "phone"]
     inlines = [TeacherProfileInline, StudentProfileInline]
 
     fieldsets = (
-        (None, {"fields": ("email", "phone", "password")}),
+        (None, {"fields": ("username", "email", "phone", "password", "must_change_password")}),
         ("Профиль", {"fields": ("first_name", "last_name", "avatar", "role", "timezone")}),
         ("Уведомления", {"fields": ("notify_email", "notify_telegram", "telegram_chat_id")}),
         ("Права", {"fields": ("is_active", "is_staff", "is_superuser", "groups", "user_permissions")}),
@@ -34,6 +34,7 @@ class UserAdmin(BaseUserAdmin):
     add_fieldsets = (
         (None, {
             "classes": ("wide",),
-            "fields": ("email", "phone", "first_name", "last_name", "role", "password1", "password2"),
+            "fields": ("username", "email", "phone", "first_name", "last_name", "role",
+                       "password1", "password2"),
         }),
     )

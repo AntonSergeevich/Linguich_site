@@ -460,3 +460,134 @@ class LeadBoardTests(CabinetFixture):
         self.assertIn("data-drag-handle", html)
         # draggable запускает родной механизм браузера и глушит pointer-события.
         self.assertNotIn("draggable=", html)
+
+
+class AccountProvisioningViewTests(CabinetFixture):
+    """Кто кому может выдать доступ. Ошибка здесь — это либо чужой человек
+    в кабинете, либо владелица, запершая сама себя."""
+
+    def setUp(self):
+        super().setUp()
+        self.admin = User.objects.create_user(
+            email="admin@x.ru", password="pass12345", first_name="Ольга", role=Role.ADMIN
+        )
+
+    def create_student(self, **overrides):
+        payload = {"first_name": "Пётр", "last_name": "Иванов", "phone": "89130006677"}
+        payload.update(overrides)
+        return self.client.post(reverse("cabinet:crm_student_create"), payload)
+
+    def test_admin_can_issue_a_student_account(self):
+        self.client.force_login(self.admin)
+        response = self.create_student()
+        self.assertEqual(response.status_code, 200)
+        creds = response.json()["credentials"]
+        self.assertEqual(creds["login"], "ivanov")
+        self.assertTrue(creds["password"])
+        self.assertIn(creds["password"], creds["message"])
+
+        student = User.objects.get(username="ivanov")
+        self.assertEqual(student.role, Role.STUDENT)
+        self.assertTrue(student.must_change_password)
+        self.assertTrue(student.check_password(creds["password"]))
+
+    def test_teacher_cannot_issue_accounts(self):
+        self.client.force_login(self.teacher)
+        self.assertEqual(self.create_student().status_code, 403)
+        self.assertFalse(User.objects.filter(username="ivanov").exists())
+
+    def test_duplicate_phone_is_refused(self):
+        self.client.force_login(self.owner)
+        self.create_student()
+        response = self.create_student(last_name="Петров")
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(User.objects.filter(username="petrov").exists())
+
+    def test_student_without_contacts_can_still_be_created(self):
+        """У школьника может не быть ни почты, ни своего телефона."""
+        self.client.force_login(self.owner)
+        response = self.create_student(phone="", email="")
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(User.objects.get(username="ivanov").username)
+
+    # --- сотрудники ------------------------------------------------------
+
+    def create_staff(self, **overrides):
+        payload = {"role": Role.TEACHER, "first_name": "Анна", "last_name": "Белова",
+                   "pay_rate": "700"}
+        payload.update(overrides)
+        return self.client.post(reverse("cabinet:crm_staff_create"), payload)
+
+    def test_owner_can_hire_a_teacher(self):
+        self.client.force_login(self.owner)
+        response = self.create_staff()
+        self.assertEqual(response.status_code, 200)
+        member = User.objects.get(username="belova")
+        self.assertEqual(member.role, Role.TEACHER)
+        self.assertEqual(member.teacher_profile.pay_rate, Decimal("700"))
+
+    def test_owner_can_hire_an_administrator(self):
+        self.client.force_login(self.owner)
+        self.assertEqual(self.create_staff(role=Role.ADMIN).status_code, 200)
+        self.assertEqual(User.objects.get(username="belova").role, Role.ADMIN)
+
+    def test_admin_cannot_hire_anyone(self):
+        self.client.force_login(self.admin)
+        self.assertEqual(self.create_staff().status_code, 403)
+        self.assertFalse(User.objects.filter(username="belova").exists())
+
+    def test_nobody_can_be_hired_as_an_owner(self):
+        self.client.force_login(self.owner)
+        self.assertEqual(self.create_staff(role=Role.OWNER).status_code, 400)
+        self.assertEqual(User.objects.filter(role=Role.OWNER).count(), 1)
+
+    def test_owner_cannot_lock_herself_out(self):
+        self.client.force_login(self.owner)
+        response = self.client.post(
+            reverse("cabinet:crm_staff_update", args=[self.owner.pk]),
+            data=json.dumps({"is_active": "0"}), content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 400)
+        self.owner.refresh_from_db()
+        self.assertTrue(self.owner.is_active)
+
+    def test_teacher_with_lessons_is_disabled_rather_than_deleted(self):
+        """Удалить преподавателя с историей — значит порвать журнал,
+        расписание и расчёт зарплаты задним числом."""
+        self.client.force_login(self.owner)
+        response = self.client.post(reverse("cabinet:crm_staff_delete", args=[self.teacher.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.teacher.refresh_from_db()
+        self.assertFalse(self.teacher.is_active)
+        self.assertTrue(User.objects.filter(pk=self.teacher.pk).exists())
+
+    def test_fresh_hire_without_history_is_deleted_completely(self):
+        self.client.force_login(self.owner)
+        self.create_staff()
+        member = User.objects.get(username="belova")
+        response = self.client.post(reverse("cabinet:crm_staff_delete", args=[member.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(User.objects.filter(pk=member.pk).exists())
+
+    def test_admin_can_reset_a_student_password_but_not_a_teachers(self):
+        self.client.force_login(self.admin)
+        self.assertEqual(
+            self.client.post(
+                reverse("cabinet:crm_credentials_reset", args=[self.student.pk])
+            ).status_code, 200
+        )
+        self.assertEqual(
+            self.client.post(
+                reverse("cabinet:crm_credentials_reset", args=[self.teacher.pk])
+            ).status_code, 400
+        )
+
+    def test_reset_returns_a_password_that_actually_works(self):
+        self.client.force_login(self.owner)
+        response = self.client.post(
+            reverse("cabinet:crm_credentials_reset", args=[self.student.pk])
+        )
+        password = response.json()["credentials"]["password"]
+        self.student.refresh_from_db()
+        self.assertTrue(self.student.check_password(password))
+        self.assertTrue(self.student.must_change_password)

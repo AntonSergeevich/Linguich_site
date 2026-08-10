@@ -59,5 +59,12 @@ urlpatterns = [
     path("crm/groups/", owner.groups, name="crm_groups"),
     path("crm/groups/create/", owner.group_create, name="crm_group_create"),
     path("crm/groups/generate/", owner.generate_schedule, name="crm_generate_schedule"),
+    path("crm/students/create/", owner.student_create, name="crm_student_create"),
     path("crm/staff/", owner.staff, name="crm_staff"),
+    path("crm/staff/create/", owner.staff_create, name="crm_staff_create"),
+    path("crm/staff/<int:pk>/update/", owner.staff_update, name="crm_staff_update"),
+    path("crm/staff/<int:pk>/delete/", owner.staff_delete, name="crm_staff_delete"),
+    # Пароль сбрасывают и ученикам, и сотрудникам — маршрут общий,
+    # права разбираются внутри.
+    path("crm/accounts/<int:pk>/password/", owner.credentials_reset, name="crm_credentials_reset"),
 ]

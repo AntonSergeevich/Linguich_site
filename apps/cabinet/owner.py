@@ -1,14 +1,15 @@
 import json
 from datetime import date, datetime, timedelta
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
+from django.conf import settings
 from django.db.models import Count, DecimalField, F, Q, Sum, Value
 from django.db.models.functions import Coalesce, TruncMonth
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from apps.accounts.models import Role, StudentProfile, StudentStatus, User, normalize_phone
+from apps.accounts.models import CEFR, Role, StudentProfile, StudentStatus, User, normalize_phone
 from apps.billing.models import (
     LessonCharge,
     Package,
@@ -31,6 +32,7 @@ from apps.scheduling.models import (
     ParticipantStatus,
     RecurringSlot,
 )
+from apps.accounts import provisioning
 from apps.school.models import Course, Lead, LeadStatus, Location
 from apps.utils import json_error, json_ok, manager_required, owner_required
 
@@ -38,6 +40,24 @@ from .common import as_datetime_range, cabinet_context
 
 ZERO = Decimal("0.00")
 MONTHS_SHORT = ["янв", "фев", "мар", "апр", "май", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"]
+
+
+def _payload(request):
+    """Тело запроса из формы или из JSON — фронтенд шлёт и то, и другое."""
+    if request.content_type == "application/json":
+        try:
+            return json.loads(request.body or "{}")
+        except json.JSONDecodeError:
+            return {}
+    return request.POST
+
+
+def _money(raw):
+    """Сумма из формы: запятая как разделитель, пустое значение — не ошибка."""
+    try:
+        return Decimal((raw or "0").replace(",", ".").strip() or "0")
+    except InvalidOperation:
+        return None
 
 
 def _month_start(offset=0):
@@ -176,7 +196,7 @@ def leads(request):
 @require_POST
 def lead_update(request, pk):
     lead = get_object_or_404(Lead, pk=pk)
-    data = json.loads(request.body or "{}") if request.content_type == "application/json" else request.POST
+    data = _payload(request)
 
     if "status" in data:
         # Молча игнорировать неизвестный статус нельзя: доска покажет
@@ -282,6 +302,7 @@ def students(request):
         teacher_id=teacher_id,
         debt_only=debt_only,
         teachers=User.objects.filter(role__in=[Role.TEACHER, Role.OWNER], is_active=True),
+        levels=CEFR.choices,
     ))
 
 
@@ -556,5 +577,175 @@ def staff(request):
             ).count(),
         })
     return render(request, "cabinet/owner/staff.html", cabinet_context(
-        request, rows=rows, payroll_total=sum(row["payroll"] for row in rows), month_start=month_start,
+        request,
+        rows=rows,
+        payroll_total=sum(row["payroll"] for row in rows),
+        month_start=month_start,
+        # Администраторы уроков не ведут, поэтому в таблицу нагрузки они
+        # не попадают — им отдельный список.
+        admins=User.objects.filter(role=Role.ADMIN).order_by("first_name"),
     ))
+
+
+# --- Учётные записи ------------------------------------------------------
+
+def _credentials_payload(user, password):
+    """Что показать администратору после создания аккаунта.
+
+    Пароль существует только здесь и сейчас: в базе лежит хеш, второй раз
+    его показать неоткуда — можно только выдать новый.
+    """
+    return {
+        "credentials": {
+            "name": user.full_name,
+            "login": user.username,
+            "password": password,
+            "url": f"{settings.SITE_URL}/accounts/login/",
+            "message": provisioning.handover_text(user, password, settings.SITE_URL),
+        }
+    }
+
+
+@manager_required
+@require_POST
+def student_create(request):
+    """Завести ученика. Логин и пароль генерирует школа, не ученик."""
+    first_name = (request.POST.get("first_name") or "").strip()
+    last_name = (request.POST.get("last_name") or "").strip()
+    if not first_name:
+        return json_error("Укажите имя ученика.")
+
+    phone = normalize_phone(request.POST.get("phone"))
+    if phone and User.objects.filter(phone=phone).exists():
+        return json_error("Ученик с таким телефоном уже есть.")
+    email = (request.POST.get("email") or "").strip().lower()
+    if email and User.objects.filter(email__iexact=email).exists():
+        return json_error("Аккаунт с таким email уже есть.")
+
+    student, password = provisioning.create_account(
+        role=Role.STUDENT,
+        first_name=first_name,
+        last_name=last_name,
+        phone=phone,
+        email=email,
+        status=StudentStatus.TRIAL,
+        level=request.POST.get("level") or "",
+        source=(request.POST.get("source") or "").strip(),
+    )
+    return json_ok(f"Ученик {student.full_name} заведён.", **_credentials_payload(student, password))
+
+
+@owner_required
+@require_POST
+def staff_create(request):
+    """Завести преподавателя или администратора. Только владелица."""
+    role = request.POST.get("role")
+    if role not in {Role.TEACHER, Role.ADMIN}:
+        return json_error("Выберите роль: преподаватель или администратор.")
+
+    first_name = (request.POST.get("first_name") or "").strip()
+    if not first_name:
+        return json_error("Укажите имя сотрудника.")
+
+    email = (request.POST.get("email") or "").strip().lower()
+    if email and User.objects.filter(email__iexact=email).exists():
+        return json_error("Аккаунт с таким email уже есть.")
+    phone = normalize_phone(request.POST.get("phone"))
+    if phone and User.objects.filter(phone=phone).exists():
+        return json_error("Аккаунт с таким телефоном уже есть.")
+
+    profile = {}
+    if role == Role.TEACHER:
+        profile = {
+            "headline": (request.POST.get("headline") or "").strip(),
+            "pay_rate": _money(request.POST.get("pay_rate")) or ZERO,
+        }
+
+    staff_member, password = provisioning.create_account(
+        role=role,
+        first_name=first_name,
+        last_name=(request.POST.get("last_name") or "").strip(),
+        phone=phone,
+        email=email,
+        **profile,
+    )
+    return json_ok(
+        f"{staff_member.get_role_display()} {staff_member.full_name} заведён.",
+        **_credentials_payload(staff_member, password),
+    )
+
+
+@owner_required
+@require_POST
+def staff_update(request, pk):
+    member = get_object_or_404(User, pk=pk, role__in=[Role.TEACHER, Role.ADMIN, Role.OWNER])
+    data = _payload(request)
+
+    if "is_active" in data:
+        if member.pk == request.user.pk:
+            return json_error("Нельзя отключить собственный аккаунт.")
+        member.is_active = str(data["is_active"]) == "1"
+    for field in ("first_name", "last_name"):
+        if field in data:
+            setattr(member, field, str(data[field]).strip())
+    if data.get("role") in {Role.TEACHER, Role.ADMIN} and not member.is_owner:
+        member.role = data["role"]
+    member.save()
+
+    profile = getattr(member, "teacher_profile", None)
+    if profile is not None:
+        if "pay_rate" in data:
+            profile.pay_rate = _money(data.get("pay_rate")) or ZERO
+        if "headline" in data:
+            profile.headline = str(data["headline"]).strip()
+        if "show_on_site" in data:
+            profile.show_on_site = str(data["show_on_site"]) == "1"
+        profile.save()
+    return json_ok("Сохранено.")
+
+
+@owner_required
+@require_POST
+def staff_delete(request, pk):
+    """Удалить сотрудника — но только если за ним нет истории.
+
+    Преподаватель, у которого были уроки, участвует в расписании, журнале
+    и расчёте зарплаты. Стереть его — значит порвать эти связи задним
+    числом, поэтому такого отключаем, а не удаляем.
+    """
+    member = get_object_or_404(User, pk=pk, role__in=[Role.TEACHER, Role.ADMIN])
+    if member.pk == request.user.pk:
+        return json_error("Нельзя удалить собственный аккаунт.")
+
+    has_history = (
+        member.lessons_taught.exists()
+        or member.assigned_leads.exists()
+        or Group.objects.filter(teacher=member).exists()
+    )
+    name = member.full_name
+    if has_history:
+        member.is_active = False
+        member.save(update_fields=["is_active"])
+        return json_ok(
+            f"{name} отключён. Полное удаление невозможно: за ним числятся "
+            f"проведённые уроки и группы — они нужны в отчётах."
+        )
+    member.delete()
+    return json_ok(f"{name} удалён.")
+
+
+@manager_required
+@require_POST
+def credentials_reset(request, pk):
+    """Выдать новый разовый пароль: старый вспомнить нельзя, только заменить."""
+    member = get_object_or_404(User, pk=pk)
+    if member.is_owner and member.pk != request.user.pk:
+        return json_error("Пароль владельца меняется только им самим.")
+    # Ученику пароль сбрасывает и администратор, сотруднику — только владелица.
+    if not member.is_student and not request.user.is_owner:
+        return json_error("Пароли сотрудников выдаёт владелица школы.")
+    if not member.username:
+        member.username = provisioning.generate_username(member.last_name, member.first_name)
+        member.save(update_fields=["username"])
+    password = provisioning.reset_password(member)
+    return json_ok("Новый пароль выдан.", **_credentials_payload(member, password))

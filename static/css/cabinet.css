@@ -383,3 +383,41 @@
   margin-bottom: var(--s-3);
 }
 .module-block__head h4 { margin: 0; font-size: var(--step-1); }
+
+/* --- Выданные логин и пароль ------------------------------------------- */
+.creds {
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-md);
+  overflow: hidden;
+}
+.creds__row {
+  display: flex; align-items: center; gap: var(--s-3);
+  padding: var(--s-3);
+  background: var(--surface-2);
+}
+.creds__row + .creds__row { border-top: 1px solid var(--line-soft); }
+.creds__label {
+  flex: none; width: 64px;
+  font-size: var(--step--2); color: var(--muted);
+  text-transform: uppercase; letter-spacing: 0.06em;
+}
+.creds__value {
+  flex: 1; min-width: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--step-0);
+  /* Пароль диктуют вслух и переписывают: разрешаем перенос, но выделение
+     должно захватывать строку целиком. */
+  word-break: break-all;
+  user-select: all;
+}
+.creds__message {
+  margin: 0;
+  padding: var(--s-3);
+  background: var(--surface-2);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-md);
+  font-size: var(--step--1);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 190px; overflow-y: auto;
+}

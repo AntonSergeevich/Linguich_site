@@ -17,9 +17,9 @@
         {% csrf_token %}
         <input type="hidden" name="next" value="{{ next }}">
         <label class="field">
-          <span class="label">Email или телефон</span>
+          <span class="label">Логин, email или телефон</span>
           <input type="text" name="username" required autocomplete="username"
-                 value="{{ form.username.value|default:'' }}" placeholder="you@mail.ru или +7 …">
+                 value="{{ form.username.value|default:'' }}" placeholder="ivanov, you@mail.ru или +7 …">
           {% if form.username.errors %}<span class="error">{{ form.username.errors.0 }}</span>{% endif %}
         </label>
         <label class="field">
@@ -31,10 +31,17 @@
       </form>
 
       <div class="divider">нет аккаунта?</div>
-      <a class="btn btn--ghost btn--block" href="{% url 'accounts:register' %}">Зарегистрироваться</a>
+      {% if registration_open %}
+        <a class="btn btn--ghost btn--block" href="{% url 'accounts:register' %}">Зарегистрироваться</a>
+      {% else %}
+        <a class="btn btn--ghost btn--block" href="{% url 'school:signup' %}">Записаться на занятие</a>
+        <p class="tiny muted text-center mt-3 mb-0">
+          Доступ в кабинет выдаёт администратор школы — обычно после первого занятия.
+        </p>
+      {% endif %}
       <p class="tiny muted text-center mt-4 mb-0">
         Забыли пароль? Напишите нам на <a href="mailto:{{ site.email }}">{{ site.email }}</a> —
-        восстановим доступ.
+        выдадим новый.
       </p>
     </div>
     <p class="text-center mt-5"><a class="tiny muted" href="{% url 'school:home' %}">← На сайт школы</a></p>

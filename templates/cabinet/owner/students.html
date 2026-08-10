@@ -2,6 +2,11 @@
 {% load humanize %}
 {% block page_title %}Ученики{% endblock %}
 {% block page_sub %}<p class="cab-top__sub">{{ rows|length }} записей</p>{% endblock %}
+{% block page_actions %}
+  <button class="btn btn--sm" type="button" data-modal-open="#student-modal">
+    <svg class="icon icon--sm"><use href="#i-plus"/></svg> Завести ученика
+  </button>
+{% endblock %}
 
 {% block cabinet %}
 <form class="crm-filters" method="get">
@@ -89,9 +94,46 @@
         </tr>
       {% empty %}
         <tr><td colspan="7"><div class="empty"><h4>Ничего не найдено</h4>
-          <p>Измените фильтры или добавьте ученика из заявки.</p></div></td></tr>
+          <p>Измените фильтры, заведите ученика кнопкой сверху или создайте его из заявки.</p></div></td></tr>
       {% endfor %}
     </tbody>
   </table>
 </div>
+
+<div class="modal" id="student-modal">
+  <div class="modal__panel">
+    <div class="card-head"><h3>Новый ученик</h3>
+      <button class="btn btn--quiet btn--icon btn--sm" data-modal-close type="button">
+        <svg class="icon"><use href="#i-x"/></svg></button></div>
+    <form data-async method="post" action="{% url 'cabinet:crm_student_create' %}">
+      {% csrf_token %}
+      <div class="form-grid">
+        <label class="field"><span class="label">Имя *</span>
+          <input type="text" name="first_name" required autocomplete="off"></label>
+        <label class="field"><span class="label">Фамилия</span>
+          <input type="text" name="last_name" autocomplete="off"
+                 placeholder="из неё соберётся логин"></label>
+        <label class="field"><span class="label">Телефон</span>
+          <input type="tel" name="phone" inputmode="tel" maxlength="18"
+                 placeholder="+7 (___) ___-__-__"></label>
+        <label class="field"><span class="label">Email</span>
+          <input type="email" name="email" autocomplete="off"></label>
+        <label class="field"><span class="label">Уровень</span>
+          <select name="level">
+            <option value="">Не определён</option>
+            {% for value, label in levels %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+          </select></label>
+        <label class="field"><span class="label">Откуда узнал</span>
+          <input type="text" name="source" placeholder="Сарафан, реклама, сайт"></label>
+      </div>
+      <p class="tiny muted">
+        Телефон и email необязательны: войти ученик сможет по логину.
+        Пароль сгенерируется и покажется сразу — второй раз его не увидеть.
+      </p>
+      <button class="btn btn--block mt-3" type="submit">Завести и выдать доступ</button>
+    </form>
+  </div>
+</div>
+
+{% include 'components/credentials_modal.html' %}
 {% endblock %}

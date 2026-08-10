@@ -146,6 +146,7 @@
           const payload = el.dataset.payload ? JSON.parse(el.dataset.payload) : {};
           const data = await api(el.dataset.action, { method: "POST", json: payload });
           toast(data.message || "Готово", "ok");
+          el.dispatchEvent(new CustomEvent("async:success", { detail: data, bubbles: true }));
           if (el.dataset.reload !== undefined) { location.reload(); return; }
           if (data.replace && el.dataset.target) {
             const target = document.querySelector(el.dataset.target);
@@ -272,13 +273,17 @@
       document.body.style.overflow = "";
     }
     document.querySelectorAll(".modal").forEach(function (modal) {
+      // Окно с выданным паролем закрывается только явной кнопкой: пароль
+      // показывается один раз, и промах мимо панели не должен его стереть.
+      const sticky = modal.hasAttribute("data-no-dismiss");
       modal.addEventListener("click", function (event) {
-        if (event.target === modal || event.target.closest("[data-modal-close]")) close(modal);
+        if (event.target.closest("[data-modal-close]")) return close(modal);
+        if (event.target === modal && !sticky) close(modal);
       });
     });
     document.addEventListener("keydown", function (event) {
       if (event.key !== "Escape") return;
-      document.querySelectorAll(".modal[open]").forEach(close);
+      document.querySelectorAll(".modal[open]:not([data-no-dismiss])").forEach(close);
     });
   }
 
@@ -401,6 +406,59 @@
       input.addEventListener("blur", function () {
         if (phoneDigits(input.value).length <= 1) input.value = "";
       });
+    });
+  }
+
+  // --- Выданные логин и пароль -------------------------------------------
+  // Пароль показывается ровно один раз: в базе лежит хеш, повторно его
+  // взять неоткуда. Поэтому окно с ним нельзя закрыть случайно, а копирование
+  // должно работать с первого нажатия.
+  async function copyText(text) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch (err) {
+      // clipboard API недоступен без HTTPS и в старых браузерах —
+      // на такой случай остаётся приём через скрытое поле.
+      const area = document.createElement("textarea");
+      area.value = text;
+      area.setAttribute("readonly", "");
+      area.style.cssText = "position:fixed;top:-1000px;opacity:0";
+      document.body.appendChild(area);
+      area.select();
+      let ok = false;
+      try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
+      area.remove();
+      return ok;
+    }
+  }
+
+  function initCredentials() {
+    const modal = document.querySelector("[data-credentials]");
+    if (!modal) return;
+
+    function show(data) {
+      modal.querySelectorAll("[data-slot]").forEach(function (slot) {
+        slot.textContent = data[slot.dataset.slot] || "";
+      });
+      modal.querySelectorAll("[data-copy]").forEach(function (button) {
+        button.dataset.copyValue = data[button.dataset.copy] || "";
+      });
+      modal.setAttribute("open", "");
+      document.body.style.overflow = "hidden";
+    }
+
+    document.addEventListener("async:success", function (event) {
+      const data = event.detail && event.detail.credentials;
+      if (data) show(data);
+    });
+
+    modal.addEventListener("click", async function (event) {
+      const button = event.target.closest("[data-copy]");
+      if (!button) return;
+      event.preventDefault();
+      const ok = await copyText(button.dataset.copyValue || "");
+      toast(ok ? "Скопировано" : "Не удалось скопировать — выделите вручную", ok ? "ok" : "warn");
     });
   }
 
@@ -576,6 +634,7 @@
     initCountdowns();
     initPhoneInputs();
     initLeadBoard();
+    initCredentials();
     bindAsyncForms(document);
     bindActions(document);
   }

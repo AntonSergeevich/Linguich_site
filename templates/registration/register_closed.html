@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+{% block title %}Регистрация — Лингвич{% endblock %}
+
+{% block content %}
+<section class="section">
+  <div class="container" style="max-width:480px">
+    <div class="card card--pad-lg text-center">
+      <h1 style="font-size:var(--step-2)">Кабинет заводит школа</h1>
+      <p class="muted mb-5">
+        Логин и пароль вам выдаст администратор — обычно сразу после
+        первого занятия. Если доступа до сих пор нет, напишите нам,
+        и мы пришлём его в тот же день.
+      </p>
+      <div class="stack">
+        <a class="btn btn--accent btn--block btn--lg" href="{% url 'school:signup' %}">
+          Записаться на занятие
+        </a>
+        <a class="btn btn--ghost btn--block" href="{% url 'accounts:login' %}">
+          У меня уже есть доступ
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}
