@@ -57,6 +57,12 @@
                 <button class="btn btn--soft btn--sm"
                         data-action="{% url 'cabinet:crm_lead_convert' lead.pk %}"
                         data-confirm="Создать ученика из этой заявки?">В ученики</button>
+                <button class="btn btn--quiet btn--icon btn--sm" title="Удалить заявку"
+                        data-action="{% url 'cabinet:crm_lead_delete' lead.pk %}"
+                        data-remove="tr"
+                        data-confirm="Удалить заявку «{{ lead.name }}»? Отменить нельзя.">
+                  <svg class="icon icon--sm"><use href="#i-trash"/></svg>
+                </button>
               {% else %}
                 <a class="btn btn--quiet btn--sm" href="{% url 'cabinet:crm_student' lead.converted_user.pk %}">Карточка</a>
               {% endif %}
@@ -78,11 +84,27 @@
   <div class="kanban" data-lead-board data-update-url="/cabinet/crm/leads/__pk__/update/">
     {% for column in columns %}
       <div class="kanban__col" data-status="{{ column.value }}" data-label="{{ column.label }}">
-        <h5>{{ column.label }} <span data-count>{{ column.count }}</span></h5>
+        <h5>
+          <span>{{ column.label }}</span>
+          <span class="row row--nowrap" style="gap:var(--s-2)">
+            <span data-count>{{ column.count }}</span>
+            {% if column.count %}
+              <button class="btn btn--quiet btn--icon btn--sm kanban__purge" data-reload
+                      title="Удалить все заявки этой колонки"
+                      data-action="{% url 'cabinet:crm_leads_purge' %}"
+                      data-payload='{"status": "{{ column.value }}"}'
+                      data-confirm="Удалить все заявки из «{{ column.label }}»? Отменить нельзя.">
+                <svg class="icon icon--sm"><use href="#i-trash"/></svg>
+              </button>
+            {% endif %}
+          </span>
+        </h5>
         <div class="kanban__drop">
           {% for lead in column.items %}
-            {# Без draggable: родной HTML5-механизм перехватывал бы pointer-события,
-               а он всё равно не работает на телефоне. Перетаскивание своё. #}
+            {% comment %}
+              Без draggable: родной HTML5-механизм перехватывал бы pointer-события,
+              а он всё равно не работает на телефоне. Перетаскивание своё.
+            {% endcomment %}
             <div class="kanban__card" data-lead="{{ lead.pk }}"
                  tabindex="0" role="button"
                  aria-label="Заявка: {{ lead.name }}. Колонка: {{ column.label }}">
@@ -98,16 +120,25 @@
                 <span class="tiny muted">{{ lead.created_at|date:"d.m" }}</span>
                 {% if lead.placement_level %}<span class="badge badge--brand">{{ lead.placement_level }}</span>{% endif %}
               </div>
-              {% if not lead.converted_user %}
-                <div class="row mt-3" style="gap:var(--s-2)">
-                  <button class="btn btn--soft btn--sm btn--block" title="Создать ученика"
+              <div class="row row--nowrap mt-3" style="gap:var(--s-2)">
+                {% if not lead.converted_user %}
+                  <button class="btn btn--soft btn--sm" style="flex:1" title="Создать ученика"
                           data-action="{% url 'cabinet:crm_lead_convert' lead.pk %}"
                           data-confirm="Создать ученика из этой заявки?">
                     <svg class="icon icon--sm"><use href="#i-user"/></svg>
                     <span>В ученики</span>
                   </button>
-                </div>
-              {% endif %}
+                  <button class="btn btn--quiet btn--icon btn--sm" title="Удалить заявку"
+                          data-action="{% url 'cabinet:crm_lead_delete' lead.pk %}"
+                          data-remove=".kanban__card"
+                          data-confirm="Удалить заявку «{{ lead.name }}»? Отменить нельзя.">
+                    <svg class="icon icon--sm"><use href="#i-trash"/></svg>
+                  </button>
+                {% else %}
+                  <a class="btn btn--quiet btn--sm" style="flex:1"
+                     href="{% url 'cabinet:crm_student' lead.converted_user.pk %}">Карточка ученика</a>
+                {% endif %}
+              </div>
             </div>
           {% endfor %}
         </div>

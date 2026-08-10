@@ -144,5 +144,39 @@
   </div>
 </div>
 
+<div class="modal" id="staff-edit-modal">
+  <div class="modal__panel">
+    <div class="card-head"><h3>Изменить сотрудника</h3>
+      <button class="btn btn--quiet btn--icon btn--sm" data-modal-close type="button">
+        <svg class="icon"><use href="#i-x"/></svg></button></div>
+    <p class="muted tiny">Редактируем: <strong data-slot="who"></strong></p>
+    {% comment %}
+      Одна форма на весь список: адрес подставляет кнопка строки через
+      data-form-action, поля — через data-set*. Копия формы у каждой
+      строки означала бы столько же модалок, сколько сотрудников.
+    {% endcomment %}
+    <form data-async method="post" action="" data-success="Сохранено" data-reload>
+      {% csrf_token %}
+      <div class="form-grid">
+        <label class="field"><span class="label">Имя</span>
+          <input type="text" name="first_name" required autocomplete="off"></label>
+        <label class="field"><span class="label">Фамилия</span>
+          <input type="text" name="last_name" autocomplete="off"></label>
+        <label class="field"><span class="label">Роль</span>
+          <select name="role">
+            <option value="teacher">Преподаватель</option>
+            <option value="admin">Администратор</option>
+          </select></label>
+        <label class="field"><span class="label">Ставка за урок, ₽</span>
+          <input type="text" name="pay_rate" inputmode="decimal"></label>
+        <label class="field field--full"><span class="label">Специализация</span>
+          <input type="text" name="headline"></label>
+      </div>
+      <p class="tiny muted">Ставка и специализация действуют только для преподавателей.</p>
+      <button class="btn btn--block mt-3" type="submit">Сохранить</button>
+    </form>
+  </div>
+</div>
+
 {% include 'components/credentials_modal.html' %}
 {% endblock %}

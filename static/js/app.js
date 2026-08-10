@@ -96,6 +96,7 @@
             body: body,
           });
           if (data.redirect) { location.href = data.redirect; return; }
+          if (form.dataset.reload !== undefined) { location.reload(); return; }
           if (data.replace) {
             const target = document.querySelector(form.dataset.target || "");
             if (target) { target.outerHTML = data.replace; bindAsyncForms(document); initPhoneInputs(document); }
@@ -254,6 +255,12 @@
         if (!modal) return;
         modal.setAttribute("open", "");
         document.body.style.overflow = "hidden";
+        // Одна модалка на список: адрес формы приходит от кнопки строки,
+        // иначе пришлось бы печатать её копию для каждого сотрудника.
+        if (trigger.dataset.formAction) {
+          const form = modal.querySelector("form");
+          if (form) form.action = trigger.dataset.formAction;
+        }
         const first = modal.querySelector("input, textarea, select, button");
         if (first) first.focus();
         // Позволяем триггеру передать контекст в форму модалки.
@@ -488,7 +495,12 @@
     function refreshCounts() {
       board.querySelectorAll(".kanban__col").forEach(function (column) {
         const counter = column.querySelector("[data-count]");
-        if (counter) counter.textContent = column.querySelectorAll(".kanban__card").length;
+        if (!counter) return;
+        const value = String(column.querySelectorAll(".kanban__card").length);
+        // Сравниваем перед записью. Присваивание textContent пересоздаёт
+        // текстовый узел, наблюдатель ниже видит это как изменение доски
+        // и зовёт нас снова — вкладка уходила в бесконечный цикл.
+        if (counter.textContent !== value) counter.textContent = value;
       });
     }
 
@@ -623,6 +635,17 @@
 
     board.addEventListener("pointerup", finish);
     board.addEventListener("pointercancel", finish);
+
+    // Карточку удаляют кнопкой корзины, и счётчик колонки должен спадать
+    // сам. Следим за содержимым, а не вешаемся на конкретную кнопку:
+    // способов убрать карточку со временем станет больше.
+    // Наблюдаем только зоны с карточками, а не всю доску: заголовок со
+    // счётчиком в наблюдение попадать не должен, иначе наша же запись
+    // разбудит наблюдатель заново.
+    const watcher = new MutationObserver(refreshCounts);
+    board.querySelectorAll(".kanban__drop").forEach(function (zone) {
+      watcher.observe(zone, { childList: true });
+    });
   }
 
   // --- Bootstrap ---------------------------------------------------------

@@ -591,3 +591,156 @@ class AccountProvisioningViewTests(CabinetFixture):
         self.student.refresh_from_db()
         self.assertTrue(self.student.check_password(password))
         self.assertTrue(self.student.must_change_password)
+
+
+class TemplateLeakTests(CabinetFixture):
+    """Django считает комментарием только ОДНОСТРОЧНЫЙ {# … #}. Многострочный
+    он печатает на страницу как обычный текст.
+
+    Публичные страницы такой тест уже стерегли, а кабинет — нет, и комментарий
+    про перетаскивание уехал прямо в колонку заявок на глазах у владелицы.
+    Поэтому проверяем каждую страницу кабинета для каждой роли.
+    """
+
+    OWNER_PAGES = ["cabinet:crm_home", "cabinet:crm_leads", "cabinet:crm_students",
+                   "cabinet:crm_payments", "cabinet:crm_groups", "cabinet:crm_staff",
+                   "cabinet:teacher_home", "cabinet:teacher_schedule",
+                   "cabinet:teacher_students", "cabinet:teacher_review",
+                   "cabinet:teacher_programs", "cabinet:teacher_availability",
+                   "cabinet:notifications", "accounts:profile"]
+    STUDENT_PAGES = ["cabinet:home", "cabinet:schedule", "cabinet:homework",
+                     "cabinet:program", "cabinet:book", "cabinet:payments",
+                     "cabinet:notifications", "accounts:profile"]
+
+    def assertNoLeaks(self, user, names):
+        self.client.force_login(user)
+        for name in names:
+            with self.subTest(page=name):
+                html = self.client.get(reverse(name)).content.decode()
+                for token in ("{#", "#}", "{%", "{{"):
+                    if token not in html:
+                        continue
+                    # Печатаем только окрестность находки: вываливать всю
+                    # страницу в отчёт бесполезно, её невозможно читать.
+                    at = html.index(token)
+                    self.fail(
+                        f"{token} утёк в разметку на {name}: "
+                        f"…{html[max(0, at - 60):at + 90]}…"
+                    )
+
+    def test_owner_pages_are_clean(self):
+        Lead.objects.create(name="Пётр", phone="+79130001122")
+        self.assertNoLeaks(self.owner, self.OWNER_PAGES)
+
+    def test_student_pages_are_clean(self):
+        self.assertNoLeaks(self.student, self.STUDENT_PAGES)
+
+
+class LeadDeletionTests(CabinetFixture):
+    """Спам нужно убирать совсем: статус «Отказ» оставляет его в воронке
+    и портит счётчики."""
+
+    def setUp(self):
+        super().setUp()
+        self.spam = Lead.objects.create(name="Casino Bonus", phone="+79130000001")
+        self.client.force_login(self.owner)
+
+    def test_manager_deletes_a_spam_lead(self):
+        response = self.client.post(reverse("cabinet:crm_lead_delete", args=[self.spam.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(Lead.objects.filter(pk=self.spam.pk).exists())
+
+    def test_converted_lead_is_kept_as_history(self):
+        """Из карточки ученика видно, откуда он пришёл, — этот след не рвём."""
+        self.spam.converted_user = self.student
+        self.spam.save(update_fields=["converted_user"])
+        response = self.client.post(reverse("cabinet:crm_lead_delete", args=[self.spam.pk]))
+        self.assertEqual(response.status_code, 400)
+        self.assertTrue(Lead.objects.filter(pk=self.spam.pk).exists())
+
+    def test_teacher_cannot_delete_leads(self):
+        self.client.force_login(self.teacher)
+        self.assertEqual(
+            self.client.post(reverse("cabinet:crm_lead_delete", args=[self.spam.pk])).status_code, 403
+        )
+        self.assertTrue(Lead.objects.filter(pk=self.spam.pk).exists())
+
+    def purge(self, status):
+        return self.client.post(
+            reverse("cabinet:crm_leads_purge"),
+            data=json.dumps({"status": status}), content_type="application/json",
+        )
+
+    def test_purging_a_column_clears_it(self):
+        for index in range(4):
+            Lead.objects.create(name=f"Спам {index}", phone=f"+7913000111{index}")
+        response = self.purge(LeadStatus.NEW)
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(Lead.objects.filter(status=LeadStatus.NEW).exists())
+
+    def test_purge_spares_leads_that_became_students(self):
+        kept = Lead.objects.create(name="Настоящий", phone="+79130002222",
+                                   converted_user=self.student)
+        self.purge(LeadStatus.NEW)
+        self.assertTrue(Lead.objects.filter(pk=kept.pk).exists())
+        self.assertFalse(Lead.objects.filter(pk=self.spam.pk).exists())
+
+    def test_unknown_column_is_refused(self):
+        response = self.purge("что_попало")
+        self.assertEqual(response.status_code, 400)
+        self.assertTrue(Lead.objects.filter(pk=self.spam.pk).exists())
+
+    def test_empty_column_reports_instead_of_pretending(self):
+        self.assertEqual(self.purge(LeadStatus.WON).status_code, 400)
+
+
+class StaffEditingTests(CabinetFixture):
+    def setUp(self):
+        super().setUp()
+        self.client.force_login(self.owner)
+
+    def edit(self, member, **fields):
+        return self.client.post(reverse("cabinet:crm_staff_update", args=[member.pk]), fields)
+
+    def test_owner_renames_a_teacher_and_changes_the_rate(self):
+        response = self.edit(self.teacher, first_name="Анна", last_name="Белова",
+                             pay_rate="850", headline="Английский · IELTS")
+        self.assertEqual(response.status_code, 200)
+        self.teacher.refresh_from_db()
+        self.assertEqual(self.teacher.last_name, "Белова")
+        self.assertEqual(self.teacher.teacher_profile.pay_rate, Decimal("850"))
+        self.assertEqual(self.teacher.teacher_profile.headline, "Английский · IELTS")
+
+    def test_promoting_an_admin_to_teacher_gives_them_a_teaching_profile(self):
+        """Без профиля ставка сохранится в никуда, и в расчёте зарплаты
+        человека не будет."""
+        admin = User.objects.create_user(email="a@x.ru", first_name="Ольга", role=Role.ADMIN)
+        response = self.edit(admin, first_name="Ольга", role=Role.TEACHER, pay_rate="700")
+        self.assertEqual(response.status_code, 200)
+        admin.refresh_from_db()
+        self.assertEqual(admin.role, Role.TEACHER)
+        self.assertEqual(admin.teacher_profile.pay_rate, Decimal("700"))
+
+    def test_owner_role_cannot_be_taken_away(self):
+        self.edit(self.owner, first_name="Мария", role=Role.ADMIN)
+        self.owner.refresh_from_db()
+        self.assertEqual(self.owner.role, Role.OWNER)
+
+    def test_admin_cannot_edit_staff(self):
+        admin = User.objects.create_user(
+            email="a@x.ru", password="pass12345", first_name="Ольга", role=Role.ADMIN
+        )
+        self.client.force_login(admin)
+        self.assertEqual(self.edit(self.teacher, first_name="Взлом").status_code, 403)
+        self.teacher.refresh_from_db()
+        self.assertEqual(self.teacher.first_name, "Анна")
+
+    def test_edit_button_carries_current_values(self):
+        self.teacher.teacher_profile.headline = "Английский"
+        self.teacher.teacher_profile.save()
+        html = self.client.get(reverse("cabinet:crm_staff")).content.decode()
+        self.assertIn('data-modal-open="#staff-edit-modal"', html)
+        self.assertIn(reverse("cabinet:crm_staff_update", args=[self.teacher.pk]), html)
+        self.assertIn('data-setheadline="Английский"', html)
+        # У владелицы кнопки правки нет: роль и доступ она себе не меняет.
+        self.assertNotIn(reverse("cabinet:crm_staff_update", args=[self.owner.pk]), html)

@@ -9,7 +9,15 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from apps.accounts.models import CEFR, Role, StudentProfile, StudentStatus, User, normalize_phone
+from apps.accounts.models import (
+    CEFR,
+    Role,
+    StudentProfile,
+    StudentStatus,
+    TeacherProfile,
+    User,
+    normalize_phone,
+)
 from apps.billing.models import (
     LessonCharge,
     Package,
@@ -217,6 +225,41 @@ def lead_update(request, pk):
         lead.assigned_to = manager
     lead.save()
     return json_ok("Заявка обновлена.")
+
+
+@manager_required
+@require_POST
+def lead_delete(request, pk):
+    """Удалить заявку. Нужно прежде всего для спама.
+
+    Статуса «Отказ» для мусора мало: он остаётся в воронке и портит счётчики.
+    Заявку, из которой уже сделали ученика, не удаляем — иначе в карточке
+    ученика пропадёт след, откуда он пришёл.
+    """
+    lead = get_object_or_404(Lead, pk=pk)
+    if lead.converted_user_id:
+        return json_error("Из этой заявки уже создан ученик — она нужна как история.")
+    name = lead.name
+    lead.delete()
+    return json_ok(f"Заявка «{name}» удалена.")
+
+
+@manager_required
+@require_POST
+def leads_purge(request):
+    """Разом убрать все заявки из выбранной колонки.
+
+    Когда налив спама уже случился, удалять по одной — час работы.
+    """
+    status = _payload(request).get("status")
+    if status not in dict(LeadStatus.choices):
+        return json_error("Выберите колонку, которую нужно очистить.")
+    doomed = Lead.objects.filter(status=status, converted_user__isnull=True)
+    count = doomed.count()
+    if not count:
+        return json_error("В этой колонке нечего удалять.")
+    doomed.delete()
+    return json_ok(f"Удалено заявок: {count}.")
 
 
 @manager_required
@@ -691,6 +734,13 @@ def staff_update(request, pk):
     if data.get("role") in {Role.TEACHER, Role.ADMIN} and not member.is_owner:
         member.role = data["role"]
     member.save()
+
+    # Администратора можно перевести в преподаватели — тогда ему нужен
+    # преподавательский профиль, иначе ставка и специализация молча
+    # некуда сохранятся, а в расчёте зарплаты его не будет.
+    if member.role == Role.TEACHER and not hasattr(member, "teacher_profile"):
+        TeacherProfile.objects.create(user=member)
+        member.refresh_from_db()
 
     profile = getattr(member, "teacher_profile", None)
     if profile is not None:

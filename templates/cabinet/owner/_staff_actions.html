@@ -3,6 +3,19 @@
 нельзя ни отключить, ни удалить — иначе школа останется без доступа.
 {% endcomment %}
 <div class="row row--nowrap" style="gap:var(--s-1);justify-content:flex-end">
+  {% if not member.is_owner %}
+    <button class="btn btn--quiet btn--icon btn--sm" type="button" title="Редактировать"
+            data-modal-open="#staff-edit-modal"
+            data-form-action="{% url 'cabinet:crm_staff_update' member.pk %}"
+            data-setfirst_name="{{ member.first_name }}"
+            data-setlast_name="{{ member.last_name }}"
+            data-setrole="{{ member.role }}"
+            data-setpay_rate="{{ member.teacher_profile.pay_rate|default_if_none:0|floatformat:0 }}"
+            data-setheadline="{{ member.teacher_profile.headline|default:'' }}"
+            data-setwho="{{ member.full_name }}">
+      <svg class="icon icon--sm"><use href="#i-edit"/></svg>
+    </button>
+  {% endif %}
   <button class="btn btn--quiet btn--icon btn--sm" type="button"
           title="Выдать новый пароль"
           data-action="{% url 'cabinet:crm_credentials_reset' member.pk %}"
