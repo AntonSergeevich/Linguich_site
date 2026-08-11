@@ -162,6 +162,10 @@ LOGIN_REDIRECT_URL = "cabinet:home"
 LOGOUT_REDIRECT_URL = "school:home"
 
 LANGUAGE_CODE = "ru-ru"
+# Сайт русский, но LocaleMiddleware выбирает язык по заголовку браузера —
+# с английской локалью Django печатал «MON» вместо «Пн» и «August» вместо
+# «августа». Список из одного языка не оставляет ему выбора.
+LANGUAGES = [("ru", "Русский")]
 TIME_ZONE = "Asia/Krasnoyarsk"
 USE_I18N = True
 USE_TZ = True

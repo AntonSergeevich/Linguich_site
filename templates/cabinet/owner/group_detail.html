@@ -1,0 +1,201 @@
+{% extends 'cabinet/base.html' %}
+{% load humanize %}
+{% block page_title %}{{ group.name }}{% endblock %}
+{% block page_sub %}
+  <p class="cab-top__sub">{{ group.course.title }} · {{ group.teacher.short_name }}
+    {% if group.level %} · {{ group.level }}{% endif %}</p>
+{% endblock %}
+{% block page_actions %}
+  <a class="btn btn--ghost btn--sm" href="{% url 'cabinet:crm_groups' %}">
+    <svg class="icon icon--sm"><use href="#i-arrow-left"/></svg>
+    <span>К группам</span>
+  </a>
+{% endblock %}
+
+{% block cabinet %}
+<div class="grid grid-4">
+  <div class="stat">
+    <div class="stat__label">Учеников</div>
+    <div class="stat__value">{{ roster|length }}<span class="muted">/{{ group.capacity }}</span></div>
+    <div class="stat__meta">{% if group.seats_left %}свободно мест: {{ group.seats_left }}{% else %}мест нет{% endif %}</div>
+  </div>
+  <div class="stat">
+    <div class="stat__label">Проведено</div>
+    <div class="stat__value">{{ held }}</div>
+    <div class="stat__meta">занятий отмечено</div>
+  </div>
+  <div class="stat">
+    <div class="stat__label">Расписание</div>
+    <div class="stat__value" style="font-size:var(--step-1)">{{ group.schedule_summary|default:"не задано" }}</div>
+  </div>
+  <div class="stat">
+    <div class="stat__label">Где</div>
+    <div class="stat__value" style="font-size:var(--step-1)">
+      {% if group.mode == 'online' %}Онлайн{% else %}{{ group.location.name|default:"класс" }}{% endif %}
+    </div>
+  </div>
+</div>
+
+<div class="grid grid-main">
+  <div class="stack">
+    <div class="card">
+      <div class="card-head">
+        <h3>Состав группы</h3>
+        {% if group.seats_left %}
+          <button class="btn btn--sm" type="button" data-modal-open="#enroll-modal">
+            <svg class="icon icon--sm"><use href="#i-plus"/></svg> Добавить ученика
+          </button>
+        {% endif %}
+      </div>
+
+      {% comment %}
+        Рядом с именем сразу видно, сколько осталось уроков и когда была
+        оплата. Это те два числа, которые спрашивают по телефону, — иначе
+        приходится открывать карточку каждого ученика по очереди.
+      {% endcomment %}
+      <div class="table-wrap">
+        <table class="table">
+          <thead><tr><th>Ученик</th><th class="num">Осталось уроков</th>
+            <th>Последняя оплата</th><th class="num">Долг</th><th></th></tr></thead>
+          <tbody>
+            {% for row in roster %}
+              <tr>
+                <td>
+                  <a href="{% url 'cabinet:crm_student' row.student.pk %}">
+                    <strong>{{ row.student.full_name }}</strong>
+                  </a>
+                  <div class="tiny muted">{{ row.student.phone|default:row.student.email|default:"—" }}</div>
+                </td>
+                <td class="num">
+                  {% if row.lessons_left <= 0 %}
+                    <span class="badge badge--err">{{ row.lessons_left }}</span>
+                  {% elif row.lessons_left <= 2 %}
+                    <span class="badge badge--warn">{{ row.lessons_left }}</span>
+                  {% else %}<span class="badge badge--ok">{{ row.lessons_left }}</span>{% endif %}
+                </td>
+                <td class="tiny muted">
+                  {% if row.last_payment %}
+                    {{ row.last_payment.paid_on|date:"d.m.Y" }} ·
+                    {{ row.last_payment.amount|floatformat:0|intcomma }} ₽
+                  {% else %}<span class="muted">не платил</span>{% endif %}
+                </td>
+                <td class="num">
+                  {% if row.balance > 0 %}
+                    <span class="money-pos">{{ row.balance|floatformat:0|intcomma }} ₽</span>
+                  {% else %}<span class="money-zero">—</span>{% endif %}
+                </td>
+                <td class="num">
+                  <button class="btn btn--quiet btn--icon btn--sm" type="button" title="Исключить из группы"
+                          data-action="{% url 'cabinet:crm_group_unenroll' row.enrollment.pk %}" data-reload
+                          data-confirm="Исключить {{ row.student.full_name }} из «{{ group.name }}»? Из будущих занятий он пропадёт, прошедшие останутся в журнале.">
+                    <svg class="icon icon--sm"><use href="#i-trash"/></svg>
+                  </button>
+                </td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="5"><div class="empty"><h4>В группе пока никого</h4>
+                <p>Добавьте учеников — они автоматически попадут во все будущие занятия.</p></div></td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Ближайшие занятия</h3>
+      {% for lesson in upcoming %}
+        <div class="lesson-row">
+          <div class="lesson-row__time">
+            <strong>{{ lesson.starts_at|date:"H:i" }}</strong>
+            <span>{{ lesson.starts_at|date:"D d.m" }}</span>
+          </div>
+          <div style="min-width:0">
+            <div class="lesson-row__title">{{ lesson.title }}</div>
+            <div class="lesson-row__meta">
+              <span>{{ lesson.participants.count }} чел.</span>
+              <span>{{ lesson.duration_minutes }} мин</span>
+            </div>
+          </div>
+          <div class="lesson-row__actions">
+            <a class="btn btn--ghost btn--sm" href="{% url 'cabinet:teacher_lesson' lesson.pk %}">Журнал</a>
+          </div>
+        </div>
+      {% empty %}
+        <div class="empty"><h4>Занятий впереди нет</h4>
+          <p>Задайте время ниже и нажмите «Сгенерировать расписание» в списке групп.</p></div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <aside class="stack">
+    <div class="card">
+      <h3>Время в неделе</h3>
+      <p class="tiny muted">По этому расписанию создаются занятия на недели вперёд.</p>
+      {% for slot in group.slots.all %}
+        <div class="row row--between" style="padding:var(--s-2) 0;border-bottom:1px solid var(--line-soft)">
+          <span><strong>{{ slot.get_weekday_display }}</strong> {{ slot.start_time|time:"H:i" }}
+            <span class="tiny muted">· {{ slot.duration_minutes }} мин</span></span>
+          <button class="btn btn--quiet btn--icon btn--sm" type="button" title="Убрать"
+                  data-action="{% url 'cabinet:crm_group_slot_delete' slot.pk %}" data-reload
+                  data-confirm="Убрать {{ slot.get_weekday_display }} {{ slot.start_time|time:'H:i' }}?">
+            <svg class="icon icon--sm"><use href="#i-x"/></svg>
+          </button>
+        </div>
+      {% empty %}
+        <p class="tiny muted">Время не задано — занятия не создадутся.</p>
+      {% endfor %}
+
+      <form class="mt-4" data-async method="post"
+            action="{% url 'cabinet:crm_group_slot_create' group.pk %}" data-reload>
+        {% csrf_token %}
+        <div class="form-grid">
+          <label class="field"><span class="label">День</span>
+            <select name="weekday">
+              {% for value, label in weekdays %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+            </select></label>
+          <label class="field"><span class="label">Начало</span>
+            <input type="time" name="start_time" required></label>
+          <label class="field"><span class="label">Минут</span>
+            <input type="number" name="duration_minutes" value="60" min="15" max="240" step="5"></label>
+        </div>
+        <button class="btn btn--ghost btn--block" type="submit">Добавить время</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <h3>О группе</h3>
+      <dl class="tiny">
+        <div class="row row--between"><dt class="muted">Курс</dt><dd>{{ group.course.title }}</dd></div>
+        <div class="row row--between"><dt class="muted">Язык</dt><dd>{{ group.course.language.name }}</dd></div>
+        <div class="row row--between"><dt class="muted">Преподаватель</dt><dd>{{ group.teacher.full_name }}</dd></div>
+        <div class="row row--between"><dt class="muted">Старт</dt><dd>{{ group.starts_on|date:"d.m.Y"|default:"—" }}</dd></div>
+        {% if group.program %}
+          <div class="row row--between"><dt class="muted">Программа</dt>
+            <dd><a href="{% url 'cabinet:teacher_program' group.program.pk %}">{{ group.program.title }}</a></dd></div>
+        {% endif %}
+      </dl>
+    </div>
+  </aside>
+</div>
+
+<div class="modal" id="enroll-modal">
+  <div class="modal__panel">
+    <div class="card-head"><h3>Добавить ученика</h3>
+      <button class="btn btn--quiet btn--icon btn--sm" data-modal-close type="button">
+        <svg class="icon"><use href="#i-x"/></svg></button></div>
+    <form data-async method="post" action="{% url 'cabinet:crm_group_enroll' group.pk %}" data-reload>
+      {% csrf_token %}
+      <label class="field"><span class="label">Ученик *</span>
+        <select name="student" required>
+          {% for student in candidates %}
+            <option value="{{ student.pk }}">{{ student.full_name }} — {{ student.phone|default:student.email }}</option>
+          {% empty %}
+            <option value="" disabled>Все ученики уже в группе</option>
+          {% endfor %}
+        </select></label>
+      <p class="tiny muted">Ученик появится во всех будущих занятиях группы.</p>
+      <button class="btn btn--block mt-3" type="submit">Добавить</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

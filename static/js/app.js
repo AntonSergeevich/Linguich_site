@@ -477,6 +477,95 @@
     });
   }
 
+  // --- Лента дней в расписании -------------------------------------------
+  // Клик по дню оставляет в списке только его занятия, лента тянется мышью
+  // и крутится колесом. Стрелки недели остаются — они про другую неделю.
+  function initDayStrip() {
+    const strip = document.querySelector("[data-day-strip]");
+    if (!strip) return;
+
+    const rows = Array.prototype.slice.call(document.querySelectorAll("[data-day].lesson-row"));
+    const title = document.querySelector("[data-strip-title]");
+    const reset = document.querySelector("[data-strip-reset]");
+    const empty = document.querySelector("[data-strip-empty]");
+    const baseTitle = title ? title.textContent : "";
+    let picked = null;
+
+    function apply() {
+      strip.querySelectorAll("[data-day]").forEach(function (chip) {
+        const on = chip.dataset.day === picked;
+        chip.setAttribute("aria-pressed", String(on));
+        // Подсвечиваем всю карточку дня, а кликается только её заголовок.
+        (chip.closest(".week__day") || chip).classList.toggle("is-picked", on);
+      });
+      let shown = 0;
+      rows.forEach(function (row) {
+        const on = !picked || row.dataset.day === picked;
+        row.hidden = !on;
+        if (on) shown += 1;
+      });
+      if (reset) reset.hidden = !picked;
+      if (empty) empty.hidden = !(picked && shown === 0);
+      if (title) {
+        title.textContent = picked
+          ? "Занятия: " + picked.split("-").reverse().join(".")
+          : baseTitle;
+      }
+    }
+
+    strip.addEventListener("click", function (event) {
+      // Клик по конкретному занятию — это переход в журнал, не выбор дня.
+      if (event.target.closest("a")) return;
+      const chip = event.target.closest("[data-day]");
+      if (!chip || dragged) return;
+      picked = picked === chip.dataset.day ? null : chip.dataset.day;
+      apply();
+    });
+
+    if (reset) {
+      reset.addEventListener("click", function () {
+        picked = null;
+        apply();
+      });
+    }
+
+    // Колесо мыши вертикальное, а лента горизонтальная — перекладываем.
+    strip.addEventListener("wheel", function (event) {
+      if (strip.scrollWidth <= strip.clientWidth) return;
+      if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
+      event.preventDefault();
+      strip.scrollLeft += event.deltaY;
+    }, { passive: false });
+
+    // Перетаскивание мышью: на тачпаде и телефоне прокрутка своя, а мышью
+    // горизонтальную ленту иначе не сдвинуть.
+    let anchor = null;
+    let dragged = false;
+    strip.addEventListener("pointerdown", function (event) {
+      if (event.pointerType !== "mouse" || event.button !== 0) return;
+      anchor = { x: event.clientX, left: strip.scrollLeft };
+      dragged = false;
+    });
+    strip.addEventListener("pointermove", function (event) {
+      if (!anchor) return;
+      const shift = event.clientX - anchor.x;
+      if (Math.abs(shift) < 4) return;
+      dragged = true;
+      strip.scrollLeft = anchor.left - shift;
+      strip.classList.add("is-dragging");
+    });
+    function release() {
+      anchor = null;
+      strip.classList.remove("is-dragging");
+      // Сбрасываем на следующем кадре: click приходит после pointerup,
+      // и без задержки перетаскивание засчиталось бы как выбор дня.
+      requestAnimationFrame(function () { dragged = false; });
+    }
+    strip.addEventListener("pointerup", release);
+    strip.addEventListener("pointerleave", release);
+    strip.addEventListener("pointercancel", release);
+  }
+
   // --- Доска заявок: перетаскивание --------------------------------------
   // Родной HTML5 drag-and-drop на телефонах не работает вообще, а заявки
   // разбирают в том числе с телефона. Поэтому всё на pointer-событиях —
@@ -665,6 +754,7 @@
     initCountdowns();
     initPhoneInputs();
     initLeadBoard();
+    initDayStrip();
     initCredentials();
     bindAsyncForms(document);
     bindActions(document);

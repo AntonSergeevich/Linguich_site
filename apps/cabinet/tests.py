@@ -2,7 +2,7 @@
 
 import json
 import re
-from datetime import timedelta
+from datetime import time, timedelta
 from decimal import Decimal
 
 from django.conf import settings
@@ -16,6 +16,7 @@ from apps.learning.models import Assignment, Submission, SubmissionStatus
 from apps.notifications.models import Notification, NotificationKind
 from apps.scheduling.models import (
     Enrollment,
+    TeacherAvailability,
     Group,
     Lesson,
     LessonParticipant,
@@ -779,3 +780,182 @@ class FormPropertyShadowingTests(SimpleTestCase):
         code = self.code()
         self.assertIn('form.getAttribute("action")', code)
         self.assertIn('form.getAttribute("method")', code)
+
+
+class RussianDatesTests(CabinetFixture):
+    """Регрессия: у браузера с английской локалью Django печатал дни недели
+    как «MON». Сайт русский — язык не должен зависеть от настроек гостя."""
+
+    def test_schedule_headers_stay_russian(self):
+        self.client.force_login(self.owner)
+        response = self.client.get(
+            reverse("cabinet:crm_schedule"), headers={"accept-language": "en-US,en;q=0.9"}
+        )
+        html = response.content.decode()
+        self.assertNotIn(">Mon<", html)
+        for short in ("Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"):
+            self.assertIn(short, html)
+
+
+class SchoolScheduleTests(CabinetFixture):
+    """Общая картина занятости: кто когда занят и куда можно записать."""
+
+    def setUp(self):
+        super().setUp()
+        self.admin = User.objects.create_user(
+            email="admin@x.ru", password="pass12345", first_name="Ольга", role=Role.ADMIN
+        )
+        TeacherAvailability.objects.create(
+            teacher=self.teacher,
+            weekday=(timezone.localdate() + timedelta(days=1)).weekday(),
+            start_time=time(15, 0), end_time=time(19, 0), slot_minutes=60,
+        )
+
+    def test_admin_sees_the_school_schedule(self):
+        self.client.force_login(self.admin)
+        response = self.client.get(reverse("cabinet:crm_schedule"))
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context["rows"])
+
+    def test_teacher_cannot_open_it(self):
+        self.client.force_login(self.teacher)
+        self.assertEqual(self.client.get(reverse("cabinet:crm_schedule")).status_code, 403)
+
+    def test_free_windows_are_offered(self):
+        self.client.force_login(self.owner)
+        response = self.client.get(reverse("cabinet:crm_schedule"))
+        free = sum(len(day["free"]) for row in response.context["rows"] for day in row["days"])
+        self.assertGreater(free, 0, "свободные окна не рассчитались")
+
+    def test_free_windows_can_be_hidden(self):
+        self.client.force_login(self.owner)
+        response = self.client.get(reverse("cabinet:crm_schedule"), {"free": "0"})
+        free = sum(len(day["free"]) for row in response.context["rows"] for day in row["days"])
+        self.assertEqual(free, 0)
+
+    def test_student_options_carry_lessons_left_and_payment(self):
+        """То, что спрашивают по телефону, должно быть видно в момент записи."""
+        self.client.force_login(self.owner)
+        response = self.client.get(reverse("cabinet:crm_schedule"))
+        row = next(r for r in response.context["student_rows"] if r["student"] == self.student)
+        self.assertIn("lessons_left", row)
+        self.assertIn("last_payment", row)
+        self.assertContains(response, "осталось")
+
+    def book(self, **overrides):
+        # Заведомо свободное время: в фикстуре у этого преподавателя уже
+        # стоит занятие на завтра, и запись в тот же час законно отклоняется.
+        when = (timezone.localtime(timezone.now()) + timedelta(days=3)).replace(
+            hour=9, minute=0, second=0, microsecond=0
+        )
+        payload = {
+            "student": self.student.pk,
+            "teacher": self.teacher.pk,
+            "starts_at": when.strftime("%Y-%m-%dT%H:%M"),
+            "duration": 60,
+        }
+        payload.update(overrides)
+        return self.client.post(reverse("cabinet:crm_schedule_book"), payload)
+
+    def test_admin_books_a_student(self):
+        self.client.force_login(self.admin)
+        response = self.book()
+        self.assertEqual(response.status_code, 200)
+        lesson = Lesson.objects.order_by("-id").first()
+        self.assertEqual(lesson.teacher, self.teacher)
+        self.assertTrue(lesson.participants.filter(student=self.student).exists())
+
+    def test_double_booking_the_same_time_is_refused(self):
+        self.client.force_login(self.owner)
+        self.assertEqual(self.book().status_code, 200)
+        response = self.book()
+        self.assertEqual(response.status_code, 400)
+
+    def test_broken_datetime_is_reported(self):
+        self.client.force_login(self.owner)
+        response = self.book(starts_at="когда-нибудь")
+        self.assertEqual(response.status_code, 400)
+
+    def test_booking_warns_when_the_package_is_spent(self):
+        """Записать даём — человек на линии. Но про оплату надо сказать."""
+        self.client.force_login(self.owner)
+        response = self.book()
+        self.assertIn("не осталось оплаченных", response.json()["message"])
+
+    def test_teacher_cannot_book_through_the_crm(self):
+        self.client.force_login(self.teacher)
+        self.assertEqual(self.book().status_code, 403)
+
+
+class GroupDetailTests(CabinetFixture):
+    def setUp(self):
+        super().setUp()
+        self.client.force_login(self.owner)
+
+    def test_group_page_lists_members_with_their_balance(self):
+        response = self.client.get(reverse("cabinet:crm_group", args=[self.group.pk]))
+        self.assertEqual(response.status_code, 200)
+        names = [row["student"] for row in response.context["roster"]]
+        self.assertIn(self.student, names)
+        self.assertIn("lessons_left", response.context["roster"][0])
+
+    def test_groups_list_links_to_the_page(self):
+        response = self.client.get(reverse("cabinet:crm_groups"))
+        self.assertContains(response, reverse("cabinet:crm_group", args=[self.group.pk]))
+
+    def test_enrolling_adds_the_student_to_future_lessons(self):
+        newcomer = User.objects.create_user(
+            email="new@x.ru", first_name="Ника", role=Role.STUDENT
+        )
+        response = self.client.post(
+            reverse("cabinet:crm_group_enroll", args=[self.group.pk]), {"student": newcomer.pk}
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(self.lesson.participants.filter(student=newcomer).exists())
+
+    def test_removing_a_student_keeps_past_lessons(self):
+        """В прошедших занятиях стоят отметки и списания — переписывать их
+        задним числом значит испортить журнал и деньги."""
+        past = Lesson.objects.create(
+            group=self.group, course=self.course, teacher=self.teacher,
+            starts_at=timezone.now() - timedelta(days=3), capacity=6,
+        )
+        LessonParticipant.objects.create(lesson=past, student=self.student)
+        enrollment = self.group.enrollments.get(student=self.student)
+
+        response = self.client.post(reverse("cabinet:crm_group_unenroll", args=[enrollment.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(past.participants.filter(student=self.student).exists())
+        self.assertFalse(self.lesson.participants.filter(student=self.student).exists())
+        enrollment.refresh_from_db()
+        self.assertFalse(enrollment.is_active)
+
+    def test_full_group_refuses_new_students(self):
+        self.group.capacity = 1
+        self.group.save(update_fields=["capacity"])
+        other = User.objects.create_user(email="o@x.ru", first_name="Олег", role=Role.STUDENT)
+        response = self.client.post(
+            reverse("cabinet:crm_group_enroll", args=[self.group.pk]), {"student": other.pk}
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_weekly_slot_can_be_added_and_removed(self):
+        response = self.client.post(
+            reverse("cabinet:crm_group_slot_create", args=[self.group.pk]),
+            {"weekday": 2, "start_time": "18:00", "duration_minutes": 90},
+        )
+        self.assertEqual(response.status_code, 200)
+        slot = self.group.slots.get(weekday=2)
+        self.assertEqual(slot.duration_minutes, 90)
+
+        self.assertEqual(
+            self.client.post(reverse("cabinet:crm_group_slot_delete", args=[slot.pk])).status_code, 200
+        )
+        self.assertFalse(self.group.slots.filter(pk=slot.pk).exists())
+
+    def test_duplicate_slot_is_refused(self):
+        self.client.post(reverse("cabinet:crm_group_slot_create", args=[self.group.pk]),
+                         {"weekday": 3, "start_time": "18:00"})
+        response = self.client.post(reverse("cabinet:crm_group_slot_create", args=[self.group.pk]),
+                                    {"weekday": 3, "start_time": "18:00"})
+        self.assertEqual(response.status_code, 400)

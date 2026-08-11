@@ -16,12 +16,13 @@
   <table class="table">
     <thead>
       <tr><th>Группа</th><th>Курс</th><th>Преподаватель</th><th>Расписание</th>
-        <th class="num">Мест</th><th>Программа</th><th>Статус</th></tr>
+        <th class="num">Мест</th><th></th><th>Программа</th><th>Статус</th></tr>
     </thead>
     <tbody>
       {% for group in groups %}
         <tr>
-          <td><strong>{{ group.name }}</strong>
+          <td>
+            <a href="{% url 'cabinet:crm_group' group.pk %}"><strong>{{ group.name }}</strong></a>
             <div class="tiny muted">{{ group.location.name|default:"онлайн" }}
               {% if group.level %} · {{ group.level }}{% endif %}</div></td>
           <td class="tiny">{{ group.course.title }}<br>
@@ -32,6 +33,9 @@
             {% if group.students >= group.capacity %}
               <span class="badge badge--err">{{ group.students }}/{{ group.capacity }}</span>
             {% else %}{{ group.students }}/{{ group.capacity }}{% endif %}
+          </td>
+          <td class="num">
+            <a class="btn btn--quiet btn--sm" href="{% url 'cabinet:crm_group' group.pk %}">Открыть</a>
           </td>
           <td class="tiny">
             {% if group.program %}

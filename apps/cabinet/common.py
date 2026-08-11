@@ -75,9 +75,10 @@ def _school_items(include_staff):
     items = [
         ("cabinet:crm_home", "Сводка", "i-chart", 0),
         ("cabinet:crm_leads", "Заявки", "i-inbox", new_leads),
+        ("cabinet:crm_schedule", "Расписание школы", "i-calendar", 0),
         ("cabinet:crm_students", "Ученики", "i-users", 0),
         ("cabinet:crm_payments", "Платежи и долги", "i-card", 0),
-        ("cabinet:crm_groups", "Группы", "i-calendar", 0),
+        ("cabinet:crm_groups", "Группы", "i-users", 0),
     ]
     if include_staff:
         items.append(("cabinet:crm_staff", "Сотрудники", "i-user", 0))

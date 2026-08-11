@@ -21,10 +21,24 @@
   </div>
 {% endif %}
 
-<div class="week">
+{% comment %}
+  Лента дней прокручивается и колесом, и перетаскиванием, а клик по дню
+  оставляет в списке только его занятия. Стрелками недели листать каждый
+  раз — долго, а на узком экране семь колонок всё равно не помещаются.
+{% endcomment %}
+<div class="week week--strip" data-day-strip>
   {% for day in days %}
     <div class="week__day {% if day.is_today %}is-today{% endif %}">
-      <h5><span>{{ day.short }}</span><span>{{ day.date|date:"d.m" }}</span></h5>
+      {% comment %}
+        Кнопка — только заголовок дня. Если сделать кнопкой всю карточку,
+        внутрь попадут ссылки на занятия: клик почти всегда будет
+        открывать урок вместо выбора дня, да и вложенные ссылки в кнопке
+        недопустимы по разметке.
+      {% endcomment %}
+      <button type="button" class="week__pick"
+              data-day="{{ day.date|date:'Y-m-d' }}" aria-pressed="false">
+        <h5><span>{{ day.short }}</span><span>{{ day.date|date:"d.m" }}</span></h5>
+      </button>
       {% for lesson in day.lessons %}
         <a class="week-chip {% if lesson.status == 'cancelled' %}is-cancelled{% elif lesson.status == 'completed' %}is-done{% endif %}"
            href="{% url 'cabinet:teacher_lesson' lesson.pk %}">
@@ -37,10 +51,16 @@
 </div>
 
 <div class="card">
-  <h3>Занятия недели</h3>
+  <div class="card-head">
+    <h3 data-strip-title>Занятия недели</h3>
+    <button class="btn btn--quiet btn--sm" type="button" data-strip-reset hidden>
+      Показать всю неделю
+    </button>
+  </div>
   {% for day in days %}
     {% for lesson in day.lessons %}
-      <div class="lesson-row {% if lesson.status == 'cancelled' %}is-cancelled{% endif %} {% if lesson.is_live_now %}is-live{% endif %}">
+      <div class="lesson-row {% if lesson.status == 'cancelled' %}is-cancelled{% endif %} {% if lesson.is_live_now %}is-live{% endif %}"
+           data-day="{{ day.date|date:'Y-m-d' }}">
         <div class="lesson-row__time">
           <strong>{{ lesson.starts_at|date:"H:i" }}</strong>
           <span>{{ day.short }} {{ lesson.starts_at|date:"d.m" }}</span>
@@ -67,6 +87,7 @@
       </div>
     {% endfor %}
   {% endfor %}
+  <p class="tiny muted text-center" data-strip-empty hidden>В этот день занятий нет.</p>
 </div>
 
 {% endblock %}

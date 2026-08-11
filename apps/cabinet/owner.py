@@ -6,6 +6,7 @@ from decimal import Decimal, InvalidOperation
 from django.conf import settings
 from django.db.models import Count, DecimalField, F, Q, Sum, Value
 from django.db.models.functions import Coalesce, TruncMonth
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
@@ -33,6 +34,8 @@ from apps.notifications.models import NotificationKind
 from apps.notifications.services import notify
 from apps.scheduling import services as sched
 from apps.scheduling.models import (
+    WEEKDAYS,
+    DeliveryMode,
     Enrollment,
     Group,
     Lesson,
@@ -45,7 +48,7 @@ from apps.accounts import provisioning
 from apps.school.models import Course, Lead, LeadStatus, Location
 from apps.utils import json_error, json_ok, manager_required, owner_required
 
-from .common import as_datetime_range, cabinet_context
+from .common import as_datetime_range, cabinet_context, week_bounds
 
 ZERO = Decimal("0.00")
 MONTHS_SHORT = ["янв", "фев", "мар", "апр", "май", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"]
@@ -807,3 +810,278 @@ def credentials_reset(request, pk):
         member.save(update_fields=["username"])
     password = provisioning.reset_password(member)
     return json_ok("Новый пароль выдан.", **_credentials_payload(member, password))
+
+
+# --- Карточка группы -----------------------------------------------------
+
+def _student_snapshot(student):
+    """Что нужно знать про ученика, не открывая его карточку.
+
+    Осталось уроков и дата последней оплаты — это те два числа, которые
+    спрашивают по телефону. Держим их рядом с именем везде, где ученика
+    видно: в группе, в расписании, в форме записи.
+    """
+    account = StudentAccount(student)
+    last = (
+        student.payments.filter(status=PaymentStatus.PAID)
+        .order_by("-paid_on", "-id").first()
+    )
+    return {
+        "student": student,
+        "lessons_left": account.lessons_left,
+        "balance": account.balance,
+        "last_payment": last,
+    }
+
+
+@manager_required
+def group_detail(request, pk):
+    group = get_object_or_404(
+        Group.objects.select_related("course", "course__language", "teacher", "location", "program"),
+        pk=pk,
+    )
+    enrollments = (
+        group.enrollments.filter(is_active=True)
+        .select_related("student", "student__student_profile")
+        .order_by("student__last_name", "student__first_name")
+    )
+    roster = [
+        dict(_student_snapshot(enrollment.student), enrollment=enrollment)
+        for enrollment in enrollments
+    ]
+    upcoming = (
+        group.lessons.filter(starts_at__gte=timezone.now())
+        .exclude(status=LessonStatus.CANCELLED)
+        .order_by("starts_at")[:12]
+    )
+    held = group.lessons.filter(status=LessonStatus.COMPLETED).count()
+
+    # Кандидатов показываем без тех, кто уже в группе, иначе список
+    # превращается в поиск «кого ещё нет».
+    enrolled_ids = [row["student"].pk for row in roster]
+    candidates = (
+        User.objects.filter(role=Role.STUDENT, is_active=True)
+        .exclude(pk__in=enrolled_ids)
+        .order_by("last_name", "first_name")
+    )
+
+    return render(request, "cabinet/owner/group_detail.html", cabinet_context(
+        request,
+        group=group,
+        roster=roster,
+        upcoming=upcoming,
+        held=held,
+        candidates=candidates,
+        weekdays=WEEKDAYS,
+    ))
+
+
+@manager_required
+@require_POST
+def group_enroll(request, pk):
+    """Добавить ученика в группу с её страницы."""
+    group = get_object_or_404(Group, pk=pk)
+    student = get_object_or_404(User, pk=_payload(request).get("student"), role=Role.STUDENT)
+    if group.seats_left <= 0:
+        return json_error("В группе нет свободных мест.")
+    enrollment, created = Enrollment.objects.get_or_create(student=student, group=group)
+    if not created and enrollment.is_active:
+        return json_error("Ученик уже в этой группе.")
+    enrollment.is_active = True
+    enrollment.ended_on = None
+    enrollment.save()
+    sched.sync_group_roster(enrollment)
+    return json_ok(f"{student.full_name} добавлен в «{group.name}».")
+
+
+@manager_required
+@require_POST
+def group_unenroll(request, pk):
+    """Исключить ученика. Запись не удаляем — она нужна в истории занятий.
+
+    Из будущих занятий ученика убираем, из прошедших нет: там уже стоят
+    отметки посещаемости и списания, и переписывать их задним числом
+    значит испортить и журнал, и деньги.
+    """
+    enrollment = get_object_or_404(Enrollment, pk=pk)
+    enrollment.is_active = False
+    enrollment.ended_on = timezone.localdate()
+    enrollment.save(update_fields=["is_active", "ended_on"])
+    LessonParticipant.objects.filter(
+        student=enrollment.student,
+        lesson__group=enrollment.group,
+        lesson__starts_at__gte=timezone.now(),
+    ).exclude(status=ParticipantStatus.CANCELLED).delete()
+    return json_ok(f"{enrollment.student.full_name} исключён из группы.")
+
+
+@manager_required
+@require_POST
+def group_slot_create(request, pk):
+    """Добавить группе постоянное время в неделе."""
+    group = get_object_or_404(Group, pk=pk)
+    data = _payload(request)
+    try:
+        weekday = int(data.get("weekday"))
+        duration = int(data.get("duration_minutes") or 60)
+    except (TypeError, ValueError):
+        return json_error("Проверьте день недели и длительность.")
+    if not 0 <= weekday <= 6:
+        return json_error("Такого дня недели нет.")
+    start_time = (data.get("start_time") or "").strip()
+    if not start_time:
+        return json_error("Укажите время начала.")
+
+    slot, created = RecurringSlot.objects.get_or_create(
+        group=group, weekday=weekday, start_time=start_time,
+        defaults={"duration_minutes": duration},
+    )
+    if not created:
+        return json_error("Такое время у группы уже есть.")
+    return json_ok("Время добавлено. Занятия появятся после генерации расписания.")
+
+
+@manager_required
+@require_POST
+def group_slot_delete(request, pk):
+    slot = get_object_or_404(RecurringSlot, pk=pk)
+    slot.delete()
+    return json_ok("Время убрано. Уже созданные занятия остались — отмените их вручную.")
+
+
+# --- Расписание школы ----------------------------------------------------
+
+def _teacher_week(teacher, monday, days=7, show_free=True):
+    """Занятость одного преподавателя по дням недели.
+
+    Собираем в один проход занятия и свободные окна: администратору по
+    телефону нужен ответ «когда можно», а не два разных экрана.
+    """
+    start, end = as_datetime_range(monday, monday + timedelta(days=days))
+    lessons = list(
+        teacher.lessons_taught.filter(starts_at__gte=start, starts_at__lt=end)
+        .exclude(status=LessonStatus.CANCELLED)
+        .select_related("group", "course", "location")
+        .prefetch_related("participants__student")
+        .order_by("starts_at")
+    )
+    # Свободные окна считаем от сегодня: показывать «свободно» во вчера
+    # бессмысленно, а прошлые дни недели всё равно нужны для картины.
+    free = []
+    if show_free:
+        from_date = max(monday, timezone.localdate())
+        if from_date < monday + timedelta(days=days):
+            free = sched.available_slots(
+                teacher,
+                from_date,
+                days=(monday + timedelta(days=days) - from_date).days,
+                # Записывают по телефону прямо сейчас, поэтому запас времени
+                # до урока не нужен — иначе ближайшие окна просто исчезнут.
+                min_lead_hours=0,
+            )
+
+    columns = []
+    for index in range(days):
+        day = monday + timedelta(days=index)
+        columns.append({
+            "date": day,
+            "is_today": day == timezone.localdate(),
+            "lessons": [l for l in lessons if timezone.localtime(l.starts_at).date() == day],
+            "free": [s for s in free if timezone.localtime(s["start"]).date() == day],
+        })
+    return {"teacher": teacher, "days": columns, "total": len(lessons)}
+
+
+@manager_required
+def school_schedule(request):
+    """Одна картина занятости школы: кто, когда и где свободен."""
+    offset = int(request.GET.get("week", 0) or 0)
+    monday, sunday = week_bounds(offset)
+    show_free = request.GET.get("free", "1") != "0"
+
+    teachers = User.objects.filter(
+        role__in=[Role.TEACHER, Role.OWNER], is_active=True
+    ).select_related("teacher_profile").order_by("first_name")
+    picked = request.GET.get("teacher", "")
+    if picked:
+        teachers = teachers.filter(pk=picked)
+
+    rows = [_teacher_week(teacher, monday, show_free=show_free) for teacher in teachers]
+
+    days = [
+        {"date": monday + timedelta(days=i),
+         "is_today": monday + timedelta(days=i) == timezone.localdate()}
+        for i in range(7)
+    ]
+
+    students = (
+        User.objects.filter(role=Role.STUDENT, is_active=True)
+        .order_by("last_name", "first_name")
+    )
+    # Остаток уроков и последняя оплата нужны прямо в форме записи: иначе
+    # администратор записывает ученика, у которого абонемент кончился,
+    # и узнаёт об этом через неделю.
+    student_rows = [_student_snapshot(student) for student in students]
+
+    return render(request, "cabinet/owner/schedule.html", cabinet_context(
+        request,
+        rows=rows,
+        days=days,
+        monday=monday,
+        sunday=sunday - timedelta(days=1),
+        week_offset=offset,
+        show_free=show_free,
+        teachers=User.objects.filter(role__in=[Role.TEACHER, Role.OWNER], is_active=True).order_by("first_name"),
+        picked_teacher=picked,
+        student_rows=student_rows,
+        attention=[row for row in student_rows if row["lessons_left"] <= 2 or row["balance"] > 0],
+        groups=Group.objects.filter(is_active=True).select_related("course", "teacher"),
+        courses=Course.objects.filter(is_active=True).select_related("language"),
+        locations=Location.objects.filter(is_active=True),
+    ))
+
+
+@manager_required
+@require_POST
+def schedule_book(request):
+    """Записать ученика на конкретное время — то, что делают по телефону."""
+    data = _payload(request)
+    student = get_object_or_404(User, pk=data.get("student"), role=Role.STUDENT)
+    teacher = get_object_or_404(
+        User, pk=data.get("teacher"), role__in=[Role.TEACHER, Role.OWNER]
+    )
+    when = (data.get("starts_at") or "").strip()
+    try:
+        start = timezone.make_aware(datetime.fromisoformat(when))
+    except ValueError:
+        return json_error("Не разобрали дату и время.")
+    try:
+        duration = int(data.get("duration") or 60)
+    except (TypeError, ValueError):
+        return json_error("Длительность — это число минут.")
+
+    course_id = data.get("course") or None
+    location_id = data.get("location") or None
+    try:
+        lesson = sched.book_slot(
+            student=student,
+            teacher=teacher,
+            start=start,
+            duration=duration,
+            mode=data.get("mode") or DeliveryMode.OFFLINE,
+            location=Location.objects.filter(pk=location_id).first() if location_id else None,
+            course=Course.objects.filter(pk=course_id).first() if course_id else None,
+            is_trial=str(data.get("is_trial") or "") in {"1", "on", "true"},
+            topic=(data.get("topic") or "").strip(),
+        )
+    except DjangoValidationError as exc:
+        return json_error(exc.messages[0])
+
+    local = timezone.localtime(lesson.starts_at)
+    account = StudentAccount(student)
+    note = ""
+    if account.lessons_left <= 0:
+        # Записать всё равно даём: человек уже на линии, а деньги приносят
+        # на занятие. Но молчать об этом нельзя.
+        note = " У ученика не осталось оплаченных занятий — напомните об оплате."
+    return json_ok(f"{student.full_name} записан на {local:%d.%m в %H:%M}.{note}")

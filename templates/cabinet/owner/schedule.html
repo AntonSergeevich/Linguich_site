@@ -1,0 +1,200 @@
+{% extends 'cabinet/base.html' %}
+{% load humanize %}
+{% block page_title %}Расписание школы{% endblock %}
+{% block page_sub %}<p class="cab-top__sub">{{ monday|date:"d.m" }} — {{ sunday|date:"d.m.Y" }}</p>{% endblock %}
+{% block page_actions %}
+  <div class="segmented">
+    <a href="?week={{ week_offset|add:'-1' }}&teacher={{ picked_teacher }}&free={% if show_free %}1{% else %}0{% endif %}">←</a>
+    <a href="?teacher={{ picked_teacher }}&free={% if show_free %}1{% else %}0{% endif %}"
+       class="{% if not week_offset %}is-active{% endif %}">Эта неделя</a>
+    <a href="?week={{ week_offset|add:'1' }}&teacher={{ picked_teacher }}&free={% if show_free %}1{% else %}0{% endif %}">→</a>
+  </div>
+{% endblock %}
+
+{% block cabinet %}
+
+<form class="crm-filters" method="get">
+  <input type="hidden" name="week" value="{{ week_offset }}">
+  <label class="field">
+    <span class="label">Преподаватель</span>
+    <select name="teacher" onchange="this.form.submit()">
+      <option value="">Все</option>
+      {% for teacher in teachers %}
+        <option value="{{ teacher.pk }}" {% if picked_teacher == teacher.pk|stringformat:"s" %}selected{% endif %}>
+          {{ teacher.full_name }}
+        </option>
+      {% endfor %}
+    </select>
+  </label>
+  <label class="check" style="align-self:end;padding-bottom:var(--s-3)">
+    <input type="checkbox" name="free" value="1" {% if show_free %}checked{% endif %}
+           onchange="this.form.submit()">
+    <span>Показывать свободные окна</span>
+  </label>
+  <div class="spacer"></div>
+  <button class="btn btn--sm" type="button" data-modal-open="#book-modal"
+          style="align-self:end;margin-bottom:var(--s-3)">
+    <svg class="icon icon--sm"><use href="#i-plus"/></svg> Записать ученика
+  </button>
+</form>
+
+{% if attention %}
+  {% comment %}
+    Первое, что нужно при звонке: у кого кончаются занятия и кто должен.
+    Иначе ученика записывают, а про оплату вспоминают через неделю.
+  {% endcomment %}
+  <details class="card card--pad-sm">
+    <summary style="cursor:pointer">
+      <strong>Требуют внимания: {{ attention|length }}</strong>
+      <span class="tiny muted"> — заканчивается абонемент или есть долг</span>
+    </summary>
+    <div class="chip-row mt-3">
+      {% for row in attention %}
+        <a class="chip" href="{% url 'cabinet:crm_student' row.student.pk %}">
+          {{ row.student.short_name }}
+          {% if row.lessons_left <= 0 %}<span class="badge badge--err">0 уроков</span>
+          {% elif row.lessons_left <= 2 %}<span class="badge badge--warn">{{ row.lessons_left }} урока</span>{% endif %}
+          {% if row.balance > 0 %}<span class="badge badge--err">{{ row.balance|floatformat:0|intcomma }} ₽</span>{% endif %}
+        </a>
+      {% endfor %}
+    </div>
+  </details>
+{% endif %}
+
+<div class="table-wrap sched">
+  <table class="sched__grid">
+    <thead>
+      <tr>
+        <th class="sched__who">Преподаватель</th>
+        {% for day in days %}
+          <th class="{% if day.is_today %}is-today{% endif %}">
+            {{ day.date|date:"D" }}<span>{{ day.date|date:"d.m" }}</span>
+          </th>
+        {% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+        <tr>
+          <th class="sched__who">
+            <div class="row row--nowrap">
+              <span class="avatar avatar--sm">{{ row.teacher.initials }}</span>
+              <div style="min-width:0">
+                <strong>{{ row.teacher.short_name }}</strong>
+                <div class="tiny muted">{{ row.total }} занятий</div>
+              </div>
+            </div>
+          </th>
+          {% for day in row.days %}
+            <td class="{% if day.is_today %}is-today{% endif %}">
+              {% for lesson in day.lessons %}
+                <a class="sched__lesson {% if lesson.status == 'completed' %}is-done{% endif %}"
+                   href="{% url 'cabinet:teacher_lesson' lesson.pk %}"
+                   title="{{ lesson.title }} · {{ lesson.participants.count }} чел.">
+                  <strong>{{ lesson.starts_at|date:"H:i" }}</strong>
+                  <span>{{ lesson.title|truncatechars:18 }}</span>
+                </a>
+              {% endfor %}
+
+              {% for slot in day.free %}
+                {% comment %}
+                  Свободное окно — это кнопка записи. Клик открывает форму
+                  с уже подставленными преподавателем и временем: по
+                  телефону некогда переспрашивать и переносить руками.
+                {% endcomment %}
+                <button type="button" class="sched__free"
+                        data-modal-open="#book-modal"
+                        data-setteacher="{{ row.teacher.pk }}"
+                        data-setstarts_at="{{ slot.start|date:'Y-m-d\TH:i' }}"
+                        data-setduration="{{ slot.duration }}"
+                        data-setmode="{{ slot.mode }}"
+                        data-setwhen="{{ slot.start|date:'d.m в H:i' }}, {{ row.teacher.short_name }}">
+                  {{ slot.start|date:"H:i" }}
+                </button>
+              {% endfor %}
+
+              {% if not day.lessons and not day.free %}
+                <span class="sched__empty">—</span>
+              {% endif %}
+            </td>
+          {% endfor %}
+        </tr>
+      {% empty %}
+        <tr><td colspan="8"><div class="empty"><h4>Преподаватели не заведены</h4>
+          <p>Добавьте их в разделе «Сотрудники».</p></div></td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="alert">
+  <svg class="icon icon--lg"><use href="#i-clock"/></svg>
+  <div>
+    <strong>Откуда берутся свободные окна</strong>
+    Из раздела «Окна для записи» преподавателя минус уже занятое время и отпуска.
+    Если у преподавателя пусто — окна он ещё не задал, и записать можно только вручную.
+  </div>
+</div>
+
+<div class="modal" id="book-modal">
+  <div class="modal__panel">
+    <div class="card-head"><h3>Записать ученика</h3>
+      <button class="btn btn--quiet btn--icon btn--sm" data-modal-close type="button">
+        <svg class="icon"><use href="#i-x"/></svg></button></div>
+    <p class="muted tiny">Время: <strong data-slot="when">выберите свободное окно или задайте вручную</strong></p>
+
+    <form data-async method="post" action="{% url 'cabinet:crm_schedule_book' %}" data-reload>
+      {% csrf_token %}
+      <label class="field"><span class="label">Ученик *</span>
+        <select name="student" required>
+          {% for row in student_rows %}
+            {% comment %}
+              Остаток занятий и дата оплаты прямо в списке: администратор
+              видит состояние ученика в момент записи, а не после.
+            {% endcomment %}
+            <option value="{{ row.student.pk }}">
+              {{ row.student.full_name }} — осталось {{ row.lessons_left }};
+              {% if row.last_payment %}оплата {{ row.last_payment.paid_on|date:"d.m.Y" }}
+              {% else %}оплат не было{% endif %}
+              {% if row.balance > 0 %}; долг {{ row.balance|floatformat:0 }} ₽{% endif %}
+            </option>
+          {% endfor %}
+        </select></label>
+
+      <div class="form-grid">
+        <label class="field"><span class="label">Преподаватель *</span>
+          <select name="teacher" required>
+            {% for teacher in teachers %}<option value="{{ teacher.pk }}">{{ teacher.full_name }}</option>{% endfor %}
+          </select></label>
+        <label class="field"><span class="label">Дата и время *</span>
+          <input type="datetime-local" name="starts_at" required></label>
+        <label class="field"><span class="label">Минут</span>
+          <input type="number" name="duration" value="60" min="15" max="240" step="5"></label>
+        <label class="field"><span class="label">Формат</span>
+          <select name="mode">
+            <option value="offline">В классе</option>
+            <option value="online">Онлайн</option>
+          </select></label>
+        <label class="field"><span class="label">Кабинет</span>
+          <select name="location">
+            <option value="">—</option>
+            {% for location in locations %}<option value="{{ location.pk }}">{{ location.name }}</option>{% endfor %}
+          </select></label>
+        <label class="field"><span class="label">Курс</span>
+          <select name="course">
+            <option value="">—</option>
+            {% for course in courses %}<option value="{{ course.pk }}">{{ course.title }}</option>{% endfor %}
+          </select></label>
+        <label class="field field--full"><span class="label">Тема или комментарий</span>
+          <input type="text" name="topic" placeholder="Например: пробное занятие"></label>
+      </div>
+
+      <label class="check"><input type="checkbox" name="is_trial" value="1"><span>Пробное занятие</span></label>
+      <button class="btn btn--block btn--lg mt-3" type="submit">Записать</button>
+      <p class="tiny muted text-center mt-3 mb-0">
+        Ученик и преподаватель получат уведомление, напоминания уйдут автоматически.
+      </p>
+    </form>
+  </div>
+</div>
+{% endblock %}

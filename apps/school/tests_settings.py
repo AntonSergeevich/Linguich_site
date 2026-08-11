@@ -81,3 +81,22 @@ class EmailSecurityTests(SimpleTestCase):
         ssl, tls = self.build(465, EMAIL_USE_SSL="True", EMAIL_USE_TLS="True")
         self.assertFalse(ssl and tls)
         self.assertTrue(ssl)
+
+
+class LanguageTests(SimpleTestCase):
+    """Регрессия: с английской локалью браузера Django печатал дни недели
+    как «MON», хотя сайт русский. LocaleMiddleware выбирает язык по
+    заголовку, поэтому список доступных языков должен быть один."""
+
+    def test_only_russian_is_offered(self):
+        from django.conf import settings
+
+        self.assertEqual([code for code, _ in settings.LANGUAGES], ["ru"])
+
+    def test_english_cannot_be_negotiated(self):
+        """Именно этим LocaleMiddleware и переключался на английский,
+        печатая «MON» вместо «Пн»."""
+        from django.utils import translation
+
+        with self.assertRaises(LookupError):
+            translation.get_supported_language_variant("en")

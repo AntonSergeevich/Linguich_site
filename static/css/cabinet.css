@@ -436,3 +436,112 @@
   word-break: break-word;
   max-height: 190px; overflow-y: auto;
 }
+
+/* --- Лента дней -------------------------------------------------------- */
+.week--strip {
+  /* Семь колонок не помещаются на узком экране, поэтому лента едет вбок.
+     На широком раскладка остаётся прежней сеткой. */
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scroll-snap-type: x proximity;
+  padding-bottom: var(--s-2);
+}
+.week--strip.is-dragging { cursor: grabbing; scroll-snap-type: none; user-select: none; }
+.week--strip .week__day {
+  scroll-snap-align: start;
+  transition: border-color var(--t-fast) var(--ease), box-shadow var(--t-fast) var(--ease);
+}
+/* Кликается заголовок дня, а не карточка целиком: внутри карточки лежат
+   ссылки на занятия, и клик по ним должен открывать урок. */
+.week__pick {
+  display: block; width: 100%;
+  padding: 0; margin: 0 0 var(--s-2);
+  border: 0; background: none; font: inherit; color: inherit;
+  text-align: left; cursor: pointer;
+  border-radius: var(--r-sm);
+}
+.week__pick h5 { margin: 0; }
+.week__pick:hover h5 { color: var(--brand-500); }
+.week--strip .week__day:hover { border-color: var(--brand-300); }
+.week--strip .week__day.is-picked {
+  border-color: var(--brand-500);
+  box-shadow: 0 0 0 2px var(--brand-100);
+  background: var(--brand-50);
+}
+@media (max-width: 860px) {
+  /* В ленте дни идут в строку, а не по две колонки: так видно всю неделю. */
+  .week--strip { display: flex; }
+  .week--strip .week__day { flex: 0 0 min(62vw, 220px); }
+}
+
+/* --- Расписание школы -------------------------------------------------- */
+.sched { overflow-x: auto; }
+.sched__grid {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  min-width: 900px;
+}
+.sched__grid th, .sched__grid td {
+  border-bottom: 1px solid var(--line-soft);
+  border-right: 1px solid var(--line-soft);
+  padding: var(--s-2);
+  vertical-align: top;
+}
+.sched__grid thead th {
+  position: sticky; top: 0; z-index: 2;
+  background: var(--surface-2);
+  font-size: var(--step--2); text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--muted); text-align: left;
+  white-space: nowrap;
+}
+.sched__grid thead th span { display: block; color: var(--ink-2); font-weight: 700; }
+.sched__grid thead th.is-today { color: var(--brand-600); }
+/* Колонка с преподавателем не уезжает при горизонтальной прокрутке —
+   иначе на середине недели непонятно, чья это строка. */
+.sched__who {
+  position: sticky; left: 0; z-index: 3;
+  background: var(--surface);
+  min-width: 190px;
+  text-align: left !important;
+  font-weight: 500;
+}
+.sched__grid thead .sched__who { z-index: 4; background: var(--surface-2); }
+.sched__grid td.is-today { background: var(--brand-50); }
+.sched__grid td { min-width: 118px; }
+
+.sched__lesson {
+  display: block;
+  padding: var(--s-2);
+  margin-bottom: var(--s-2);
+  border-radius: var(--r-sm);
+  background: var(--brand-100);
+  border-left: 3px solid var(--brand-500);
+  font-size: var(--step--2);
+  line-height: 1.3;
+  color: var(--ink);
+}
+.sched__lesson:hover { background: var(--brand-200); color: var(--ink); }
+.sched__lesson strong { display: block; font-variant-numeric: tabular-nums; }
+.sched__lesson.is-done { opacity: 0.6; }
+
+/* Свободное окно намеренно выглядит иначе: пунктир читается как «сюда
+   можно», а сплошная плашка — как «уже занято». */
+.sched__free {
+  display: block; width: 100%;
+  padding: 5px var(--s-2);
+  margin-bottom: 4px;
+  border: 1px dashed var(--line);
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--muted);
+  font: inherit; font-size: var(--step--2);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: all var(--t-fast) var(--ease);
+}
+.sched__free:hover {
+  border-color: var(--ok); border-style: solid;
+  background: var(--ok-bg); color: var(--ok);
+}
+.sched__empty { color: var(--muted-2); font-size: var(--step--2); }
