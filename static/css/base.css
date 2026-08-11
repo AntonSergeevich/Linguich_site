@@ -58,6 +58,12 @@ h1, h2, h3, h4, h5 {
   font-weight: 700;
   color: var(--ink);
   text-wrap: balance;
+  /* Одно длинное слово шире экрана обрезалось молча: «Политика
+     конфиденциальности» не помещалась в 350px и уезжала за край.
+     Перенос по слогам там, где браузер умеет, и жёсткий разрыв как
+     гарантия — обрезанный заголовок хуже некрасивого переноса. */
+  hyphens: auto;
+  overflow-wrap: break-word;
 }
 
 h1 { font-size: var(--step-4); }
@@ -172,9 +178,18 @@ code, kbd { font-family: var(--font-mono); font-size: 0.9em; }
 .tabnum { font-variant-numeric: tabular-nums; }
 .text-center { text-align: center; }
 .text-right { text-align: right; }
+/* Шкала целиком, а не выборочно: в разметке уже стояли mt-3, mt-2, mb-1,
+   mb-2, mb-3 и mb-8, которых в CSS не существовало. Классы молча ничего
+   не делали — так бейдж акции и прилипал к заголовку. */
 .mt-0 { margin-top: 0; } .mb-0 { margin-bottom: 0; }
-.mt-4 { margin-top: var(--s-4); } .mt-5 { margin-top: var(--s-5); } .mt-6 { margin-top: var(--s-6); }
-.mb-4 { margin-bottom: var(--s-4); } .mb-5 { margin-bottom: var(--s-5); } .mb-6 { margin-bottom: var(--s-6); }
+.mt-1 { margin-top: var(--s-1); } .mb-1 { margin-bottom: var(--s-1); }
+.mt-2 { margin-top: var(--s-2); } .mb-2 { margin-bottom: var(--s-2); }
+.mt-3 { margin-top: var(--s-3); } .mb-3 { margin-bottom: var(--s-3); }
+.mt-4 { margin-top: var(--s-4); } .mb-4 { margin-bottom: var(--s-4); }
+.mt-5 { margin-top: var(--s-5); } .mb-5 { margin-bottom: var(--s-5); }
+.mt-6 { margin-top: var(--s-6); } .mb-6 { margin-bottom: var(--s-6); }
+.mt-7 { margin-top: var(--s-7); } .mb-7 { margin-bottom: var(--s-7); }
+.mt-8 { margin-top: var(--s-8); } .mb-8 { margin-bottom: var(--s-8); }
 .hidden { display: none !important; }
 /* Компоненты с собственным display (.alert, .card…) иначе игнорируют hidden. */
 [hidden] { display: none !important; }

@@ -100,3 +100,41 @@ class LanguageTests(SimpleTestCase):
 
         with self.assertRaises(LookupError):
             translation.get_supported_language_variant("en")
+
+
+class SpacingUtilitiesTests(SimpleTestCase):
+    """Классы отступов легко написать в шаблоне и забыть добавить в CSS.
+
+    Так и вышло: mt-3 стоял в двадцати местах, а правила не существовало —
+    бейдж акции прилипал к заголовку, и заметить это можно было только
+    глазами на конкретной странице.
+    """
+
+    def used(self):
+        import re
+
+        from django.conf import settings
+
+        names = set()
+        roots = [settings.BASE_DIR / "templates", settings.BASE_DIR / "static" / "js"]
+        for root in roots:
+            for path in root.rglob("*"):
+                if path.suffix not in {".html", ".js"}:
+                    continue
+                names |= set(re.findall(r"\bm[tb]-\d+\b", path.read_text(encoding="utf-8")))
+        return names
+
+    def defined(self):
+        import re
+
+        from django.conf import settings
+
+        css = (settings.BASE_DIR / "static" / "css" / "base.css").read_text(encoding="utf-8")
+        return set(re.findall(r"\.(m[tb]-\d+)\s*\{", css))
+
+    def test_every_used_spacing_class_exists(self):
+        missing = sorted(self.used() - self.defined())
+        self.assertFalse(
+            missing,
+            f"в разметке есть классы отступов, которых нет в CSS: {', '.join(missing)}",
+        )

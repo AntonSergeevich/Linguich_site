@@ -102,6 +102,9 @@
     display: inline-flex; align-items: center; justify-content: center;
     width: 44px; height: 44px; border-radius: var(--r-md);
     border: 1px solid var(--line); background: var(--surface); cursor: pointer;
+    /* Меню и телефон рядом скрыты, и бургер оставался посреди шапки,
+       прижатый к логотипу. Место справа — там его и ищут. */
+    margin-left: auto;
   }
 }
 
@@ -199,17 +202,20 @@
 }
 .hero h1 em {
   font-style: normal;
-  position: relative;
   color: var(--brand-600);
-}
-.hero h1 em::after {
-  content: "";
-  position: absolute; left: 0; right: 0; bottom: 0.06em;
-  height: 0.28em;
-  background: var(--accent-200);
-  opacity: 0.55;
-  border-radius: 2px;
-  z-index: -1;
+  /* Подсветка фоном, а не псевдоэлементом. Заголовок переносится на две
+     строки, а абсолютный блок позиционируется по одной: полоса вылезала
+     выше текста и наезжала на соседнюю строку. Фон с box-decoration-break
+     рисуется отдельно под каждой строкой. */
+  background-image: linear-gradient(
+    to top,
+    transparent 0.02em,
+    color-mix(in srgb, var(--accent-500) 70%, transparent) 0.02em,
+    color-mix(in srgb, var(--accent-500) 70%, transparent) 0.14em,
+    transparent 0.14em
+  );
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
 }
 .hero__sub { font-size: var(--step-1); color: var(--ink-2); max-width: 46ch; margin-bottom: var(--s-6); }
 
@@ -589,14 +595,34 @@
   position: relative;
   text-wrap: pretty;
 }
+/* Кавычка вынесена из потока. С line-height: 0 её глиф не занимал высоты
+   и вылезал за свою строку — на телефоне он ложился прямо на текст. */
+.founder__quote { padding-left: 1.5em; }
 .founder__quote::before {
   content: "«";
-  color: var(--brand-200);
-  font-size: 2.5em;
-  line-height: 0;
-  vertical-align: -0.35em;
-  margin-right: 0.08em;
+  position: absolute; left: 0; top: -0.06em;
+  color: var(--brand-300);
+  font-size: 2.2em;
+  line-height: 1;
+}
+@media (max-width: 900px) {
+  /* Текст здесь по центру, и любой абсолютный глиф ложится прямо на него.
+     Отдельной строкой — единственный вариант без наложения. */
+  .founder__quote { padding-left: 0; }
+  .founder__quote::before {
+    position: static;
+    display: block;
+    margin-bottom: var(--s-2);
+    line-height: 0.9;
+  }
 }
 .founder__sign { display: grid; gap: 2px; }
 .founder__sign strong { font-size: var(--step-0); }
 .founder__sign span { font-size: var(--step--1); color: var(--muted); }
+
+/* На телефоне кнопки героя идут в столбик во всю ширину: иначе вторая
+   оказывается уже первой и висит с рваным правым краем. */
+@media (max-width: 640px) {
+  .btn-group--hero { display: flex; flex-direction: column; align-items: stretch; width: 100%; }
+  .btn-group--hero .btn { width: 100%; }
+}

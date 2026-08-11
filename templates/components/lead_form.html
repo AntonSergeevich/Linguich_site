@@ -41,8 +41,12 @@
       <a href="{% url 'school:privacy' %}" target="_blank">политикой конфиденциальности</a>.</span>
   </label>
 
+  {% comment %}
+    По умолчанию просто «Записаться»: в заголовке формы уже сказано,
+    что урок бесплатный, а длинная подпись ломалась на две-три строки.
+  {% endcomment %}
   <button class="btn btn--accent btn--lg btn--block" type="submit">
-    {{ button|default:"Записаться на бесплатный урок" }}
+    {{ button|default:"Записаться" }}
   </button>
   <p class="tiny muted text-center mb-0">
     {{ note|default:"Перезвоним в рабочее время и подберём удобное время. Без спама." }}

@@ -247,7 +247,9 @@ select {
   margin-bottom: var(--s-3);
 }
 .check input[type="checkbox"], .check input[type="radio"] {
-  width: 20px; height: 20px; min-height: 0; flex: none; margin-top: 2px;
+  /* 22, а не 20: галочка согласия — обязательное действие, и по ней
+     промахиваются пальцем чаще всего на сайте. */
+  width: 22px; height: 22px; min-height: 0; flex: none; margin-top: 1px;
   accent-color: var(--brand-500); cursor: pointer;
 }
 
