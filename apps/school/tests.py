@@ -324,3 +324,40 @@ class SeedCatalogTests(TestCase):
         self.run_command()
         response = self.client.get(reverse("school:home"))
         self.assertEqual(len(response.context["languages"]), 7)
+
+
+class HeroLettersTests(TestCase):
+    """Фоновые буквы алфавитов — оформление, и оно не должно мешать.
+
+    Два свойства держим тестом: слой не перехватывает нажатия и лежит
+    ниже содержимого героя. Ошибка здесь не видна на глаз сразу, зато
+    ломает главную кнопку сайта.
+    """
+
+    def css(self):
+        from django.conf import settings
+
+        return (settings.BASE_DIR / "static" / "css" / "site.css").read_text(encoding="utf-8")
+
+    def test_layer_is_on_the_homepage(self):
+        response = self.client.get(reverse("school:home"))
+        self.assertContains(response, "hero-letters")
+        # Для скринридера это шум: букв там нет, есть оформление.
+        self.assertContains(response, 'class="hero-letters" aria-hidden="true"')
+
+    def test_letters_do_not_catch_clicks(self):
+        block = self.css().split(".hero-letters {")[1].split("}")[0]
+        self.assertIn("pointer-events: none", block)
+
+    def test_letters_stay_behind_the_content(self):
+        layer = self.css().split(".hero-letters {")[1].split("}")[0]
+        inner = self.css().split(".hero__inner {")[1].split("}")[0]
+        self.assertIn("z-index: 0", layer)
+        self.assertIn("z-index: 1", inner)
+
+    def test_motion_can_be_switched_off_by_the_visitor(self):
+        """Настройка «меньше движения» — не пожелание, а требование
+        доступности: кому-то от такой анимации физически плохо."""
+        self.assertIn("prefers-reduced-motion", self.css())
+        tail = self.css().split("prefers-reduced-motion")[-1]
+        self.assertIn("animation: none", tail)

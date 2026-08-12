@@ -1,0 +1,26 @@
+{% comment %}
+Фоновые буквы алфавитов, которые школа преподаёт: они медленно проявляются,
+поворачиваются, наплывают и гаснут. Смысл — показать характер школы, ничего
+не рассказывая словами.
+
+Набор и раскладка заданы вручную, а не случайным JS: так композиция
+выглядит намеренной, а не рассыпанной, и не требует ни строчки скрипта —
+значит, работает всегда и ничего не тормозит.
+
+Всё в CSS-переменных прямо в разметке: одно место, где видно и букву,
+и её положение, и когда она вступает.
+{% endcomment %}
+<div class="hero-letters" aria-hidden="true">
+  <span style="--x:6%;--y:14%;--size:8.5rem;--turn:-14deg;--delay:0s;--life:19s">文</span>
+  <span style="--x:24%;--y:68%;--size:6rem;--turn:12deg;--delay:2.4s;--life:17s">한</span>
+  <span style="--x:47%;--y:8%;--size:5.5rem;--turn:-8deg;--delay:5.1s;--life:21s">Ä</span>
+  <span style="--x:69%;--y:74%;--size:7rem;--turn:16deg;--delay:1.2s;--life:18s">Ç</span>
+  <span style="--x:88%;--y:22%;--size:6.5rem;--turn:-11deg;--delay:7.3s;--life:20s">Ř</span>
+  <span style="--x:13%;--y:88%;--size:5rem;--turn:9deg;--delay:9.6s;--life:16s">É</span>
+  <span style="--x:57%;--y:44%;--size:9rem;--turn:-6deg;--delay:12.1s;--life:22s">Ж</span>
+  <span style="--x:35%;--y:28%;--size:4.5rem;--turn:18deg;--delay:3.8s;--life:19s">ß</span>
+  <span style="--x:79%;--y:52%;--size:5.5rem;--turn:-15deg;--delay:14.4s;--life:17s">語</span>
+  <span style="--x:4%;--y:48%;--size:6rem;--turn:10deg;--delay:10.9s;--life:20s">Ş</span>
+  <span style="--x:93%;--y:82%;--size:4.5rem;--turn:-9deg;--delay:6.5s;--life:18s">ů</span>
+  <span style="--x:41%;--y:92%;--size:7.5rem;--turn:13deg;--delay:16.2s;--life:21s">Я</span>
+</div>
