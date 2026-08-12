@@ -672,11 +672,17 @@
   :root:not([data-theme="light"]) .hero-letters { color: var(--brand-500); --letter-peak: 0.3; }
 }
 
+/* Кнопка-призрак прозрачная везде на сайте, и в герое сквозь неё
+   просвечивала буква — кнопка переставала читаться предметом, буква
+   выглядела лежащей поверх. Заливаем цветом страницы: на глаз кнопка
+   та же, но фон сквозь неё больше не идёт. */
+.btn-group--hero .btn--ghost { --btn-bg: var(--paper); }
+
 @media (max-width: 640px) {
   /* На телефоне буквы мельче и их меньше: крупные перекрывали бы текст
      фактурой, а половина всё равно оказывается за карточкой. */
   .hero-letters span { font-size: calc(var(--size) * 0.6); }
-  .hero-letters span:nth-child(n + 8) { display: none; }
+  .hero-letters span:nth-child(n + 6) { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {

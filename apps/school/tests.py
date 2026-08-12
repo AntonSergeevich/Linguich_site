@@ -361,3 +361,24 @@ class HeroLettersTests(TestCase):
         self.assertIn("prefers-reduced-motion", self.css())
         tail = self.css().split("prefers-reduced-motion")[-1]
         self.assertIn("animation: none", tail)
+
+    def test_letters_keep_to_the_free_right_side(self):
+        """Слева заголовок, текст и кнопки — фактура под ними мешает
+        читать. Свободное место справа, там буквам и место."""
+        import re
+
+        from django.conf import settings
+
+        markup = (
+            settings.BASE_DIR / "templates" / "components" / "hero_letters.html"
+        ).read_text(encoding="utf-8")
+        left = [int(x) for x in re.findall(r"--x:(\d+)%", markup) if int(x) < 50]
+        self.assertFalse(left, f"буквы залезли в левую половину: {left}")
+
+    def test_the_ghost_button_is_not_see_through(self):
+        """Регрессия: кнопка «Узнать свой уровень» прозрачная, и буква
+        просвечивала сквозь неё — выглядело так, будто буква лежит
+        поверх кнопки, хотя слой честно стоит ниже."""
+        block = self.css().split(".btn-group--hero .btn--ghost {")[1].split("}")[0]
+        self.assertIn("--btn-bg:", block)
+        self.assertNotIn("transparent", block)
