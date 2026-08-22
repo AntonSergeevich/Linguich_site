@@ -283,6 +283,19 @@
     });
   }
 
+  // Насколько краска жива на этом расстоянии от центра: у самой буквы — полностью,
+  // дальше тает и к FADE_OUT исчезает совсем. Без этого курсор упирается в край
+  // холста и пятно обрывается, будто мышь заперта в маленьком окне.
+  var FADE_IN = 104;
+  var FADE_OUT = 148;
+  function alive(x, y) {
+    var distance = Math.hypot(x - 150, y - 150);
+    if (distance <= FADE_IN) return 1;
+    if (distance >= FADE_OUT) return 0;
+    var t = (distance - FADE_IN) / (FADE_OUT - FADE_IN);
+    return 1 - t * t * (3 - 2 * t); // сглаженная ступень, без излома на границе
+  }
+
   function renderWash() {
     if (!washCtx) return;
     var night = dark();
@@ -293,7 +306,11 @@
     washCtx.globalCompositeOperation = night ? "screen" : "multiply";
     trail.forEach(function (point, index) {
       var weight = (index + 1) / trail.length;
-      blot(washCtx, point.x, point.y, point.color, 24 + weight * 42, (night ? 0.09 : 0.12) * weight);
+      var fade = alive(point.x, point.y);
+      if (fade <= 0) return;
+      blot(washCtx, point.x, point.y, point.color,
+           (24 + weight * 42) * (0.6 + 0.4 * fade),
+           (night ? 0.09 : 0.12) * weight * fade);
     });
     // Мягкая маска: без неё пятно обрезается прямоугольником по краю холста.
     washCtx.globalCompositeOperation = "destination-out";
@@ -329,12 +346,16 @@
     if (!reduced.matches && frame === null) frame = window.requestAnimationFrame(washTick);
   }
 
-  washBox.addEventListener("pointermove", function (event) {
-    var box = washBox.getBoundingClientRect();
-    var clamp = function (value) { return Math.max(56, Math.min(244, value)); };
+  // Мышь ведём по всему первому экрану, а не по квадрату холста: иначе краска
+  // оживает только в маленьком окне и обрывается на его границе.
+  var paintArea = root.querySelector(".rt__head") || washBox;
+  paintArea.addEventListener("pointermove", function (event) {
+    if (event.pointerType === "touch") return; // на телефоне это отняло бы прокрутку
+    var box = washCanvas.getBoundingClientRect();
+    if (!box.width) return;
     target = {
-      x: clamp(((event.clientX - box.left) / box.width) * 300),
-      y: clamp(((event.clientY - box.top) / box.height) * 300)
+      x: ((event.clientX - box.left) / box.width) * 300,
+      y: ((event.clientY - box.top) / box.height) * 300
     };
     if (reduced.matches) {
       pos = { x: target.x, y: target.y };
