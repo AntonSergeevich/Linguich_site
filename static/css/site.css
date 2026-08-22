@@ -160,101 +160,6 @@
   :root:not([data-theme="light"]) .theme-toggle__label--dark { display: none; }
 }
 
-/* --- Hero -------------------------------------------------------------- */
-.hero {
-  position: relative;
-  padding-block: clamp(3rem, 8vw, 7rem) clamp(3rem, 7vw, 6rem);
-  overflow: hidden;
-}
-.hero::before,
-.hero::after {
-  content: "";
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(80px);
-  opacity: 0.5;
-  pointer-events: none;
-  z-index: 0;
-}
-.hero::before {
-  width: 520px; height: 520px;
-  background: radial-gradient(circle, var(--brand-200), transparent 70%);
-  top: -180px; right: -120px;
-}
-.hero::after {
-  width: 400px; height: 400px;
-  background: radial-gradient(circle, var(--accent-100), transparent 70%);
-  bottom: -160px; left: -100px;
-}
-.hero__inner {
-  position: relative; z-index: 1;
-  display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
-  gap: clamp(2rem, 5vw, 4.5rem);
-  align-items: center;
-}
-@media (max-width: 900px) { .hero__inner { grid-template-columns: 1fr; } }
-
-.hero h1 {
-  font-size: var(--step-5);
-  letter-spacing: -0.035em;
-  margin-bottom: var(--s-4);
-}
-.hero h1 em {
-  font-style: normal;
-  color: var(--brand-600);
-  /* Подсветка фоном, а не псевдоэлементом. Заголовок переносится на две
-     строки, а абсолютный блок позиционируется по одной: полоса вылезала
-     выше текста и наезжала на соседнюю строку. Фон с box-decoration-break
-     рисуется отдельно под каждой строкой. */
-  background-image: linear-gradient(
-    to top,
-    transparent 0.02em,
-    color-mix(in srgb, var(--accent-500) 70%, transparent) 0.02em,
-    color-mix(in srgb, var(--accent-500) 70%, transparent) 0.14em,
-    transparent 0.14em
-  );
-  -webkit-box-decoration-break: clone;
-  box-decoration-break: clone;
-}
-.hero__sub { font-size: var(--step-1); color: var(--ink-2); max-width: 46ch; margin-bottom: var(--s-6); }
-
-.hero__proof {
-  display: flex; flex-wrap: wrap; gap: var(--s-6);
-  margin-top: var(--s-7);
-  padding-top: var(--s-5);
-  border-top: 1px solid var(--line-soft);
-}
-.hero__proof div strong {
-  display: block;
-  font-size: var(--step-2);
-  font-weight: 700;
-  letter-spacing: -0.03em;
-  color: var(--ink);
-}
-.hero__proof div span { font-size: var(--step--1); color: var(--muted); }
-
-/* Стеклянная карточка с ближайшим стартом — «живое» доказательство */
-.hero__card {
-  background: var(--surface);
-  border: 1px solid var(--line-soft);
-  border-radius: var(--r-xl);
-  padding: var(--s-6);
-  box-shadow: var(--sh-4);
-  position: relative;
-}
-.hero__card::before {
-  content: "";
-  position: absolute; inset: -1px;
-  border-radius: inherit;
-  padding: 1px;
-  background: linear-gradient(150deg, var(--brand-200), transparent 45%, var(--accent-200));
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  pointer-events: none;
-}
-
 .pill-live {
   display: inline-flex; align-items: center; gap: 0.5em;
   font-size: var(--step--2); font-weight: 700;
@@ -620,10 +525,5 @@
 .founder__sign strong { font-size: var(--step-0); }
 .founder__sign span { font-size: var(--step--1); color: var(--muted); }
 
-/* На телефоне кнопки героя идут в столбик во всю ширину: иначе вторая
-   оказывается уже первой и висит с рваным правым краем. */
-@media (max-width: 640px) {
-  .btn-group--hero { display: flex; flex-direction: column; align-items: stretch; width: 100%; }
-  .btn-group--hero .btn { width: 100%; }
 }
 
