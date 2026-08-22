@@ -1,0 +1,76 @@
+{% comment %}
+Первый экран главной: схема маршрутов школы.
+
+Язык — линия, уровень CEFR — станция, цель ученика — конечная. Всё, что здесь
+нарисовано, приходит из базы через apps/school/schematic.py: отметка набора
+появляется, только если у школы правда открыта группа со свободными местами.
+
+Разметка ниже — рабочая версия без JS: список языков с диапазоном уровней
+и открытыми наборами. Скрипт schematic.js поверх неё рисует схему на широком
+экране и вертикальную линию на телефоне, а список прячет. Поэтому страница
+остаётся понятной, даже когда скрипт не доехал.
+{% endcomment %}
+{% load static %}
+
+<section class="rt" data-route aria-label="Языки школы и уровни">
+  {{ schematic|json_script:"rt-data" }}
+  <div class="container rt__head">
+    <div class="rt__say">
+      <h1 class="rt__title">Выберите язык — <em>увидите весь путь</em></h1>
+      <p class="rt__lead">
+        Где линия начинается, где заканчивается, что уже стартует на этой неделе
+        и на какой станции стоите вы.
+      </p>
+      <div class="rt__ask">
+        <a class="btn btn--ghost" href="{% url 'placement:test' %}">Я не знаю свой уровень</a>
+        <span class="rt__hint">Тест уровня ставит на схеме точку «вы здесь» — 12 вопросов, без регистрации.</span>
+      </div>
+    </div>
+
+    {% comment %}
+      Клякса-алфавит: краска в цвете выбранной линии и буква его алфавита.
+      Рисуется на canvas, поэтому без скрипта остаётся просто буква.
+    {% endcomment %}
+    <div class="rt__wash" data-wash>
+      <canvas data-wash-canvas aria-hidden="true"></canvas>
+      <span class="rt__glyph" data-wash-glyph>{{ schematic.lines.0.glyph|default:"A" }}</span>
+      <span class="rt__lang" data-wash-name>{{ schematic.lines.0.name|default:""|lower }}</span>
+    </div>
+  </div>
+
+  <div class="container rt__picker" data-picker hidden></div>
+
+  <div class="container rt__stage">
+    <div class="rt__map" data-map hidden></div>
+
+    <ul class="rt__list" data-list>
+      {% for line in schematic.lines %}
+        <li class="rt-line" style="--line-color: {{ line.color }}">
+          <a class="rt-line__name" href="{{ line.url }}">{{ line.name }}</a>
+          <span class="rt-line__span">
+            {{ line.levels_label }}
+            {% if line.branch %} · есть подготовка к экзамену{% endif %}
+          </span>
+          {% for mark in line.marks %}
+            <a class="rt-line__mark" href="{{ mark.url }}">
+              {{ mark.schedule }} · {{ mark.seats }} {{ mark.seats_word }}
+            </a>
+          {% empty %}
+            <span class="rt-line__quiet">набор откроется — сообщим</span>
+          {% endfor %}
+        </li>
+      {% empty %}
+        <li class="rt-line rt-line--empty">Курсы появятся здесь, как только школа их заведёт.</li>
+      {% endfor %}
+    </ul>
+  </div>
+
+  <div class="container rt__foot">
+    <p class="rt__note">
+      Школа работает с 2011 года, через нас прошло больше 1 400 учеников.
+      На схеме — только открытые наборы: если группа уже идёт, отметки не будет.
+      Не нашли своё время — соберём группу под вас.
+    </p>
+    <a class="btn btn--accent btn--lg" href="{% url 'school:signup' %}">Записаться</a>
+  </div>
+</section>

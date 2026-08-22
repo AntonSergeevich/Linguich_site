@@ -1,61 +1,11 @@
 {% extends 'base.html' %}
 {% load static humanize %}
 
+{% block styles %}<link rel="stylesheet" href="{% static 'css/home.css' %}">{% endblock %}
+
 {% block content %}
 
-<section class="hero">
-  {% include 'components/hero_letters.html' %}
-  <div class="container hero__inner">
-    <div>
-      <div class="eyebrow">Красноярск и онлайн · с 2011 года</div>
-      <h1>Язык, на котором вы <em>наконец заговорите</em></h1>
-      <p class="hero__sub">
-        Не «проходим учебник», а учим говорить. Программа собирается под вашу цель,
-        а прогресс, расписание и домашние задания живут в личном кабинете.
-      </p>
-      {% comment %}
-        Подпись короче прежней «Записаться на бесплатный урок»: на телефоне
-        она переносилась на две строки и кнопка выглядела громоздкой.
-        Слово «бесплатно» осталось — это главное обещание.
-      {% endcomment %}
-      <div class="btn-group btn-group--hero">
-        <a class="btn btn--accent btn--lg" href="{% url 'school:signup' %}">Записаться бесплатно</a>
-        <a class="btn btn--ghost btn--lg" href="{% url 'placement:test' %}">Узнать свой уровень</a>
-      </div>
-
-      <div class="hero__proof">
-        <div><strong>{{ languages|length }}</strong><span>языков в школе</span></div>
-        <div><strong>1 400+</strong><span>учеников за 13 лет</span></div>
-        <div><strong>2</strong><span>офиса + онлайн</span></div>
-      </div>
-    </div>
-
-    <div class="hero__card reveal">
-      {% if starting_soon %}
-        <span class="pill-live">Ближайший набор</span>
-        <div class="stack mt-4">
-          {% for group in starting_soon %}
-            <div class="row row--between" style="gap:var(--s-3);padding-bottom:var(--s-3);border-bottom:1px solid var(--line-soft)">
-              <div style="min-width:0">
-                <strong>{{ group.course.title }}</strong>
-                <div class="tiny muted">
-                  {{ group.schedule_summary|default:"расписание уточняется" }} · {{ group.teacher.short_name }}
-                </div>
-              </div>
-              <span class="badge badge--brand nowrap">{{ group.starts_on|date:"d.m" }}</span>
-            </div>
-          {% endfor %}
-        </div>
-      {% else %}
-        <span class="pill-live">Идёт набор</span>
-        <h3 class="mt-4">Группы стартуют каждый месяц</h3>
-        <p class="muted">Оставьте заявку — подберём группу под ваш уровень и график.</p>
-      {% endif %}
-      <a class="btn btn--block mt-5" href="{% url 'school:signup' %}">Занять место</a>
-      <p class="tiny muted text-center mt-4 mb-0">Первое занятие — бесплатно</p>
-    </div>
-  </div>
-</section>
+{% include 'components/route_map.html' %}
 
 <section class="section section--sand">
   <div class="container">
@@ -328,3 +278,5 @@
 </section>
 
 {% endblock %}
+
+{% block scripts %}<script src="{% static 'js/schematic.js' %}" defer></script>{% endblock %}

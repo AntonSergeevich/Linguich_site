@@ -1,0 +1,284 @@
+/* ==========================================================================
+   Первый экран главной — схема маршрутов.
+
+   Файл подключается только на главной, поэтому ничего из кабинета и остальных
+   страниц отсюда не задевается. Цвета линий приходят инлайном из базы
+   (--line-color у элемента), всё остальное — токены из tokens.css.
+   ========================================================================== */
+
+.rt {
+  background: var(--paper);
+  padding-bottom: var(--s-6);
+}
+
+/* --- Верх: слово слева, клякса справа ------------------------------------- */
+
+.rt__head {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+  gap: var(--s-5) var(--s-7);
+  align-items: center;
+  padding-top: var(--s-8);
+  padding-bottom: var(--s-5);
+}
+
+.rt__title {
+  font-family: var(--font-display);
+  font-size: var(--step-5);
+  line-height: 1.04;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+  text-wrap: balance;
+  margin: 0;
+}
+.rt__title em { font-style: normal; color: var(--brand-500); }
+
+.rt__lead {
+  margin: var(--s-4) 0 0;
+  max-width: 42ch;
+  color: var(--ink-2);
+  font-size: var(--step-1);
+}
+
+.rt__ask {
+  margin-top: var(--s-5);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--s-3);
+}
+.rt__hint { max-width: 34ch; color: var(--muted); font-size: var(--step--1); }
+
+/* --- Клякса-алфавит -------------------------------------------------------- */
+
+.rt__wash {
+  position: relative;
+  width: min(100%, 380px);
+  aspect-ratio: 1 / 1;
+  justify-self: end;
+  touch-action: none;
+}
+.rt__wash[data-clickable] { cursor: pointer; }
+.rt__wash canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.rt__glyph {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-display);
+  font-size: clamp(4.5rem, 12vw, 8rem);
+  line-height: 1;
+  color: var(--ink);
+}
+.rt__lang {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 6%;
+  text-align: center;
+  font-size: var(--step--2);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* --- Выбор языка ----------------------------------------------------------- */
+
+.rt__picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+  padding-bottom: var(--s-4);
+}
+.rt-pick {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  font: inherit;
+  font-size: var(--step--1);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: var(--r-full);
+  padding: 0.35rem 0.9rem 0.35rem 0.7rem;
+  cursor: pointer;
+  transition: color var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease),
+              background-color var(--t-fast) var(--ease);
+}
+.rt-pick i {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--line-color, var(--brand-500));
+  flex: none;
+}
+.rt-pick:hover { color: var(--ink); border-color: var(--muted-2); }
+.rt-pick[aria-pressed="true"] {
+  color: var(--surface);
+  background: var(--ink);
+  border-color: var(--ink);
+}
+
+/* --- Плита схемы ----------------------------------------------------------- */
+
+.rt__map {
+  background: var(--plate-2);
+  border: 1px solid var(--plate-line);
+  border-radius: var(--r-md);
+  overflow: hidden;
+}
+.rt__map svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  font-family: var(--font-display);
+}
+.rt__map .rt-track {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  /* Толщина меняется мгновенно: момент перехода несёт прочерчивание линии
+     (stroke-dashoffset в schematic.js), а не плавное утолщение. */
+  transition: opacity var(--t-slow) var(--ease);
+}
+.rt__map .rt-track.is-dim { opacity: 0.22; }
+.rt__map .rt-scale { fill: var(--plate-dim); font-size: 19px; letter-spacing: 2.5px; }
+.rt__map .rt-guide { stroke: #22303c; stroke-width: 1.5; stroke-dasharray: 2 7; }
+.rt__map .rt-name { font-size: 17px; letter-spacing: 2px; font-weight: 500; transition: opacity var(--t-slow) var(--ease); }
+.rt__map .rt-name.is-dim { opacity: 0.45; }
+.rt__map .rt-leader { stroke: var(--plate-ink); stroke-width: 2; }
+.rt__map .rt-flagbox { fill: var(--plate-ink); }
+.rt__map .rt-flagtext { fill: var(--plate); font-size: 15px; letter-spacing: 1px; }
+.rt__map .rt-group { opacity: 0; pointer-events: none; transition: opacity var(--t-mid) var(--ease); }
+.rt__map .rt-group.is-on { opacity: 1; pointer-events: auto; }
+.rt__map .rt-stop { cursor: pointer; }
+.rt__map .rt-stop:focus-visible { outline: 2px solid var(--brand-300); outline-offset: 2px; }
+
+/* --- Вертикальная линия для телефона --------------------------------------- */
+
+.rt__rail { display: none; }
+.rt-rail__item {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 0 var(--s-3);
+  align-items: start;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  padding: 0;
+  color: inherit;
+  cursor: pointer;
+}
+.rt-rail__mark { position: relative; min-height: 62px; display: flex; justify-content: center; }
+.rt-rail__mark::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: -2px;
+  width: 8px;
+  border-radius: 4px;
+  background: var(--line-color, var(--brand-500));
+}
+.rt-rail__item:first-child .rt-rail__mark::before { top: 50%; }
+.rt-rail__item:last-child .rt-rail__mark::before { bottom: 50%; }
+.rt-rail__dot {
+  position: relative;
+  margin-top: 14px;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  background: var(--plate);
+  border: 3px solid var(--plate-ink);
+  flex: none;
+}
+.rt-rail__item.is-end .rt-rail__dot { background: var(--line-color, var(--brand-500)); width: 21px; height: 21px; }
+.rt-rail__body { padding: 0.55rem 0 1.1rem; }
+.rt-rail__lvl { font-family: var(--font-display); font-size: var(--step-1); letter-spacing: 0.12em; color: var(--plate-ink); }
+.rt-rail__flag {
+  display: inline-block;
+  margin-top: 0.35rem;
+  background: var(--plate-ink);
+  color: var(--plate);
+  font-size: var(--step--2);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  padding: 0.16rem 0.6rem;
+  border-radius: var(--r-sm);
+}
+
+/* --- Список без скрипта ----------------------------------------------------- */
+
+.rt__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--s-4);
+}
+.rt-line {
+  display: grid;
+  gap: var(--s-1);
+}
+/* Отрезок линии над названием — то же, что нарисует схема, только без скрипта.
+   Полоса вдоль левого края читалась бы просто цветной рамкой карточки. */
+.rt-line::before {
+  content: "";
+  display: block;
+  width: 64px;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--line-color, var(--brand-500));
+  margin-bottom: var(--s-2);
+}
+.rt-line--empty::before { display: none; }
+.rt-line__name { font-weight: 700; font-size: var(--step-1); text-decoration: none; }
+.rt-line__span { color: var(--muted); font-size: var(--step--1); }
+.rt-line__mark { font-size: var(--step--1); }
+.rt-line__quiet { color: var(--muted-2); font-size: var(--step--1); }
+.rt-line--empty { color: var(--muted); }
+
+/* --- Низ ------------------------------------------------------------------- */
+
+.rt__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-4);
+  flex-wrap: wrap;
+  padding-top: var(--s-5);
+}
+.rt__note { max-width: 52ch; color: var(--muted); font-size: var(--step--1); margin: 0; }
+
+/* --- Адаптив ---------------------------------------------------------------- */
+
+@media (max-width: 980px) {
+  .rt__head { grid-template-columns: 1fr; align-items: start; }
+  .rt__wash { justify-self: center; width: min(100%, 320px); }
+}
+
+@media (max-width: 760px) {
+  .rt__map { display: none; }
+  .rt__rail {
+    display: block;
+    background: var(--plate-2);
+    border: 1px solid var(--plate-line);
+    border-radius: var(--r-md);
+    padding: var(--s-4) var(--s-4) var(--s-2);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rt__map .rt-track,
+  .rt__map .rt-group,
+  .rt__map .rt-name { transition: none; }
+}
