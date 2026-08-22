@@ -40,6 +40,10 @@ def home(request):
         "faqs": FAQ.objects.filter(is_published=True)[:6],
         "promos": Promo.objects.filter(is_active=True)[:2],
         "starting_soon": starting_soon,
+        # «Сколько стоит» — первый вопрос посетителя. Пока за ответом нужно
+        # уходить в другой раздел, часть людей просто закрывает вкладку.
+        # Цены берутся из каталога, который и так ведётся в кабинете.
+        "tariffs": Tariff.objects.filter(is_active=True, is_public=True, price__gt=0).order_by("price")[:3],
         "lead_form": LeadForm(),
     }
     return render(request, "public/home.html", context)

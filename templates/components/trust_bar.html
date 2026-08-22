@@ -1,0 +1,58 @@
+{% comment %}
+Полоса доверия сразу под первым экраном.
+
+Локальную школу выбирают по чужому опыту, а не по вёрстке: оценка с
+площадки — самый сильный довод, какой у школы есть, и до сих пор его на
+сайте не было вообще. Числа берутся из настроек сайта: держать их в
+шаблоне значит забыть обновить.
+
+Блок с оценкой появляется, только когда оценка заполнена. Пустая звезда
+без числа хуже, чем её отсутствие.
+{% endcomment %}
+<section class="trust" aria-label="Почему нам доверяют">
+  <div class="container trust__row">
+    {% if site.rating_value %}
+      {% if site.rating_url %}
+        <a class="trust__item" href="{{ site.rating_url }}" target="_blank" rel="noopener">
+          <svg class="icon icon--lg trust__star"><use href="#i-star"/></svg>
+          <span>
+            <strong>{{ site.rating_value }} из 5</strong>
+            <span>{{ site.rating_source }}{% if site.rating_count %} · {{ site.rating_count }} отзыв{{ site.rating_count|pluralize:"а,ов" }}{% endif %}</span>
+          </span>
+        </a>
+      {% else %}
+        <div class="trust__item">
+          <svg class="icon icon--lg trust__star"><use href="#i-star"/></svg>
+          <span>
+            <strong>{{ site.rating_value }} из 5</strong>
+            <span>{{ site.rating_source }}{% if site.rating_count %} · {{ site.rating_count }} отзыв{{ site.rating_count|pluralize:"а,ов" }}{% endif %}</span>
+          </span>
+        </div>
+      {% endif %}
+    {% endif %}
+
+    <div class="trust__item">
+      <svg class="icon icon--lg"><use href="#i-users"/></svg>
+      <span>
+        <strong>{{ site.students_total|default:"1 400+" }}</strong>
+        <span>учеников за {{ site.years_open }} лет</span>
+      </span>
+    </div>
+
+    <div class="trust__item">
+      <svg class="icon icon--lg"><use href="#i-globe"/></svg>
+      <span>
+        <strong>{{ nav_languages|length }} язык{{ nav_languages|length|pluralize:"а,ов" }}</strong>
+        <span>Красноярск и онлайн</span>
+      </span>
+    </div>
+
+    <div class="trust__item">
+      <svg class="icon icon--lg"><use href="#i-file"/></svg>
+      <span>
+        <strong>Договор и чек</strong>
+        <span>оплата картой или переводом</span>
+      </span>
+    </div>
+  </div>
+</section>

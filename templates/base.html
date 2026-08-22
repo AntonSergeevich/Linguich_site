@@ -47,6 +47,22 @@
 
 {% block footer %}
   {% include 'components/footer.html' %}
+  {% comment %}
+    Липкая полоса записи на телефоне. Кнопка записи есть только в первом
+    экране и в самом низу: человек, который дочитал до отзывов и решился,
+    вынужден скроллить обратно. С телефона заходит большинство, поэтому
+    один этот шаг стоит дороже любой правки текста.
+
+    Живёт в блоке footer: в кабинете он переопределён пустым — там своя
+    навигация, и рекламная полоса поверх неё была бы нелепой.
+  {% endcomment %}
+  <div class="sticky-cta">
+    <a class="btn btn--accent" href="{% url 'school:signup' %}">Записаться бесплатно</a>
+    <a class="btn btn--ghost btn--icon" href="tel:{{ site.phone|cut:" "|cut:"("|cut:")"|cut:"-" }}"
+       aria-label="Позвонить в школу">
+      <svg class="icon"><use href="#i-phone"/></svg>
+    </a>
+  </div>
 {% endblock %}
 
 {% if messages %}

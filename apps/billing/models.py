@@ -23,6 +23,13 @@ class Tariff(models.Model):
     )
     description = models.CharField(max_length=220, blank=True)
     is_public = models.BooleanField(_("Показывать на сайте"), default=True)
+    # Выделенный тариф на главной. Раньше плашку «чаще всего выбирают»
+    # получала просто средняя карточка — сайт утверждал то, чего не знал.
+    # Отмечать должна школа: она одна и знает, что берут чаще.
+    is_featured = models.BooleanField(
+        _("Выделить на главной"), default=False,
+        help_text=_("Карточка получает подпись «чаще всего выбирают»."),
+    )
     is_active = models.BooleanField(default=True)
     sort_order = models.PositiveIntegerField(default=100)
 

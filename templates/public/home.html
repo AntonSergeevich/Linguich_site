@@ -7,7 +7,7 @@
   {% include 'components/hero_letters.html' %}
   <div class="container hero__inner">
     <div>
-      <div class="eyebrow">Красноярск и онлайн · с 2011 года</div>
+      <div class="eyebrow">Красноярск и онлайн · с {{ site.since_year }} года</div>
       <h1>Язык, на котором вы <em>наконец заговорите</em></h1>
       <p class="hero__sub">
         Не «проходим учебник», а учим говорить. Программа собирается под вашу цель,
@@ -25,7 +25,7 @@
 
       <div class="hero__proof">
         <div><strong>{{ languages|length }}</strong><span>языков в школе</span></div>
-        <div><strong>1 400+</strong><span>учеников за 13 лет</span></div>
+        <div><strong>{{ site.students_total|default:"1 400+" }}</strong><span>учеников за {{ site.years_open }} лет</span></div>
         <div><strong>2</strong><span>офиса + онлайн</span></div>
       </div>
     </div>
@@ -33,6 +33,12 @@
     <div class="hero__card reveal">
       {% if starting_soon %}
         <span class="pill-live">Ближайший набор</span>
+        {% comment %}
+          Дата старта и честное число мест вместо «группы стартуют каждый
+          месяц»: расплывчатое обещание не двигает, а «осталось два места
+          к 1 сентября» превращает «подумаю» в «надо успеть». Данные те
+          же самые, что ведутся в кабинете, — придумывать ничего не нужно.
+        {% endcomment %}
         <div class="stack mt-4">
           {% for group in starting_soon %}
             <div class="row row--between" style="gap:var(--s-3);padding-bottom:var(--s-3);border-bottom:1px solid var(--line-soft)">
@@ -41,6 +47,13 @@
                 <div class="tiny muted">
                   {{ group.schedule_summary|default:"расписание уточняется" }} · {{ group.teacher.short_name }}
                 </div>
+                {% if group.seats_left %}
+                  <div class="tiny" style="color:var(--accent-600);font-weight:600">
+                    осталось {{ group.seats_left }} мест{{ group.seats_left|pluralize:"о,а," }} из {{ group.capacity }}
+                  </div>
+                {% else %}
+                  <div class="tiny muted">мест нет — запишем в лист ожидания</div>
+                {% endif %}
               </div>
               <span class="badge badge--brand nowrap">{{ group.starts_on|date:"d.m" }}</span>
             </div>
@@ -56,6 +69,8 @@
     </div>
   </div>
 </section>
+
+{% include 'components/trust_bar.html' %}
 
 <section class="section section--sand">
   <div class="container">
@@ -114,6 +129,52 @@
         </a>
       {% endfor %}
     </div>
+  </div>
+</section>
+{% endif %}
+
+{% if tariffs %}
+<section class="section section--sand" id="prices">
+  <div class="container">
+    {% comment %}
+      «Сколько стоит» — первый вопрос посетителя, и до сих пор за ответом
+      нужно было уходить на отдельную страницу. Цены берутся из того же
+      каталога, что ведётся в кабинете: руками ничего дублировать не нужно.
+    {% endcomment %}
+    <div class="section-head section-head--center">
+      <div class="eyebrow" style="justify-content:center">Цены</div>
+      <h2>Сколько стоит заниматься</h2>
+      <p class="lead">Первое занятие бесплатное на любом тарифе.</p>
+    </div>
+
+    <div class="grid grid-3">
+      {% for tariff in tariffs %}
+        {% comment %}
+          Выделенный тариф отмечает школа в админке. Подсвечивать среднюю
+          карточку «по счёту» значит утверждать то, чего сайт не знает.
+        {% endcomment %}
+        <div class="tier reveal {% if tariff.is_featured %}tier--best{% endif %}">
+          <div class="tier__head">
+            <span class="badge {% if tariff.is_featured %}badge--brand{% endif %}">{{ tariff.name }}</span>
+            {% if tariff.is_featured %}<span class="badge badge--accent">чаще всего выбирают</span>{% endif %}
+          </div>
+          <div class="tier__price">{{ tariff.price_per_lesson|floatformat:0|intcomma }} ₽</div>
+          <div class="tiny muted">
+            за занятие · {{ tariff.lessons_count }} занятий — {{ tariff.price|floatformat:0|intcomma }} ₽
+          </div>
+          {% if tariff.description %}<p class="tiny mt-3 mb-0">{{ tariff.description }}</p>{% endif %}
+          {% if tariff.validity_days %}
+            <p class="tiny muted mt-3 mb-0">Действует {{ tariff.validity_days }} дней — пропуск по болезни не сгорает.</p>
+          {% endif %}
+          <a class="btn btn--block mt-5 {% if not tariff.is_featured %}btn--ghost{% endif %}"
+             href="{% url 'school:signup' %}">Записаться</a>
+        </div>
+      {% endfor %}
+    </div>
+
+    <p class="text-center mt-6 mb-0">
+      <a class="btn btn--ghost" href="{% url 'school:prices' %}">Все тарифы и цены по курсам</a>
+    </p>
   </div>
 </section>
 {% endif %}
@@ -262,11 +323,31 @@
           <div class="review__stars">{% for _ in "12345"|make_list %}{% if forloop.counter <= review.rating %}★{% else %}☆{% endif %}{% endfor %}</div>
           <p class="review__text">«{{ review.text }}»</p>
           <div class="review__author">
-            <span class="avatar avatar--sm">{{ review.author_name|slice:":1" }}</span>
-            <div>
+            {% if review.photo %}
+              <img class="avatar avatar--sm" src="{{ review.photo.url }}" alt="" loading="lazy">
+            {% else %}
+              <span class="avatar avatar--sm">{{ review.author_name|slice:":1" }}</span>
+            {% endif %}
+            <div style="min-width:0">
               <strong>{{ review.author_name }}</strong>
               <span>{{ review.author_role }}</span>
             </div>
+            {% comment %}
+              Отзыв без источника ничем не отличается от текста, который
+              школа написала себе сама. Площадка и ссылка на неё делают из
+              него доказательство — а проверить может любой желающий.
+            {% endcomment %}
+            {% if review.source %}
+              {% if review.source_url %}
+                <a class="review__src" href="{{ review.source_url }}" target="_blank" rel="noopener nofollow">
+                  <svg class="icon icon--sm"><use href="#i-star"/></svg>{{ review.source }}
+                </a>
+              {% else %}
+                <span class="review__src">
+                  <svg class="icon icon--sm"><use href="#i-star"/></svg>{{ review.source }}
+                </span>
+              {% endif %}
+            {% endif %}
           </div>
         </div>
       {% endfor %}
