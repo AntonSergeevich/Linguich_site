@@ -1,4 +1,5 @@
 {% extends 'cabinet/base.html' %}
+{% load ru %}
 {% block page_title %}Программы и материалы{% endblock %}
 {% block page_sub %}<p class="cab-top__sub">Общая библиотека школы — можно брать чужие программы за основу</p>{% endblock %}
 {% block page_actions %}
@@ -18,7 +19,7 @@
       <h3 style="font-size:var(--step-1)">{{ program.title }}</h3>
       <p class="tiny muted">{{ program.description|truncatechars:110 }}</p>
       <div class="row row--between tiny muted" style="border-top:1px solid var(--line-soft);padding-top:var(--s-3)">
-        <span>{{ program.modules_count }} модул{{ program.modules_count|pluralize:"ь,я,ей" }}</span>
+        <span>{{ program.modules_count }} {{ program.modules_count|plural:"модуль,модуля,модулей" }}</span>
         <span>{{ program.author.short_name|default:"школа" }}</span>
       </div>
     </a>

@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% load humanize %}
+{% load humanize ru %}
 {% block title %}Цены и абонементы — Лингвич{% endblock %}
 
 {% block content %}
@@ -19,7 +19,7 @@
           <h3>{{ tariff.name }}</h3>
           <div class="course-card__price mb-3">{{ tariff.price|floatformat:0|intcomma }} ₽</div>
           <p class="tiny muted">
-            {{ tariff.lessons_count }} занятие{{ tariff.lessons_count|pluralize:",я,й" }}
+            {{ tariff.lessons_count }} {{ tariff.lessons_count|plural:"занятие,занятия,занятий" }}
             · {{ tariff.price_per_lesson|floatformat:0 }} ₽ за урок
             {% if tariff.validity_days %}<br>Действует {{ tariff.validity_days }} дней{% endif %}
           </p>

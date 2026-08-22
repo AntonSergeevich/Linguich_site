@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% load static humanize %}
+{% load static humanize ru %}
 
 {% block styles %}<link rel="stylesheet" href="{% static 'css/home.css' %}">{% endblock %}
 
@@ -23,7 +23,7 @@
           <h3>{{ language.name }}</h3>
           <p>{{ language.short_pitch }}</p>
           <span class="lang-card__more">
-            {{ language.course_count }} курс{{ language.course_count|pluralize:"а,ов" }}
+            {{ language.course_count }} {{ language.course_count|plural:"курс,курса,курсов" }}
             <svg class="icon icon--sm"><use href="#i-arrow"/></svg>
           </span>
         </a>

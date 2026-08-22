@@ -1,5 +1,6 @@
 """Публичный сайт: захват заявок и доступность страниц."""
 
+import re
 from datetime import timedelta
 
 from django.test import TestCase
@@ -463,5 +464,51 @@ class PluralRuTests(TestCase):
         cases = {1: "место", 2: "места", 5: "мест", 11: "мест", 21: "место", 104: "места"}
         for count, expected in cases.items():
             self.assertEqual(plural_ru(count, "место", "места", "мест"), expected, count)
+
+    def test_the_template_filter_says_the_same(self):
+        from django.template import Context, Template
+
+        rendered = Template(
+            '{% load ru %}{% for n in ns %}{{ n }} {{ n|plural:"занятие,занятия,занятий" }};{% endfor %}'
+        ).render(Context({"ns": [1, 2, 5]}))
+        self.assertEqual(rendered, "1 занятие;2 занятия;5 занятий;")
+
+    def test_pluralize_with_three_forms_is_not_used_anywhere(self):
+        """Регрессия: `{{ n|pluralize:"ь,я,ей" }}` рендерит пустоту, и на
+        странице остаётся «5 модул». Django принимает только две формы."""
+        from django.conf import settings
+
+        broken = []
+        for path in (settings.BASE_DIR / "templates").rglob("*.html"):
+            text = path.read_text(encoding="utf-8")
+            for match in re.findall(r'pluralize:"([^"]*)"', text):
+                if match.count(",") >= 2:
+                    broken.append(f"{path.name}: {match}")
+        self.assertFalse(broken, f"pluralize с тремя формами молча вернёт пустоту: {broken}")
+
+
+class StickyHeaderTests(TestCase):
+    """Шапка закреплена при прокрутке — и остаётся такой.
+
+    Ломается это не в самой шапке: `overflow-x: hidden` на body делает его
+    контейнером прокрутки, и любой sticky внутри перестаёт липнуть. Ошибка
+    беззвучная, поэтому держим её тестом.
+    """
+
+    def css(self, name):
+        from django.conf import settings
+
+        return (settings.BASE_DIR / "static" / "css" / name).read_text(encoding="utf-8")
+
+    def test_the_header_is_sticky(self):
+        block = self.css("site.css").split(".site-header {")[1].split("}")[0]
+        self.assertIn("position: sticky", block)
+        self.assertIn("top: 0", block)
+
+    def test_body_does_not_create_its_own_scroll_container(self):
+        base = self.css("base.css")
+        body = base.split("body {")[1].split("}")[0]
+        self.assertNotIn("overflow-x: hidden", body)
+        self.assertIn("overflow-x: clip", body)
 
 
