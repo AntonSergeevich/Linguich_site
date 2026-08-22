@@ -959,3 +959,104 @@ class GroupDetailTests(CabinetFixture):
         response = self.client.post(reverse("cabinet:crm_group_slot_create", args=[self.group.pk]),
                                     {"weekday": 3, "start_time": "18:00"})
         self.assertEqual(response.status_code, 400)
+
+
+class LessonMarkingTests(CabinetFixture):
+    """Отметка урока должна быть в самой строке расписания.
+
+    Регрессия из жизни: действие пряталось за серой кнопкой «Журнал», и
+    владелица, глядя на плашку «нужно отметить», не нашла, куда нажать.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.tariff = Tariff.objects.create(name="8 занятий", lessons_count=8, price=8000)
+        Package.objects.create(
+            student=self.student, tariff=self.tariff, lessons_total=8, price=8000
+        )
+        self.lesson.starts_at = timezone.now() - timedelta(hours=3)
+        self.lesson.save(update_fields=["starts_at"])
+        self.client.force_login(self.teacher)
+
+    def complete(self):
+        from apps.scheduling import services as sched
+
+        sched.autocomplete_lessons()
+        self.lesson.refresh_from_db()
+
+    def test_the_schedule_row_carries_the_action_itself(self):
+        self.complete()
+        response = self.client.get(reverse("cabinet:teacher_schedule"))
+        self.assertContains(response, reverse("cabinet:teacher_lesson_reopen", args=[self.lesson.pk]))
+        self.assertContains(response, reverse("cabinet:teacher_lessons_confirm"))
+
+    def test_a_lesson_in_the_grace_window_can_be_held_or_dropped_from_the_row(self):
+        self.lesson.starts_at = timezone.now() - timedelta(minutes=70)
+        self.lesson.save(update_fields=["starts_at"])
+        response = self.client.get(reverse("cabinet:teacher_schedule"))
+        self.assertContains(response, reverse("cabinet:teacher_lesson_complete", args=[self.lesson.pk]))
+        self.assertContains(response, "Не состоялся")
+
+    def test_marking_a_lesson_as_not_held_returns_the_lesson(self):
+        self.complete()
+        self.assertEqual(StudentAccount(self.student).lessons_used, 1)
+
+        response = self.client.post(
+            reverse("cabinet:teacher_lesson_reopen", args=[self.lesson.pk]),
+            data=json.dumps({"reason": "заболела"}), content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(StudentAccount(self.student).lessons_used, 0)
+
+    def test_confirming_clears_the_banner(self):
+        self.complete()
+        self.assertContains(
+            self.client.get(reverse("cabinet:teacher_schedule")), "автоматически"
+        )
+        self.client.post(reverse("cabinet:teacher_lessons_confirm"))
+        self.assertNotContains(
+            self.client.get(reverse("cabinet:teacher_schedule")), "Отмечено проведёнными автоматически"
+        )
+
+    def test_a_foreign_lesson_cannot_be_touched(self):
+        other = User.objects.create_user(
+            email="other@x.ru", password="pass12345", first_name="Пётр", role=Role.TEACHER
+        )
+        TeacherProfile.objects.create(user=other)
+        self.client.force_login(other)
+        for name in ("teacher_lesson_complete", "teacher_lesson_reopen"):
+            with self.subTest(view=name):
+                response = self.client.post(
+                    reverse(f"cabinet:{name}", args=[self.lesson.pk]),
+                    data="{}", content_type="application/json",
+                )
+                self.assertEqual(response.status_code, 403)
+
+    def test_a_closed_month_cannot_be_rewritten_by_the_teacher(self):
+        """После закрытия журнала правит только владелица — иначе выручку
+        прошлого месяца можно переписать задним числом."""
+        self.lesson.starts_at = timezone.now() - timedelta(days=40)
+        self.lesson.save(update_fields=["starts_at"])
+        self.complete()
+
+        response = self.client.post(
+            reverse("cabinet:teacher_lesson_reopen", args=[self.lesson.pk]),
+            data="{}", content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(StudentAccount(self.student).lessons_used, 1)
+
+        self.client.force_login(self.owner)
+        response = self.client.post(
+            reverse("cabinet:teacher_lesson_reopen", args=[self.lesson.pk]),
+            data="{}", content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(StudentAccount(self.student).lessons_used, 0)
+
+    def test_the_attendance_sheet_preselects_everyone_as_present(self):
+        response = self.client.get(reverse("cabinet:teacher_lesson", args=[self.lesson.pk]))
+        html = response.content.decode()
+        row = html.split(f'name="status-{self.participant.pk}"')
+        self.assertIn('value="attended"', row[1][:60])
+        self.assertIn("checked", row[1][:120], "по умолчанию должен стоять «был»")

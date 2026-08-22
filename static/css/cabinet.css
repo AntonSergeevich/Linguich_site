@@ -159,6 +159,9 @@
 .lesson-row.is-cancelled { opacity: 0.55; }
 .lesson-row.is-cancelled .lesson-row__time { text-decoration: line-through; }
 .lesson-row.is-live { border-color: var(--ok); box-shadow: 0 0 0 3px var(--ok-bg); }
+/* Урок кончился, но ещё не списался: единственное окно, чтобы сказать
+   «не состоялся». Строка должна выделяться из ряда прошедших. */
+.lesson-row.is-grace { border-color: var(--warn); box-shadow: 0 0 0 3px var(--warn-bg); }
 
 .lesson-row__time {
   text-align: center;
@@ -545,3 +548,76 @@
   background: var(--ok-bg); color: var(--ok);
 }
 .sched__empty { color: var(--muted-2); font-size: var(--step--2); }
+
+/* --- Сводка школы: операционная половина -------------------------------
+   Владелица работает и администратором, поэтому первый экран отвечает на
+   вопросы, которые задают по телефону: кто свободен и что горит. */
+.crm-search {
+  display: flex; align-items: center; gap: var(--s-3);
+  padding: var(--s-2) var(--s-2) var(--s-2) var(--s-4);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-full);
+  box-shadow: var(--sh-2);
+  color: var(--muted-2);
+}
+.crm-search input {
+  flex: 1; min-width: 0;
+  border: 0; background: none; padding: 0;
+  font: inherit; color: var(--ink);
+}
+.crm-search input:focus { outline: none; box-shadow: none; }
+
+.quick-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--s-3); }
+.quick {
+  display: flex; align-items: center; gap: var(--s-3);
+  padding: var(--s-4);
+  background: var(--surface);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-md);
+  box-shadow: var(--sh-1);
+  color: var(--ink); font-weight: 600;
+  transition: transform var(--t-fast) var(--ease), box-shadow var(--t-fast) var(--ease);
+}
+.quick:hover { transform: translateY(-2px); box-shadow: var(--sh-2); color: var(--ink); }
+.quick__ico {
+  width: 34px; height: 34px; border-radius: 10px; flex: none;
+  display: flex; align-items: center; justify-content: center;
+}
+@media (max-width: 720px) { .quick-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+.today-grid { display: grid; gap: var(--s-2); }
+.today-col { display: flex; flex-direction: column; gap: var(--s-2); min-width: 0; }
+.today-col__head {
+  display: flex; align-items: center; gap: var(--s-2);
+  font-size: var(--step--1); font-weight: 600;
+  padding-bottom: var(--s-2); border-bottom: 1px solid var(--line-soft);
+  white-space: nowrap; overflow: hidden;
+}
+.today-slot {
+  display: flex; flex-direction: column; gap: 1px;
+  padding: var(--s-2) var(--s-3);
+  border-radius: var(--r-sm);
+  font-size: var(--step--2); line-height: 1.3;
+  min-width: 0;
+}
+.today-slot strong { font-size: var(--step--1); }
+.today-slot span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.today-slot--busy { background: var(--brand-50); color: var(--brand-700); border: 1px solid var(--brand-100); }
+.today-slot--free { border: 1px dashed var(--brand-300); color: var(--brand-600); background: var(--surface); }
+.today-slot--free:hover { background: var(--brand-50); }
+
+.hot-row {
+  display: flex; align-items: center; gap: var(--s-3);
+  padding: var(--s-3) 0;
+  border-bottom: 1px solid var(--line-soft);
+  color: var(--ink);
+}
+.hot-row:last-child { border-bottom: 0; }
+.hot-row:hover { color: var(--brand-700); }
+.hot-row strong { display: block; font-size: var(--step-0); font-weight: 650; }
+.hot-row .tiny { display: block; }
+.hot-row__ico {
+  width: 34px; height: 34px; border-radius: 10px; flex: none;
+  display: flex; align-items: center; justify-content: center;
+}

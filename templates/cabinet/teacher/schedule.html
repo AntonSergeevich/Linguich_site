@@ -11,13 +11,22 @@
 
 {% block cabinet %}
 
-{% if pending %}
-  <div class="alert alert--warn">
-    <svg class="icon icon--lg"><use href="#i-clock"/></svg>
-    <div>
-      <strong>{{ pending|length }} прошедших урока(ов) без отметок</strong>
-      Отметьте посещаемость — тогда занятия спишутся с абонементов и попадут в отчёты.
+{% if autocompleted %}
+  {% comment %}
+    Плашка держит автоотметку на виду: занятия уже списаны с абонементов,
+    и если урок на самом деле не состоялся, узнать об этом надо сегодня,
+    а не в конце месяца от ученика.
+  {% endcomment %}
+  <div class="alert alert--ok">
+    <svg class="icon icon--lg"><use href="#i-check"/></svg>
+    <div style="flex:1">
+      <strong>Отмечено проведёнными автоматически: {{ autocompleted|length }}</strong>
+      Занятия списаны, ученики это видят. Если урок не состоялся — нажмите «Не состоялся» в строке ниже.
     </div>
+    <button class="btn btn--sm" style="--btn-bg:var(--ok)"
+            data-action="{% url 'cabinet:teacher_lessons_confirm' %}" data-reload>
+      Всё верно
+    </button>
   </div>
 {% endif %}
 
@@ -59,7 +68,7 @@
   </div>
   {% for day in days %}
     {% for lesson in day.lessons %}
-      <div class="lesson-row {% if lesson.status == 'cancelled' %}is-cancelled{% endif %} {% if lesson.is_live_now %}is-live{% endif %}"
+      <div class="lesson-row {% if lesson.status == 'cancelled' %}is-cancelled{% endif %} {% if lesson.is_live_now %}is-live{% endif %} {% if lesson.is_awaiting_autocomplete %}is-grace{% endif %}"
            data-day="{{ day.date|date:'Y-m-d' }}">
         <div class="lesson-row__time">
           <strong>{{ lesson.starts_at|date:"H:i" }}</strong>
@@ -71,23 +80,66 @@
             <span>{{ lesson.participants.count }} чел.</span>
             <span>{{ lesson.duration_minutes }} мин</span>
             <span>{% if lesson.mode == 'online' %}онлайн{% else %}{{ lesson.location.name|default:"класс" }}{% endif %}</span>
-            {% if lesson.status == 'completed' %}<span class="badge badge--ok">отмечен</span>
-            {% elif lesson.status == 'cancelled' %}<span class="badge badge--err">отменён</span>
-            {% elif lesson.is_past %}<span class="badge badge--warn">нужно отметить</span>{% endif %}
           </div>
         </div>
+
+        {% comment %}
+          Состояние урока раньше было надписью, а действие пряталось за
+          кнопкой «Журнал» — поэтому отметку и не находили. Теперь в строке
+          стоит ровно то действие, которое сейчас имеет смысл.
+        {% endcomment %}
         <div class="lesson-row__actions">
-          {% if lesson.join_url and not lesson.is_past %}
-            <a class="btn btn--soft btn--sm" href="{{ lesson.join_url }}" target="_blank" rel="noopener">
-              <svg class="icon icon--sm"><use href="#i-video"/></svg>
-            </a>
+          {% if lesson.status == 'cancelled' %}
+            <span class="badge badge--err">не состоялся</span>
+
+          {% elif lesson.is_awaiting_autocomplete %}
+            <span class="badge badge--warn" title="Столько ещё можно передумать">
+              <svg class="icon icon--sm"><use href="#i-clock"/></svg>
+              отметится в {{ lesson.autocompletes_at|date:"H:i" }}
+            </span>
+            <button class="btn btn--ghost btn--sm"
+                    data-action="{% url 'cabinet:teacher_lesson_reopen' lesson.pk %}" data-reload
+                    data-confirm="Урок не состоялся? Занятия ученикам вернутся, списаний не будет.">
+              Не состоялся
+            </button>
+            <button class="btn btn--sm"
+                    data-action="{% url 'cabinet:teacher_lesson_complete' lesson.pk %}" data-reload>
+              Провести
+            </button>
+
+          {% elif lesson.status == 'completed' %}
+            <span class="badge badge--ok">
+              <svg class="icon icon--sm"><use href="#i-check"/></svg>
+              проведён{% if lesson.was_autocompleted %} · авто{% endif %}
+            </span>
+            {% if lesson.can_correct %}
+              <button class="btn btn--quiet btn--sm"
+                      data-action="{% url 'cabinet:teacher_lesson_reopen' lesson.pk %}" data-reload
+                      data-confirm="Урок не состоялся? Занятия ученикам вернутся, списания снимутся.">
+                Не состоялся
+              </button>
+            {% endif %}
+            <a class="btn btn--ghost btn--sm" href="{% url 'cabinet:teacher_lesson' lesson.pk %}">Журнал</a>
+
+          {% else %}
+            {% if lesson.join_url %}
+              <a class="btn btn--soft btn--sm" href="{{ lesson.join_url }}" target="_blank" rel="noopener">
+                <svg class="icon icon--sm"><use href="#i-video"/></svg>
+              </a>
+            {% endif %}
+            <a class="btn btn--ghost btn--sm" href="{% url 'cabinet:teacher_lesson' lesson.pk %}">Журнал</a>
           {% endif %}
-          <a class="btn btn--ghost btn--sm" href="{% url 'cabinet:teacher_lesson' lesson.pk %}">Журнал</a>
         </div>
       </div>
     {% endfor %}
   {% endfor %}
   <p class="tiny muted text-center" data-strip-empty hidden>В этот день занятий нет.</p>
 </div>
+
+<p class="tiny muted mt-3">
+  Урок сам становится проведённым через {{ autocomplete_minutes }} минут после конца — все считаются
+  пришедшими, занятие списывается с абонемента. Отмечать вручную нужно только исключения:
+  кто-то не пришёл или урок не состоялся. Журнал открыт {{ correction_days }} дней.
+</p>
 
 {% endblock %}

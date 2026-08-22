@@ -243,6 +243,24 @@ def cancel_lesson(lesson, by_user, reason=""):
     return lesson
 
 
+def uncharge_participant(participant):
+    """Возвращает списанное занятие на абонемент. Идемпотентна."""
+    charge = getattr(participant, "charge", None)
+    if charge is None:
+        return None
+    package = charge.package
+    charge.delete()
+    # Кэш обратной связи OneToOne остаётся в объекте — без сброса повторное
+    # списание решит, что урок уже оплачен, и молча ничего не сделает.
+    try:
+        del participant.charge
+    except AttributeError:
+        pass
+    if package:
+        package.refresh_status()
+    return package
+
+
 @transaction.atomic
 def charge_participant(participant, note=""):
     """Consume one lesson from the student's package. Idempotent."""
@@ -283,6 +301,9 @@ def charge_participant(participant, note=""):
     return charge
 
 
+CHARGEABLE = {ParticipantStatus.ATTENDED, ParticipantStatus.ABSENT}
+
+
 @transaction.atomic
 def save_attendance(lesson, marks, by_user):
     """``marks`` maps participant id -> ParticipantStatus. Charges follow attendance."""
@@ -290,17 +311,98 @@ def save_attendance(lesson, marks, by_user):
         new_status = marks.get(str(participant.pk)) or marks.get(participant.pk)
         if not new_status or new_status not in ParticipantStatus.values:
             continue
+        if participant.status == new_status:
+            continue
         participant.status = new_status
         # "Был" and "не пришёл" both consume the lesson; a documented early
         # cancellation does not.
-        participant.is_chargeable = new_status in {ParticipantStatus.ATTENDED, ParticipantStatus.ABSENT}
+        participant.is_chargeable = new_status in CHARGEABLE
         participant.save(update_fields=["status", "is_chargeable"])
+        if participant.is_chargeable:
+            charge_participant(participant)
+        else:
+            uncharge_participant(participant)
+
+    return complete_lesson(lesson, by_user)
+
+
+@transaction.atomic
+def complete_lesson(lesson, by_user=None, now=None):
+    """Урок проведён. Все, кого не отметили иначе, считаются пришедшими.
+
+    ``by_user`` пустой — урок отметился сам по времени; кабинет покажет это
+    отдельной плашкой, чтобы преподаватель мог поправить.
+    """
+    for participant in lesson.participants.select_related("student"):
+        if participant.status == ParticipantStatus.CANCELLED:
+            continue
+        if participant.status == ParticipantStatus.BOOKED:
+            participant.status = ParticipantStatus.ATTENDED
+            participant.is_chargeable = True
+            participant.save(update_fields=["status", "is_chargeable"])
         if participant.is_chargeable:
             charge_participant(participant)
 
     lesson.status = LessonStatus.COMPLETED
-    lesson.save(update_fields=["status"])
+    lesson.completed_at = now or timezone.now()
+    lesson.completed_by = by_user
+    lesson.save(update_fields=["status", "completed_at", "completed_by"])
     return lesson
+
+
+@transaction.atomic
+def confirm_completion(lesson, by_user):
+    """«Всё верно»: человек посмотрел на автоотметку и согласился.
+
+    Ничего не пересчитывает — только снимает с урока признак «отметился сам»,
+    чтобы плашка не висела вечно.
+    """
+    if lesson.status != LessonStatus.COMPLETED or lesson.completed_by_id:
+        return lesson
+    lesson.completed_by = by_user
+    lesson.save(update_fields=["completed_by"])
+    return lesson
+
+
+@transaction.atomic
+def reopen_lesson(lesson, by_user, reason=""):
+    """Урок не состоялся: снимаем списания и возвращаем занятия на абонемент.
+
+    Отдельная операция, а не «отменить»: отмена уведомляет учеников, а здесь
+    исправляют уже случившуюся автоотметку — беспокоить людей незачем.
+    """
+    for participant in lesson.participants.all():
+        participant.is_chargeable = False
+        if participant.status in CHARGEABLE:
+            participant.status = ParticipantStatus.EXCUSED
+        participant.save(update_fields=["status", "is_chargeable"])
+        uncharge_participant(participant)
+
+    lesson.status = LessonStatus.CANCELLED
+    lesson.cancelled_reason = reason or "Урок не состоялся"
+    lesson.completed_at = None
+    lesson.completed_by = by_user
+    lesson.save(update_fields=["status", "cancelled_reason", "completed_at", "completed_by"])
+    return lesson
+
+
+def autocomplete_lessons(now=None):
+    """Отмечает проведёнными уроки, у которых вышла отсрочка. Идемпотентна."""
+    now = now or timezone.now()
+    minutes = getattr(settings, "LESSON_AUTOCOMPLETE_MINUTES", 45)
+    # Урок не может закончиться раньше, чем начался, поэтому фильтр по началу
+    # — надёжное «не больше чем нужно»: точную границу считаем по ends_at,
+    # которое зависит от длительности каждого урока.
+    candidates = Lesson.objects.filter(
+        status=LessonStatus.SCHEDULED, starts_at__lt=now - timedelta(minutes=minutes)
+    ).prefetch_related("participants")
+    done = 0
+    for lesson in candidates:
+        if lesson.autocompletes_at > now:
+            continue
+        complete_lesson(lesson, by_user=None, now=now)
+        done += 1
+    return done
 
 
 def schedule_reminders_for(lesson):

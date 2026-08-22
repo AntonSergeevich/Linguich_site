@@ -12,11 +12,21 @@
       <svg class="icon icon--sm"><use href="#i-video"/></svg> Класс
     </a>
   {% endif %}
-  {% if lesson.status == 'scheduled' %}
+  {% if lesson.status == 'scheduled' and not lesson.is_past %}
     <button class="btn btn--danger btn--sm"
             data-action="{% url 'cabinet:teacher_lesson_cancel' lesson.pk %}" data-reload
             data-confirm="Отменить урок? Ученики получат уведомление, занятия не спишутся.">
       Отменить урок
+    </button>
+  {% elif can_correct %}
+    {% comment %}
+      Прошедший урок не «отменяют» — предупреждать уже некого. Его помечают
+      несостоявшимся: списания снимаются, занятия возвращаются на абонементы.
+    {% endcomment %}
+    <button class="btn btn--danger btn--sm"
+            data-action="{% url 'cabinet:teacher_lesson_reopen' lesson.pk %}" data-reload
+            data-confirm="Урок не состоялся? Занятия ученикам вернутся, списания снимутся.">
+      Урок не состоялся
     </button>
   {% endif %}
 {% endblock %}
@@ -30,8 +40,14 @@
     <div class="stack">
       <div class="card">
         <h3>Посещаемость</h3>
-        <p class="tiny muted">«Был» и «не пришёл» списывают занятие с абонемента.
-          «Отменил заранее» — не списывает.</p>
+        {% comment %}
+          Все заранее отмечены «был»: так оно и бывает почти всегда, а
+          преподавателю остаётся тронуть только исключения. Перебирать
+          галочки по каждому ученику ради очевидного — тот самый труд,
+          из-за которого журнал и оставался незаполненным.
+        {% endcomment %}
+        <p class="tiny muted">Все отмечены «был» — трогайте только исключения.
+          «Был» и «не пришёл» списывают занятие с абонемента, «отменил заранее» — нет.</p>
 
         {% for participant in participants %}
           <div class="attend-row">
@@ -42,10 +58,15 @@
             </div>
             <div class="attend-opts">
               {% for value, label in statuses %}
-                {% if value != 'cancelled' %}
+                {% comment %}
+                  «Записан» и «запись отменена» — не итоги урока, а состояния
+                  записи. В листе посещаемости им делать нечего: выбор должен
+                  быть между тем, что реально случилось.
+                {% endcomment %}
+                {% if value != 'cancelled' and value != 'booked' %}
                   <label class="{% if value == 'absent' %}opt-absent{% elif value == 'excused' %}opt-excused{% endif %}">
                     <input type="radio" name="status-{{ participant.pk }}" value="{{ value }}"
-                           {% if participant.status == value %}checked{% endif %}>
+                           {% if participant.status == value %}checked{% elif participant.status == 'booked' and value == 'attended' %}checked{% endif %}>
                     <span>{{ label }}</span>
                   </label>
                 {% endif %}

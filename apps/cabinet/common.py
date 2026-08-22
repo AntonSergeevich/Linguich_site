@@ -50,11 +50,14 @@ def _teaching_items(user):
     pending = Submission.objects.filter(
         assignment__teacher=user, status=SubmissionStatus.SUBMITTED
     ).count()
-    unmarked = user.lessons_taught.filter(
-        status=LessonStatus.SCHEDULED, starts_at__lt=timezone.now()
+    # Считаем не «непроведённые» — их теперь закрывает автоотметка, — а те,
+    # что отметились сами и никто на них не взглянул: только там и может
+    # прятаться ошибка.
+    unconfirmed = user.lessons_taught.filter(
+        status=LessonStatus.COMPLETED, completed_by__isnull=True
     ).count()
     return [
-        ("cabinet:teacher_schedule", "Расписание и журнал", "i-calendar", unmarked),
+        ("cabinet:teacher_schedule", "Расписание и журнал", "i-calendar", unconfirmed),
         ("cabinet:teacher_students", "Мои ученики", "i-users", 0),
         ("cabinet:teacher_review", "Проверка работ", "i-check", pending),
         ("cabinet:teacher_programs", "Программы и материалы", "i-book", 0),
