@@ -48,7 +48,10 @@ body {
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   font-feature-settings: "kern" 1, "liga" 1, "cv11" 1;
-  overflow-x: hidden;
+  /* clip, а не hidden: hidden делает body собственным контейнером прокрутки,
+     и любой position: sticky внутри — в том числе закреплённая шапка —
+     перестаёт работать. clip обрезает так же, но контейнер не создаёт. */
+  overflow-x: clip;
 }
 
 h1, h2, h3, h4, h5 {
