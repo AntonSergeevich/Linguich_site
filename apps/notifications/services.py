@@ -73,9 +73,29 @@ def notify_many(users, **kwargs):
 
 # --- delivery --------------------------------------------------------------
 
+# Про деньги пишут родителю: платит он, а ребёнок на такое сообщение всё
+# равно ничего сделать не может. Учёба — уроки, домашка — остаётся ученику.
+PARENT_KINDS = {
+    NotificationKind.PACKAGE_LOW,
+    NotificationKind.PAYMENT_DUE,
+    NotificationKind.PAYMENT_RECEIVED,
+}
+
+
+def parent_contacts(note):
+    """Куда ещё продублировать это сообщение. Пусто — дублировать некуда."""
+    if note.kind not in PARENT_KINDS:
+        return {}
+    profile = getattr(note.recipient, "student_profile", None)
+    if profile is None or not profile.notify_parent:
+        return {}
+    return {"email": profile.parent_email, "telegram": profile.parent_telegram_chat_id}
+
+
 def _deliver_email(note):
-    recipient = note.recipient
-    if not recipient.email:
+    addresses = [note.recipient.email, parent_contacts(note).get("email", "")]
+    addresses = [a for a in addresses if a]
+    if not addresses:
         note.status = Status.SKIPPED
         note.save(update_fields=["status"])
         return False
@@ -86,7 +106,7 @@ def _deliver_email(note):
         subject=note.subject or "Лингвич",
         message=body,
         from_email=settings.DEFAULT_FROM_EMAIL,
-        recipient_list=[recipient.email],
+        recipient_list=addresses,
         fail_silently=False,
     )
     return True
@@ -94,8 +114,11 @@ def _deliver_email(note):
 
 def _deliver_telegram(note):
     token = getattr(settings, "TELEGRAM_BOT_TOKEN", "")
-    chat_id = note.recipient.telegram_chat_id
-    if not token or not chat_id:
+    chats = [note.recipient.telegram_chat_id, parent_contacts(note).get("telegram", "")]
+    # Родитель и ученик могут сидеть в одном чате — второе сообщение подряд
+    # выглядит как сбой.
+    chats = list(dict.fromkeys([c for c in chats if c]))
+    if not token or not chats:
         note.status = Status.SKIPPED
         note.save(update_fields=["status"])
         return False
@@ -106,19 +129,28 @@ def _deliver_telegram(note):
     text = f"*{note.subject}*\n\n{note.body}" if note.subject else note.body
     if note.url:
         text += f"\n\n{settings.SITE_URL}{note.url}"
-    payload = json.dumps({
-        "chat_id": chat_id,
-        "text": text,
-        "parse_mode": "Markdown",
-        "disable_web_page_preview": True,
-    }).encode()
-    request = urllib.request.Request(
-        f"https://api.telegram.org/bot{token}/sendMessage",
-        data=payload,
-        headers={"Content-Type": "application/json"},
-    )
-    with urllib.request.urlopen(request, timeout=10) as response:
-        return response.status == 200
+
+    delivered = False
+    for chat_id in chats:
+        payload = json.dumps({
+            "chat_id": chat_id,
+            "text": text,
+            "parse_mode": "Markdown",
+            "disable_web_page_preview": True,
+        }).encode()
+        request = urllib.request.Request(
+            f"https://api.telegram.org/bot{token}/sendMessage",
+            data=payload,
+            headers={"Content-Type": "application/json"},
+        )
+        # Один недоступный чат не должен ронять доставку второму: у родителя
+        # бот может быть не запущен, а ученику написать всё равно нужно.
+        try:
+            with urllib.request.urlopen(request, timeout=10) as response:
+                delivered = delivered or response.status == 200
+        except Exception as exc:
+            logger.warning("telegram chat %s unreachable: %s", chat_id, exc)
+    return delivered
 
 
 DELIVERY = {

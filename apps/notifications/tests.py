@@ -1,5 +1,6 @@
 """Очередь уведомлений: дедупликация, расписание, каналы."""
 
+import json
 from datetime import timedelta
 
 from django.core import mail
@@ -144,3 +145,125 @@ class DedupeKeyTests(TestCase):
         self.assertEqual(
             Notification.objects.filter(recipient=self.first, channel=Channel.INAPP).count(), 1
         )
+
+
+class ParentDeliveryTests(TestCase):
+    """Про деньги пишем родителю, про учёбу — ученику.
+
+    Кабинет у них один: заводить второй аккаунт значило бы удвоить логины
+    ради тех же самых экранов. Разное только одно — кому уходит письмо.
+    """
+
+    def setUp(self):
+        from apps.accounts.models import StudentProfile
+
+        self.student = User.objects.create_user(
+            email="kid@x.ru", first_name="Артём", role=Role.STUDENT, notify_email=True
+        )
+        self.profile = StudentProfile.objects.create(
+            user=self.student, parent_name="Ирина", parent_email="mama@x.ru",
+            parent_telegram_chat_id="777",
+        )
+        self.student.telegram_chat_id = "111"
+        self.student.notify_telegram = True
+        self.student.save()
+
+    def emails_for(self, kind):
+        mail.outbox = []
+        notify(self.student, kind, "Тема", "Текст", channels=[Channel.EMAIL])
+        flush()
+        return mail.outbox[0].to if mail.outbox else []
+
+    def test_money_reaches_the_parent(self):
+        self.assertEqual(
+            sorted(self.emails_for(NotificationKind.PACKAGE_LOW)), ["kid@x.ru", "mama@x.ru"]
+        )
+
+    def test_studies_stay_with_the_student(self):
+        self.assertEqual(self.emails_for(NotificationKind.HOMEWORK_ASSIGNED), ["kid@x.ru"])
+
+    def test_the_parent_can_be_switched_off(self):
+        self.profile.notify_parent = False
+        self.profile.save(update_fields=["notify_parent"])
+        self.assertEqual(self.emails_for(NotificationKind.PACKAGE_LOW), ["kid@x.ru"])
+
+    def test_a_student_without_a_parent_is_unaffected(self):
+        self.profile.parent_email = ""
+        self.profile.save(update_fields=["parent_email"])
+        self.assertEqual(self.emails_for(NotificationKind.PAYMENT_DUE), ["kid@x.ru"])
+
+    def test_a_teacher_has_no_parent_and_does_not_crash(self):
+        """У преподавателя нет student_profile — обращение к нему не должно
+        ронять рассылку про платежи."""
+        teacher = User.objects.create_user(
+            email="t@x.ru", first_name="Анна", role=Role.TEACHER, notify_email=True
+        )
+        mail.outbox = []
+        notify(teacher, NotificationKind.PAYMENT_RECEIVED, "Тема", "Текст", channels=[Channel.EMAIL])
+        flush()
+        self.assertEqual(mail.outbox[0].to, ["t@x.ru"])
+
+    def test_both_telegram_chats_get_the_money_notice(self):
+        """Забыть родителя в Telegram — ровно та ошибка, ради которой поле
+        и заводили: смс уходит ребёнку, а платит не он."""
+        import urllib.request
+        from unittest import mock
+
+        from . import services
+
+        note = Notification.objects.create(
+            recipient=self.student, kind=NotificationKind.PACKAGE_LOW,
+            channel=Channel.TELEGRAM, subject="Тема", body="Текст",
+            scheduled_for=timezone.now(),
+        )
+        sent = []
+
+        class Response:
+            status = 200
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+        def fake_urlopen(request, timeout=None):
+            sent.append(json.loads(request.data)["chat_id"])
+            return Response()
+
+        with override_settings(TELEGRAM_BOT_TOKEN="token"):
+            with mock.patch.object(urllib.request, "urlopen", fake_urlopen):
+                self.assertTrue(services._deliver_telegram(note))
+        self.assertEqual(sorted(sent), ["111", "777"])
+
+    def test_one_unreachable_chat_does_not_block_the_other(self):
+        """У родителя бот может быть не запущен — ученику написать всё равно
+        нужно, а не уронить всю доставку."""
+        import urllib.request
+        from unittest import mock
+
+        from . import services
+
+        note = Notification.objects.create(
+            recipient=self.student, kind=NotificationKind.PACKAGE_LOW,
+            channel=Channel.TELEGRAM, subject="Тема", body="Текст",
+            scheduled_for=timezone.now(),
+        )
+
+        class Response:
+            status = 200
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+        def fake_urlopen(request, timeout=None):
+            if json.loads(request.data)["chat_id"] == "777":
+                raise OSError("chat not found")
+            return Response()
+
+        with override_settings(TELEGRAM_BOT_TOKEN="token"):
+            with mock.patch.object(urllib.request, "urlopen", fake_urlopen):
+                self.assertTrue(services._deliver_telegram(note))
