@@ -12,6 +12,7 @@ from apps.scheduling.models import Group, LessonStatus
 from apps.utils import is_ajax, json_error, json_form_error, json_ok
 
 from . import antispam
+from .schematic import build_schematic
 from .forms import CallbackForm, LeadForm
 from .models import FAQ, Course, Language, Lead, LeadSource, Promo, Review, SiteSettings
 
@@ -40,6 +41,7 @@ def home(request):
         "faqs": FAQ.objects.filter(is_published=True)[:6],
         "promos": Promo.objects.filter(is_active=True)[:2],
         "starting_soon": starting_soon,
+        "schematic": build_schematic(),
         "lead_form": LeadForm(),
     }
     return render(request, "public/home.html", context)

@@ -94,3 +94,17 @@ def manager_required(view):
         return view(request, *args, **kwargs)
 
     return wrapper
+
+
+def plural_ru(count, one, few, many):
+    """Русское окончание по числу: 1 место, 2 места, 5 мест.
+
+    Встроенный ``pluralize`` умеет только две формы — с тремя он молча
+    возвращает пустую строку, поэтому счётные подписи считаем здесь.
+    """
+    mod10, mod100 = count % 10, count % 100
+    if mod10 == 1 and mod100 != 11:
+        return one
+    if 2 <= mod10 <= 4 and not 12 <= mod100 <= 14:
+        return few
+    return many

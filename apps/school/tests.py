@@ -11,7 +11,21 @@ from apps.billing.models import Tariff
 from apps.notifications.models import Notification, NotificationKind
 
 from . import antispam
-from .models import FAQ, Course, Language, Lead, LeadStatus, Location, Promo, Review, SiteSettings
+from apps.utils import plural_ru
+
+from .models import (
+    FAQ,
+    Course,
+    CourseFormat,
+    Language,
+    Lead,
+    LeadStatus,
+    Location,
+    Promo,
+    Review,
+    SiteSettings,
+)
+from .schematic import build_schematic
 
 
 class PhoneNormalisationTests(TestCase):
@@ -326,59 +340,128 @@ class SeedCatalogTests(TestCase):
         self.assertEqual(len(response.context["languages"]), 7)
 
 
-class HeroLettersTests(TestCase):
-    """Фоновые буквы алфавитов — оформление, и оно не должно мешать.
+class RouteMapTests(TestCase):
+    """Первый экран главной: схема маршрутов.
 
-    Два свойства держим тестом: слой не перехватывает нажатия и лежит
-    ниже содержимого героя. Ошибка здесь не видна на глаз сразу, зато
-    ломает главную кнопку сайта.
+    Схема обещает посетителю точность — язык, уровень, открытый набор.
+    Поэтому тестом держим не картинку, а правдивость: на схему не должно
+    попасть ничего, чего у школы нет в базе.
     """
 
-    def css(self):
-        from django.conf import settings
+    def setUp(self):
+        self.english = Language.objects.create(
+            name="Английский", slug="english", glyph="A", line_color="#008CD2", sort_order=10
+        )
+        self.korean = Language.objects.create(name="Корейский", slug="korean", sort_order=20)
+        self.course = Course.objects.create(
+            language=self.english, title="Английский с нуля", slug="en-a0",
+            level_from="A0", level_to="B1", price_per_lesson=1000,
+        )
+        self.teacher = User.objects.create_user(
+            email="t@linguich.ru", first_name="Анна", last_name="С", role=Role.TEACHER
+        )
 
-        return (settings.BASE_DIR / "static" / "css" / "site.css").read_text(encoding="utf-8")
+    def group(self, **overrides):
+        from apps.scheduling.models import Group
 
-    def test_layer_is_on_the_homepage(self):
-        response = self.client.get(reverse("school:home"))
-        self.assertContains(response, "hero-letters")
-        # Для скринридера это шум: букв там нет, есть оформление.
-        self.assertContains(response, 'class="hero-letters" aria-hidden="true"')
+        values = {
+            "name": "Английский · вечерняя",
+            "course": self.course,
+            "teacher": self.teacher,
+            "capacity": 8,
+            "level": "A0",
+            "starts_on": timezone.localdate() + timedelta(days=7),
+        }
+        values.update(overrides)
+        return Group.objects.create(**values)
 
-    def test_letters_do_not_catch_clicks(self):
-        block = self.css().split(".hero-letters {")[1].split("}")[0]
-        self.assertIn("pointer-events: none", block)
+    def line(self, data, slug):
+        for line in data["lines"]:
+            if line["id"] == slug:
+                return line
+        return None
 
-    def test_letters_stay_behind_the_content(self):
-        layer = self.css().split(".hero-letters {")[1].split("}")[0]
-        inner = self.css().split(".hero__inner {")[1].split("}")[0]
-        self.assertIn("z-index: 0", layer)
-        self.assertIn("z-index: 1", inner)
+    def test_language_without_courses_does_not_get_a_line(self):
+        """Язык в каталоге ещё не значит, что на него можно записаться."""
+        data = build_schematic()
+        self.assertIsNotNone(self.line(data, "english"))
+        self.assertIsNone(self.line(data, "korean"))
+
+    def test_line_spans_the_levels_its_courses_cover(self):
+        data = build_schematic()
+        line = self.line(data, "english")
+        self.assertEqual(data["levels"][line["from_index"]], "A0")
+        self.assertEqual(data["levels"][line["to_index"]], "B1")
+        self.assertEqual(line["levels_label"], "A0 → B1")
+
+    def test_only_an_open_intake_gets_a_mark(self):
+        """Группа, которая уже идёт, — не обещание: отметки на схеме нет."""
+        self.group(starts_on=timezone.localdate() - timedelta(days=14))
+        self.assertEqual(self.line(build_schematic(), "english")["marks"], [])
+
+        self.group(name="Английский · утренняя")
+        marks = self.line(build_schematic(), "english")["marks"]
+        self.assertEqual(len(marks), 1)
+        self.assertEqual(marks[0]["seats"], 8)
+        self.assertEqual(marks[0]["seats_word"], "мест")
+
+    def test_a_group_without_free_seats_is_not_advertised(self):
+        from apps.scheduling.models import Enrollment
+
+        group = self.group(capacity=1)
+        student = User.objects.create_user(email="s@linguich.ru", first_name="Егор", role=Role.STUDENT)
+        Enrollment.objects.create(student=student, group=group)
+        self.assertEqual(self.line(build_schematic(), "english")["marks"], [])
+
+    def test_exam_course_becomes_a_branch_of_the_line(self):
+        Course.objects.create(
+            language=self.english, title="Подготовка к IELTS", slug="en-ielts",
+            format=CourseFormat.EXAM, level_from="B1", level_to="C1", price_per_lesson=2000,
+        )
+        branch = self.line(build_schematic(), "english")["branch"]
+        self.assertIsNotNone(branch)
+        self.assertEqual(build_schematic()["levels"][branch["to_index"]], "C1")
+
+    def test_language_keeps_its_own_colour_and_letter(self):
+        line = self.line(build_schematic(), "english")
+        self.assertEqual(line["color"], "#008CD2")
+        self.assertEqual(line["glyph"], "A")
+
+    def test_a_language_without_a_chosen_colour_still_gets_one(self):
+        """Школа завела язык и не выбрала цвет — схема не должна остаться без линии."""
+        Course.objects.create(
+            language=self.korean, title="Корейский с нуля", slug="ko-a0",
+            level_from="A0", level_to="A2", price_per_lesson=1000,
+        )
+        line = self.line(build_schematic(), "korean")
+        self.assertTrue(line["color"].startswith("#"))
+        self.assertEqual(line["glyph"], "К")
+
+    def test_the_page_is_readable_without_javascript(self):
+        """Скрипт — надстройка. Без него остаётся список языков с уровнями."""
+        self.group()
+        html = self.client.get(reverse("school:home")).content.decode()
+        self.assertIn('class="rt__list"', html)
+        self.assertIn("Английский", html)
+        self.assertIn("A0 → B1", html)
+
+    def test_the_paint_layer_says_nothing_to_a_screen_reader(self):
+        html = self.client.get(reverse("school:home")).content.decode()
+        self.assertIn('data-wash-canvas aria-hidden="true"', html)
 
     def test_motion_can_be_switched_off_by_the_visitor(self):
-        """Настройка «меньше движения» — не пожелание, а требование
-        доступности: кому-то от такой анимации физически плохо."""
-        self.assertIn("prefers-reduced-motion", self.css())
-        tail = self.css().split("prefers-reduced-motion")[-1]
-        self.assertIn("animation: none", tail)
-
-    def test_letters_keep_to_the_free_right_side(self):
-        """Слева заголовок, текст и кнопки — фактура под ними мешает
-        читать. Свободное место справа, там буквам и место."""
-        import re
-
         from django.conf import settings
 
-        markup = (
-            settings.BASE_DIR / "templates" / "components" / "hero_letters.html"
-        ).read_text(encoding="utf-8")
-        left = [int(x) for x in re.findall(r"--x:(\d+)%", markup) if int(x) < 50]
-        self.assertFalse(left, f"буквы залезли в левую половину: {left}")
+        css = (settings.BASE_DIR / "static" / "css" / "home.css").read_text(encoding="utf-8")
+        self.assertIn("prefers-reduced-motion", css)
 
-    def test_the_ghost_button_is_not_see_through(self):
-        """Регрессия: кнопка «Узнать свой уровень» прозрачная, и буква
-        просвечивала сквозь неё — выглядело так, будто буква лежит
-        поверх кнопки, хотя слой честно стоит ниже."""
-        block = self.css().split(".btn-group--hero .btn--ghost {")[1].split("}")[0]
-        self.assertIn("--btn-bg:", block)
-        self.assertNotIn("transparent", block)
+
+class PluralRuTests(TestCase):
+    """Встроенный ``pluralize`` умеет две формы, русскому нужно три."""
+
+    def test_counts_get_the_right_ending(self):
+        cases = {1: "место", 2: "места", 5: "мест", 11: "мест", 21: "место", 104: "места"}
+        for count, expected in cases.items():
+            self.assertEqual(plural_ru(count, "место", "места", "мест"), expected, count)
+
+
