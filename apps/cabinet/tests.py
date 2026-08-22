@@ -805,9 +805,12 @@ class SchoolScheduleTests(CabinetFixture):
         self.admin = User.objects.create_user(
             email="admin@x.ru", password="pass12345", first_name="Ольга", role=Role.ADMIN
         )
+        # Окно ставим на среду и смотрим следующую неделю. «Завтра» здесь
+        # не годится: в воскресенье завтра — понедельник уже другой недели,
+        # текущая неделя его не показывает, и тест падал по воскресеньям.
+        # Следующая неделя целиком в будущем, какой бы день ни был сегодня.
         TeacherAvailability.objects.create(
-            teacher=self.teacher,
-            weekday=(timezone.localdate() + timedelta(days=1)).weekday(),
+            teacher=self.teacher, weekday=2,
             start_time=time(15, 0), end_time=time(19, 0), slot_minutes=60,
         )
 
@@ -823,13 +826,13 @@ class SchoolScheduleTests(CabinetFixture):
 
     def test_free_windows_are_offered(self):
         self.client.force_login(self.owner)
-        response = self.client.get(reverse("cabinet:crm_schedule"))
+        response = self.client.get(reverse("cabinet:crm_schedule"), {"week": "1"})
         free = sum(len(day["free"]) for row in response.context["rows"] for day in row["days"])
         self.assertGreater(free, 0, "свободные окна не рассчитались")
 
     def test_free_windows_can_be_hidden(self):
         self.client.force_login(self.owner)
-        response = self.client.get(reverse("cabinet:crm_schedule"), {"free": "0"})
+        response = self.client.get(reverse("cabinet:crm_schedule"), {"week": "1", "free": "0"})
         free = sum(len(day["free"]) for row in response.context["rows"] for day in row["days"])
         self.assertEqual(free, 0)
 
