@@ -40,7 +40,11 @@ COURSES = [
     ("english", "Подготовка к IELTS", CourseFormat.EXAM, "B1", "C1", 2000, False,
      "Стратегии по всем четырём секциям и пробные экзамены."),
     ("english", "Английский для детей 7–10", CourseFormat.KIDS, "A0", "A2", 950, True,
-     "Игры, песни и театр — дети говорят раньше, чем начинают бояться."),
+     "Игры, песни и театр — дети говорят раньше, чем начинают бояться.", 7, 10),
+    ("english", "Английский для подростков 11–14", CourseFormat.KIDS, "A1", "B1", 1000, False,
+     "Школьная программа плюс разговор: чтобы язык не остался в учебнике.", 11, 14),
+    ("chinese", "Китайский для детей 8–12", CourseFormat.KIDS, "A0", "A1", 1050, False,
+     "Иероглиф как рисунок: дети запоминают их быстрее взрослых.", 8, 12),
     ("german", "Немецкий А1–А2", CourseFormat.GROUP, "A0", "A2", 1000, False,
      "Уверенная база за один учебный год."),
     ("chinese", "Китайский для начинающих", CourseFormat.GROUP, "A0", "A1", 1100, True,
@@ -108,12 +112,15 @@ class Command(BaseCommand):
             )
             created["языков"] += new
 
-        for index, (lang, title, fmt, low, high, price, featured, summary) in enumerate(COURSES):
+        for index, row in enumerate(COURSES):
+            lang, title, fmt, low, high, price, featured, summary = row[:8]
+            age_from, age_to = (row[8], row[9]) if len(row) > 9 else (None, None)
             _, new = Course.objects.get_or_create(
                 slug=f"{lang}-{fmt}-{index}",
                 defaults={
                     "language": languages[lang], "title": title, "format": fmt,
                     "level_from": low, "level_to": high,
+                    "age_from": age_from, "age_to": age_to,
                     "price_per_lesson": Decimal(price), "is_featured": featured,
                     "summary": summary, "sort_order": index * 10,
                     "outcomes": "Свободно говорите на бытовые темы\n"

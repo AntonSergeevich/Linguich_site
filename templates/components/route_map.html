@@ -17,14 +17,29 @@
   <div class="container rt__head">
     <div class="rt__say">
       <h1 class="rt__title">Выберите язык — <em>увидите весь путь</em></h1>
-      <p class="rt__lead">
+      <p class="rt__lead" data-say="adults">
         Где линия начинается, где заканчивается, что уже стартует на этой неделе
         и на какой станции стоите вы.
       </p>
-      <div class="rt__ask">
+      <div class="rt__ask" data-say="adults">
         <a class="btn btn--ghost" href="{% url 'placement:test' %}">Я не знаю свой уровень</a>
         <span class="rt__hint">Тест уровня ставит на схеме точку «вы здесь» — 12 вопросов, без регистрации.</span>
       </div>
+
+      {% if schematic.kids %}
+        {% comment %}
+          Родителю тест уровня не нужен: семилетнего по адаптивному тексту не измеришь,
+          уровень видно на пробном занятии. Поэтому в детском режиме и просьба другая.
+        {% endcomment %}
+        <p class="rt__lead" data-say="kids" hidden>
+          С какого возраста берём, до какого ведём и когда ближайший набор —
+          вся детская программа школы на одной карте.
+        </p>
+        <div class="rt__ask" data-say="kids" hidden>
+          <a class="btn btn--ghost" href="{% url 'school:signup' %}">Подобрать группу ребёнку</a>
+          <span class="rt__hint">Уровень определим на пробном занятии — тест проходить не нужно.</span>
+        </div>
+      {% endif %}
     </div>
 
     {% comment %}
@@ -38,12 +53,24 @@
     </div>
   </div>
 
+  {% if schematic.kids %}
+    {% comment %}
+      Родитель ищет ребёнка возрастом, а не уровнем CEFR. Это не второй вход
+      на сайт, а режим той же схемы: карта остаётся одна, меняется её шкала.
+    {% endcomment %}
+    <div class="container rt__modes" data-modes hidden>
+      <button class="rt-mode" type="button" data-mode="adults" aria-pressed="true">Взрослым</button>
+      <button class="rt-mode" type="button" data-mode="kids" aria-pressed="false">Детям</button>
+    </div>
+  {% endif %}
+
   <div class="container rt__picker" data-picker hidden></div>
 
   <div class="container rt__stage">
     <div class="rt__map" data-map hidden></div>
 
-    <ul class="rt__list" data-list>
+    <div data-list>
+    <ul class="rt__list">
       {% for line in schematic.lines %}
         <li class="rt-line" style="--line-color: {{ line.color }}">
           <a class="rt-line__name" href="{{ line.url }}">{{ line.name }}</a>
@@ -63,6 +90,26 @@
         <li class="rt-line rt-line--empty">Курсы появятся здесь, как только школа их заведёт.</li>
       {% endfor %}
     </ul>
+
+    {% if schematic.kids %}
+      <h2 class="rt__subhead">Детям — по возрасту</h2>
+      <ul class="rt__list">
+        {% for line in schematic.kids.lines %}
+          <li class="rt-line" style="--line-color: {{ line.color }}">
+            <a class="rt-line__name" href="{{ line.url }}">{{ line.name }}</a>
+            <span class="rt-line__span">{{ line.levels_label }}</span>
+            {% for mark in line.marks %}
+              <a class="rt-line__mark" href="{{ mark.url }}">
+                {{ mark.schedule }} · {{ mark.seats }} {{ mark.seats_word }}
+              </a>
+            {% empty %}
+              <span class="rt-line__quiet">набор откроется — сообщим</span>
+            {% endfor %}
+          </li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+    </div>
   </div>
 
   <div class="container rt__foot">

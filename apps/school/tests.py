@@ -457,6 +457,69 @@ class RouteMapTests(TestCase):
         self.assertIn("prefers-reduced-motion", css)
 
 
+class KidsRouteTests(TestCase):
+    """Детская схема: та же карта, но шкала — возраст.
+
+    Родитель приходит с «моему девять», и мерить его ребёнка уровнями CEFR
+    значит заставлять переводить. Возрасты берём из курсов, а не придумываем.
+    """
+
+    def setUp(self):
+        self.english = Language.objects.create(name="Английский", slug="english", sort_order=10)
+        self.german = Language.objects.create(name="Немецкий", slug="german", sort_order=20)
+        Course.objects.create(
+            language=self.english, title="Английский с нуля", slug="en-a0",
+            level_from="A0", level_to="C1", price_per_lesson=1000,
+        )
+        Course.objects.create(
+            language=self.german, title="Немецкий А1", slug="de-a1",
+            level_from="A0", level_to="A2", price_per_lesson=1000,
+        )
+
+    def kids_course(self, **overrides):
+        values = {
+            "language": self.english, "title": "Английский для детей", "slug": "en-kids",
+            "format": CourseFormat.KIDS, "level_from": "A0", "level_to": "A2",
+            "age_from": 7, "age_to": 10, "price_per_lesson": 950,
+        }
+        values.update(overrides)
+        return Course.objects.create(**values)
+
+    def test_without_kids_courses_there_is_no_kids_view(self):
+        self.assertIsNone(build_schematic()["kids"])
+
+    def test_the_ladder_is_built_from_real_ages(self):
+        self.kids_course()
+        self.kids_course(title="Подростки", slug="en-teens", age_from=11, age_to=14)
+        kids = build_schematic()["kids"]
+        self.assertEqual(kids["levels"], ["7", "10", "11", "14"])
+        self.assertEqual(kids["axis_label"], "Возраст")
+        self.assertEqual(kids["level_labels"][0], "7 лет")
+
+    def test_only_languages_that_teach_children_get_a_line(self):
+        self.kids_course()
+        kids = build_schematic()["kids"]
+        self.assertEqual([line["id"] for line in kids["lines"]], ["english"])
+        self.assertEqual(kids["lines"][0]["levels_label"], "7–10 лет")
+
+    def test_a_kids_course_without_ages_cannot_be_placed(self):
+        """Возраст не заполнен — на детской схеме курса нет, а не «с нуля»."""
+        self.kids_course(age_from=None, age_to=None)
+        self.assertIsNone(build_schematic()["kids"])
+
+    def test_kids_courses_do_not_stretch_the_adult_line(self):
+        """Детский A0–A2 не должен опускать взрослую линию: у него своя шкала."""
+        self.kids_course(level_from="A0", level_to="A2")
+        line = [l for l in build_schematic()["lines"] if l["id"] == "english"][0]
+        self.assertEqual(build_schematic()["levels"][line["to_index"]], "C1")
+
+    def test_children_are_visible_without_javascript(self):
+        self.kids_course()
+        html = self.client.get(reverse("school:home")).content.decode()
+        self.assertIn("Детям — по возрасту", html)
+        self.assertIn("7–10 лет", html)
+
+
 class PluralRuTests(TestCase):
     """Встроенный ``pluralize`` умеет две формы, русскому нужно три."""
 

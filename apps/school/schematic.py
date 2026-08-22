@@ -32,8 +32,9 @@ def _index(level):
 
 def _span(courses):
     """Границы линии: от самого низкого уровня курсов языка до самого высокого."""
-    starts = [i for i in (_index(c.level_from) for c in courses) if i is not None]
-    ends = [i for i in (_index(c.level_to) for c in courses) if i is not None]
+    adult = [c for c in courses if c.format != CourseFormat.KIDS] or courses
+    starts = [i for i in (_index(c.level_from) for c in adult) if i is not None]
+    ends = [i for i in (_index(c.level_to) for c in adult) if i is not None]
     if not starts and not ends:
         return None
     low = min(starts) if starts else min(ends)
@@ -55,15 +56,18 @@ def _exam_branch(courses, span):
     return {"from_index": low, "to_index": min(high, span[1]), "name": "Экзамен"}
 
 
-def _marks(groups, span):
+def _marks(groups, span, index_by_age=None):
     """Отметки живых наборов: расписание и число свободных мест."""
     marks = []
     for group in groups:
         if len(marks) >= MAX_MARKS_PER_LINE:
             break
-        index = _index(group.level)
-        if index is None:
-            index = _index(group.course.level_from)
+        if index_by_age is not None:
+            index = index_by_age.get(group.course.age_from)
+        else:
+            index = _index(group.level)
+            if index is None:
+                index = _index(group.course.level_from)
         if index is None:
             index = span[0]
         index = min(max(index, span[0]), span[1])
@@ -82,6 +86,69 @@ def _marks(groups, span):
     return marks
 
 
+def _kids_view(languages, courses_by_language, groups_by_language):
+    """Детская схема: та же карта, но шкала — возраст, а не CEFR.
+
+    Родитель приходит с «моему девять», а не с «у него A2», и мерить его
+    ребёнка уровнями — значит заставлять переводить. Шкала строится из
+    настоящих возрастов детских курсов: выдуманных ступеней тут нет.
+    """
+    kids_by_language = {}
+    ages = set()
+    for language_id, courses in courses_by_language.items():
+        found = [
+            course for course in courses
+            if course.format == CourseFormat.KIDS and course.age_from and course.age_to
+        ]
+        if not found:
+            continue
+        kids_by_language[language_id] = found
+        for course in found:
+            ages.add(course.age_from)
+            ages.add(course.age_to)
+
+    if not kids_by_language:
+        return None
+
+    ladder = sorted(ages)
+    index_of = {age: position for position, age in enumerate(ladder)}
+
+    lines = []
+    for position, language in enumerate(languages):
+        courses = kids_by_language.get(language.id)
+        if not courses:
+            continue
+        low = min(index_of[course.age_from] for course in courses)
+        high = max(index_of[course.age_to] for course in courses)
+        kids_ids = {course.id for course in courses}
+        marks = _marks(
+            [g for g in groups_by_language.get(language.id, []) if g.course_id in kids_ids],
+            (low, high),
+            index_by_age=index_of,
+        )
+        lines.append({
+            "id": language.slug,
+            "name": language.name,
+            "url": language.get_absolute_url(),
+            "color": language.color(position),
+            "glyph": language.glyph_display,
+            "from_index": low,
+            "to_index": high,
+            "levels_label": f"{ladder[low]}–{ladder[high]} лет",
+            "branch": None,
+            "marks": marks,
+        })
+
+    if not lines:
+        return None
+    return {
+        "levels": [str(age) for age in ladder],
+        "level_labels": [f"{age} {plural_ru(age, 'год', 'года', 'лет')}" for age in ladder],
+        "axis_label": "Возраст",
+        "lines": lines,
+    }
+
+
 def build_schematic(today=None):
     """Данные схемы: лестница уровней и линия на каждый язык школы."""
     today = today or timezone.localdate()
@@ -89,7 +156,7 @@ def build_schematic(today=None):
     languages = list(Language.objects.filter(is_active=True))
     courses_by_language = {}
     for course in Course.objects.filter(is_active=True).only(
-        "language_id", "format", "level_from", "level_to", "title", "slug"
+        "language_id", "format", "level_from", "level_to", "age_from", "age_to", "title", "slug"
     ):
         courses_by_language.setdefault(course.language_id, []).append(course)
 
@@ -131,4 +198,10 @@ def build_schematic(today=None):
         })
 
     levels = ALL_LEVELS[: top + 1]
-    return {"levels": levels, "lines": lines}
+    return {
+        "levels": levels,
+        "level_labels": levels,
+        "axis_label": "Уровень",
+        "lines": lines,
+        "kids": _kids_view(languages, courses_by_language, groups_by_language),
+    }

@@ -20,11 +20,18 @@
   }
   if (!schematic.lines || !schematic.lines.length) return;
 
-  var LEVELS = schematic.levels;
-  var LINES = schematic.lines;
+  var VIEWS = { adults: schematic };
+  if (schematic.kids && schematic.kids.lines && schematic.kids.lines.length) {
+    VIEWS.kids = schematic.kids;
+  }
+  var LEVELS = VIEWS.adults.levels;
+  var LABELS = VIEWS.adults.level_labels || VIEWS.adults.levels;
+  var AXIS = VIEWS.adults.axis_label || "Уровень";
+  var LINES = VIEWS.adults.lines;
   var reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
 
   var picker = root.querySelector("[data-picker]");
+  var modes = root.querySelector("[data-modes]");
   var mapBox = root.querySelector("[data-map]");
   var list = root.querySelector("[data-list]");
   var washBox = root.querySelector("[data-wash]");
@@ -48,21 +55,18 @@
   };
   // Линии с веткой занимают две полосы: ветка уходит вверх, и без свободной
   // полосы над ней она наезжает на шкалу уровней или на соседний язык.
-  var SLOTS = (function () {
-    var slots = {};
+  var SLOTS = {};
+  var SLOT_COUNT = 1;
+  function layoutLanes() {
+    SLOTS = {};
     var slot = 0;
     LINES.forEach(function (line) {
       if (line.branch) slot += 1;
-      slots[line.id] = slot;
+      SLOTS[line.id] = slot;
       slot += 1;
     });
-    return slots;
-  })();
-  var SLOT_COUNT = (function () {
-    var max = 0;
-    for (var id in SLOTS) max = Math.max(max, SLOTS[id]);
-    return max + 1;
-  })();
+    SLOT_COUNT = slot || 1;
+  }
   var lane = function (slot) { return LANE_TOP + slot * LANE_STEP; };
 
   function node(name, attrs, text) {
@@ -95,7 +99,7 @@
 
     // Шкала уровней — она же колонки схемы, поэтому подписи у каждой станции
     // не нужны: уровень читается по вертикали.
-    scale.appendChild(node("text", { class: "rt-scale", x: NAME_X, y: 30, "text-anchor": "end" }, "УРОВЕНЬ"));
+    scale.appendChild(node("text", { class: "rt-scale", x: NAME_X, y: 30, "text-anchor": "end" }, AXIS.toUpperCase()));
     LEVELS.forEach(function (level, index) {
       var x = along(index);
       scale.appendChild(node("text", { class: "rt-scale", x: x, y: 30, "text-anchor": "middle" }, level));
@@ -146,7 +150,7 @@
         var x = along(index);
         var last = index === line.to_index;
         var stop = node("g", { class: "rt-stop", tabindex: "0", role: "button" });
-        stop.appendChild(node("title", {}, line.name + ", уровень " + LEVELS[index]));
+        stop.appendChild(node("title", {}, line.name + ", " + AXIS.toLowerCase() + " " + LABELS[index]));
         stop.appendChild(node("circle", {
           cx: x, cy: y, r: last ? 12 : 9,
           fill: last ? line.color : "#182430", stroke: "#F2EFE7", "stroke-width": 3.5
@@ -213,7 +217,7 @@
       item.innerHTML =
         '<span class="rt-rail__mark"><span class="rt-rail__dot"></span></span>' +
         '<span class="rt-rail__body">' +
-          '<span class="rt-rail__lvl">' + LEVELS[index] + (last ? " · конечная" : "") + "</span>" +
+          '<span class="rt-rail__lvl">' + LABELS[index] + (last ? " · конечная" : "") + "</span>" +
           (mark ? '<span class="rt-rail__flag">' + mark.schedule + " · " + mark.seats + " " + mark.seats_word + "</span>" : "") +
         "</span>";
       (function (url) {
@@ -392,21 +396,51 @@
     });
   }
 
-  LINES.forEach(function (line) {
-    var button = document.createElement("button");
-    button.type = "button";
-    button.className = "rt-pick";
-    button.dataset.line = line.id;
-    button.style.setProperty("--line-color", line.color);
-    button.setAttribute("aria-pressed", "false");
-    button.innerHTML = '<i></i>' + line.name;
-    button.addEventListener("click", function () { setActive(line); });
-    picker.appendChild(button);
-  });
-  picker.hidden = false;
+  function buildPicker() {
+    picker.textContent = "";
+    LINES.forEach(function (line) {
+      var button = document.createElement("button");
+      button.type = "button";
+      button.className = "rt-pick";
+      button.dataset.line = line.id;
+      button.style.setProperty("--line-color", line.color);
+      button.setAttribute("aria-pressed", "false");
+      button.innerHTML = '<i></i>' + line.name;
+      button.addEventListener("click", function () { setActive(line); });
+      picker.appendChild(button);
+    });
+    picker.hidden = false;
+  }
 
-  buildMap();
-  setActive(LINES[0]);
+  function useView(name) {
+    var chosen = VIEWS[name] || VIEWS.adults;
+    LEVELS = chosen.levels;
+    LABELS = chosen.level_labels || chosen.levels;
+    AXIS = chosen.axis_label || "Уровень";
+    LINES = chosen.lines;
+    layoutLanes();
+    buildPicker();
+    buildMap();
+    setActive(LINES[0]);
+    // Текст и просьба тоже принадлежат режиму: родителю не предлагаем тест уровня.
+    Array.prototype.forEach.call(root.querySelectorAll("[data-say]"), function (block) {
+      block.hidden = block.dataset.say !== name;
+    });
+    if (modes) {
+      Array.prototype.forEach.call(modes.children, function (button) {
+        button.setAttribute("aria-pressed", String(button.dataset.mode === name));
+      });
+    }
+  }
+
+  if (modes && VIEWS.kids) {
+    modes.hidden = false;
+    Array.prototype.forEach.call(modes.children, function (button) {
+      button.addEventListener("click", function () { useView(button.dataset.mode); });
+    });
+  }
+
+  useView("adults");
   refreshWash();
   list.hidden = true;
 
