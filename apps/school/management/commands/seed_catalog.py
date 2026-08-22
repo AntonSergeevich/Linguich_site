@@ -18,14 +18,16 @@ from django.db import transaction
 from apps.billing.models import Tariff
 from apps.school.models import FAQ, Course, CourseFormat, Language, Location, Promo, Review
 
+# Знак и цвет линии — то, чем язык живёт на схеме маршрутов в первом экране.
+# Заводим здесь же: язык без цвета и буквы попадёт на схему безымянным.
 LANGUAGES = [
-    ("Английский", "english", "gb", "Самый востребованный — от нуля до С1 и экзаменов."),
-    ("Немецкий", "german", "de", "Учёба и работа в Германии, Австрии, Швейцарии."),
-    ("Китайский", "chinese", "cn", "Иероглифы без страха и живая разговорная практика."),
-    ("Французский", "french", "fr", "Язык, который приятно слышать в собственном исполнении."),
-    ("Корейский", "korean", "kr", "От хангыля до сериалов без субтитров."),
-    ("Турецкий", "turkish", "tr", "Быстрый старт для поездок и переезда."),
-    ("Чешский", "czech", "cz", "Подготовка к учёбе в чешских вузах."),
+    ("Английский", "english", "gb", "Самый востребованный — от нуля до С1 и экзаменов.", "A", "#008CD2"),
+    ("Немецкий", "german", "de", "Учёба и работа в Германии, Австрии, Швейцарии.", "Ä", "#F2B134"),
+    ("Китайский", "chinese", "cn", "Иероглифы без страха и живая разговорная практика.", "文", "#E2543C"),
+    ("Французский", "french", "fr", "Язык, который приятно слышать в собственном исполнении.", "Ç", "#7C5CD6"),
+    ("Корейский", "korean", "kr", "От хангыля до сериалов без субтитров.", "한", "#2FB98A"),
+    ("Турецкий", "turkish", "tr", "Быстрый старт для поездок и переезда.", "Ş", "#E8657F"),
+    ("Чешский", "czech", "cz", "Подготовка к учёбе в чешских вузах.", "Č", "#4E7FA8"),
 ]
 
 COURSES = [
@@ -98,11 +100,11 @@ class Command(BaseCommand):
         created = {"языков": 0, "курсов": 0, "тарифов": 0, "офисов": 0, "вопросов": 0}
 
         languages = {}
-        for index, (name, slug, flag, pitch) in enumerate(LANGUAGES):
+        for index, (name, slug, flag, pitch, glyph, color) in enumerate(LANGUAGES):
             languages[slug], new = Language.objects.get_or_create(
                 slug=slug,
                 defaults={"name": name, "flag_code": flag, "short_pitch": pitch,
-                          "sort_order": index * 10},
+                          "glyph": glyph, "line_color": color, "sort_order": index * 10},
             )
             created["языков"] += new
 

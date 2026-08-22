@@ -14,8 +14,8 @@ class SiteSettingsAdmin(admin.ModelAdmin):
 
 @admin.register(Language)
 class LanguageAdmin(admin.ModelAdmin):
-    list_display = ["name", "flag_emoji", "is_active", "sort_order"]
-    list_editable = ["is_active", "sort_order"]
+    list_display = ["name", "flag_emoji", "glyph", "line_color", "is_active", "sort_order"]
+    list_editable = ["glyph", "line_color", "is_active", "sort_order"]
     prepopulated_fields = {"slug": ("name",)}
 
 

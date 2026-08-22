@@ -231,6 +231,23 @@ class Command(BaseCommand):
                     RecurringSlot.objects.create(group=group, weekday=weekday, start_time=time(hour, 0))
             groups.append(group)
 
+        # Наборы, которые ещё не стартовали: именно они попадают отметками на схему
+        # маршрутов и в блок «ближайший набор». В них нарочно никого не записываем —
+        # свежая группа и должна стоять с полным набором мест.
+        for course_key, teacher, name, level, days, slots in [
+            (list(courses)[0], teachers[1], "Английский с нуля · утренняя", "A0", 10, [(1, 10), (3, 10)]),
+            (list(courses)[5], teachers[2], "Немецкий А1 · вечерняя", "A1", 17, [(0, 19), (2, 19)]),
+        ]:
+            future, created = Group.objects.get_or_create(
+                name=name,
+                defaults={"course": courses[course_key], "teacher": teacher, "capacity": 8,
+                          "level": level, "location": offices[0], "mode": DeliveryMode.OFFLINE,
+                          "starts_on": timezone.localdate() + timedelta(days=days)},
+            )
+            if created:
+                for weekday, hour in slots:
+                    RecurringSlot.objects.create(group=future, weekday=weekday, start_time=time(hour, 0))
+
         for position, student in enumerate(students):
             group = groups[position % len(groups)]
             enrollment, _ = Enrollment.objects.get_or_create(student=student, group=group)

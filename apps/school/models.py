@@ -82,12 +82,27 @@ class Location(models.Model):
         return self.name
 
 
+# Палитра линий схемы маршрутов. Английский держит фирменный синий — это главная
+# линия школы; остальные разведены по тону, чтобы семь линий читались одна от другой.
+# Язык без своего цвета берёт следующий по кругу, поэтому схема не ломается,
+# когда школа заводит восьмой язык и забывает выбрать цвет.
+LINE_PALETTE = ["#008CD2", "#E2543C", "#F2B134", "#7C5CD6", "#2FB98A", "#E8657F", "#4E7FA8"]
+
+
 class Language(models.Model):
     name = models.CharField(_("Язык"), max_length=60)
     slug = models.SlugField(unique=True)
     flag_code = models.CharField(_("Код флага"), max_length=4, default="gb", help_text="ISO 3166-1 alpha-2")
     short_pitch = models.CharField(_("Короткое описание"), max_length=180, blank=True)
     description = models.TextField(_("Описание"), blank=True)
+    line_color = models.CharField(
+        _("Цвет линии"), max_length=7, blank=True,
+        help_text=_("HEX вида #008CD2 — цвет языка на схеме маршрутов. Пусто — возьмём из палитры."),
+    )
+    glyph = models.CharField(
+        _("Буква алфавита"), max_length=4, blank=True,
+        help_text=_("Один знак для первого экрана: A, Ä, 文, 한. Пусто — возьмём первую букву названия."),
+    )
     is_active = models.BooleanField(default=True)
     sort_order = models.PositiveIntegerField(default=100)
 
@@ -101,6 +116,14 @@ class Language(models.Model):
 
     def get_absolute_url(self):
         return reverse("school:language", args=[self.slug])
+
+    def color(self, fallback_index=0):
+        """Цвет линии: свой или следующий из палитры, чтобы схема не осталась без цвета."""
+        return self.line_color or LINE_PALETTE[fallback_index % len(LINE_PALETTE)]
+
+    @property
+    def glyph_display(self):
+        return self.glyph or (self.name[:1].upper() if self.name else "?")
 
     @property
     def flag_emoji(self):
