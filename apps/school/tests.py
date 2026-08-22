@@ -5,7 +5,7 @@ from datetime import timedelta
 
 from django.test import TestCase
 from django.urls import reverse
-from django.utils import timezone
+from django.utils import formats, timezone
 
 from apps.accounts.models import Role, User, normalize_phone
 from apps.billing.models import Tariff
@@ -575,3 +575,97 @@ class StickyHeaderTests(TestCase):
         self.assertIn("overflow-x: clip", body)
 
 
+
+
+
+class HomepageSellingBlocksTests(TestCase):
+    """Три вещи, которых на главной не хватало: доверие, цены и конкретика.
+
+    Каждая из них про деньги, а не про красоту, поэтому они и под тестом:
+    молча пропасть такой блок может от одной строчки в шаблоне.
+    """
+
+    def setUp(self):
+        self.site = SiteSettings.load()
+        self.language = Language.objects.create(name="Английский", slug="en")
+        self.tariff = Tariff.objects.create(
+            name="Абонемент 8 занятий", lessons_count=8, price=7600,
+            is_active=True, is_public=True, is_featured=True,
+        )
+
+    def home(self):
+        return self.client.get(reverse("school:home"))
+
+    def test_the_rating_shows_up_when_it_is_filled_in(self):
+        self.site.rating_value = "4.9"
+        self.site.rating_count = 68
+        self.site.rating_source = "2ГИС"
+        self.site.save()
+        response = self.home()
+        self.assertContains(response, "4,9")
+        self.assertContains(response, "2ГИС")
+
+    def test_an_empty_rating_does_not_leave_a_bare_star(self):
+        """Пустая звезда без числа хуже, чем её отсутствие."""
+        self.site.rating_value = None
+        self.site.save()
+        self.assertNotContains(self.home(), "trust__star")
+
+    def test_prices_are_on_the_homepage(self):
+        """«Сколько стоит» — первый вопрос посетителя. Пока за ответом надо
+        уходить в другой раздел, часть людей закрывает вкладку."""
+        response = self.home()
+        self.assertContains(response, "Абонемент 8 занятий")
+        self.assertContains(response, "950")  # цена за занятие
+        self.assertContains(response, reverse("school:prices"))
+
+    def test_the_featured_badge_follows_the_flag_not_the_position(self):
+        """Подсвечивать среднюю карточку «по счёту» значит утверждать то,
+        чего сайт не знает."""
+        self.assertContains(self.home(), "чаще всего выбирают")
+        self.tariff.is_featured = False
+        self.tariff.save(update_fields=["is_featured"])
+        self.assertNotContains(self.home(), "чаще всего выбирают")
+
+    def test_a_free_tariff_is_not_advertised_as_a_price(self):
+        """Пробный урок стоит 0 ₽ и тарифом на витрине быть не должен."""
+        Tariff.objects.create(name="Пробный урок", lessons_count=1, price=0, is_public=True)
+        self.assertNotContains(self.home(), "Пробный урок")
+
+    def test_the_review_carries_its_source(self):
+        Review.objects.create(
+            author_name="Наталья В.", text="Заговорила через полгода.",
+            source="2ГИС", source_url="https://2gis.ru/", is_published=True,
+        )
+        self.assertContains(self.home(), "2ГИС")
+
+    def test_the_intake_card_names_a_date_and_the_seats_left(self):
+        from apps.accounts.models import TeacherProfile
+        from apps.scheduling.models import Group
+
+        teacher = User.objects.create_user(email="t@x.ru", first_name="Анна", role=Role.TEACHER)
+        TeacherProfile.objects.create(user=teacher)
+        course = Course.objects.create(
+            language=self.language, title="Английский A1", slug="a1", price_per_lesson=950
+        )
+        Group.objects.create(
+            name="A1 вечер", course=course, teacher=teacher, capacity=6,
+            starts_on=timezone.localdate() + timedelta(days=10), is_active=True,
+        )
+        response = self.home()
+        # Конкретика переехала в схему маршрутов первого экрана: отметка
+        # набора несёт и дату старта, и честное число свободных мест.
+        self.assertContains(response, "осталось 6 мест")
+        self.assertContains(response, "с " + formats.date_format(
+            timezone.localdate() + timedelta(days=10), "j E"
+        ))
+
+    def test_the_phone_bar_is_on_the_site_but_not_in_the_cabinet(self):
+        """В кабинете своя навигация — рекламная полоса поверх неё нелепа."""
+        self.assertContains(self.home(), "sticky-cta")
+
+        student = User.objects.create_user(
+            email="s@x.ru", password="pass12345", first_name="Егор", role=Role.STUDENT
+        )
+        self.client.force_login(student)
+        self.assertNotContains(self.client.get(reverse("cabinet:home")), "sticky-cta")

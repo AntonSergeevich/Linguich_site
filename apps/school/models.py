@@ -1,4 +1,5 @@
 from django.db import models
+from django.utils import timezone
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 
@@ -44,12 +45,33 @@ class SiteSettings(models.Model):
                 "преподавателя и вижу, как идут дела у каждой группы.",
     )
 
+    # Полоса доверия под первым экраном. Человек выбирает языковую школу по
+    # чужому опыту, а не по вёрстке, и оценка с площадки — самый сильный
+    # довод, какой у школы есть. Числа редактируются в админке: подставлять
+    # их в шаблон значит гарантированно забыть обновить.
+    rating_value = models.DecimalField(
+        _("Оценка на площадке"), max_digits=2, decimal_places=1, null=True, blank=True,
+        help_text=_("Например 4.9. Пусто — блок с оценкой не показывается."),
+    )
+    rating_count = models.PositiveIntegerField(_("Отзывов на площадке"), default=0)
+    rating_source = models.CharField(_("Площадка"), max_length=40, blank=True, default="2ГИС")
+    rating_url = models.URLField(_("Ссылка на отзывы"), blank=True)
+    students_total = models.CharField(
+        _("Учеников всего"), max_length=20, blank=True, default="1 400+",
+        help_text=_("Как показывать: «1 400+». Пишется словом, а не числом, — это витрина."),
+    )
+    since_year = models.PositiveSmallIntegerField(_("Работаем с"), default=2011)
+
     class Meta:
         verbose_name = _("Настройки сайта")
         verbose_name_plural = _("Настройки сайта")
 
     def __str__(self):
         return self.brand_name
+
+    @property
+    def years_open(self):
+        return max(1, timezone.localdate().year - self.since_year)
 
     def save(self, *args, **kwargs):
         self.pk = 1
@@ -214,6 +236,13 @@ class Review(models.Model):
     rating = models.PositiveSmallIntegerField(_("Оценка"), default=5)
     language = models.ForeignKey(Language, on_delete=models.SET_NULL, null=True, blank=True, related_name="reviews")
     photo = models.ImageField(upload_to="reviews/", blank=True, null=True)
+    # Отзыв без источника ничем не отличается от текста, который школа
+    # написала себе сама. Площадка и ссылка превращают его в доказательство.
+    source = models.CharField(
+        _("Откуда отзыв"), max_length=40, blank=True,
+        help_text=_("Например «2ГИС» или «Яндекс Карты». Пусто — просто отзыв на сайте."),
+    )
+    source_url = models.URLField(_("Ссылка на отзыв"), blank=True)
     is_published = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 

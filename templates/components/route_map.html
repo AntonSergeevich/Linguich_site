@@ -80,7 +80,7 @@
           </span>
           {% for mark in line.marks %}
             <a class="rt-line__mark" href="{{ mark.url }}">
-              {{ mark.schedule }} · {{ mark.seats }} {{ mark.seats_word }}
+              {% if mark.starts %}с {{ mark.starts }} · {% endif %}{{ mark.schedule }} · осталось {{ mark.seats }} {{ mark.seats_word }}
             </a>
           {% empty %}
             <span class="rt-line__quiet">набор откроется — сообщим</span>
@@ -100,7 +100,7 @@
             <span class="rt-line__span">{{ line.levels_label }}</span>
             {% for mark in line.marks %}
               <a class="rt-line__mark" href="{{ mark.url }}">
-                {{ mark.schedule }} · {{ mark.seats }} {{ mark.seats_word }}
+                {% if mark.starts %}с {{ mark.starts }} · {% endif %}{{ mark.schedule }} · осталось {{ mark.seats }} {{ mark.seats_word }}
               </a>
             {% empty %}
               <span class="rt-line__quiet">набор откроется — сообщим</span>

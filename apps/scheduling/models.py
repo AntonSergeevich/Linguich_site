@@ -228,6 +228,12 @@ class Lesson(models.Model):
     is_trial = models.BooleanField(_("Пробный урок"), default=False)
     is_bookable = models.BooleanField(_("Доступен для самозаписи"), default=False)
     status = models.CharField(max_length=12, choices=LessonStatus.choices, default=LessonStatus.SCHEDULED)
+    completed_at = models.DateTimeField(_("Отмечен проведённым"), null=True, blank=True)
+    completed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="lessons_completed", verbose_name=_("Кто подтвердил"),
+        help_text=_("Пусто — урок отметился сам, когда прошло время, и человек этого ещё не подтвердил."),
+    )
     teacher_note = models.TextField(_("Заметка преподавателя"), blank=True)
     cancelled_reason = models.CharField(max_length=200, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -298,6 +304,47 @@ class Lesson(models.Model):
     def can_be_cancelled_free_by(self, user):
         hours = getattr(settings, "FREE_CANCELLATION_HOURS", 12)
         return self.starts_at - timezone.now() > timedelta(hours=hours)
+
+    # --- Автоотметка -----------------------------------------------------
+    # Урок проводится сам, а преподаватель правит только исключения. Требовать
+    # подтверждения на каждое занятие — значит гарантированно получить забытые
+    # уроки: занятия не списываются, выручка в отчётах занижена, а всплывает
+    # это через неделю спором с учеником.
+
+    @property
+    def autocompletes_at(self):
+        minutes = getattr(settings, "LESSON_AUTOCOMPLETE_MINUTES", 45)
+        return self.ends_at + timedelta(minutes=minutes)
+
+    @property
+    def is_awaiting_autocomplete(self):
+        """Урок кончился, но отсрочка ещё идёт: можно сказать «не состоялся»
+        до того, как занятие спишется.
+
+        Проверка «урок уже закончился» обязательна: без неё окно отсрочки
+        открыто и у завтрашних занятий — кабинет предлагал провести урок,
+        который ещё не начался.
+        """
+        return (
+            self.status == LessonStatus.SCHEDULED
+            and self.is_past
+            and timezone.now() < self.autocompletes_at
+        )
+
+    @property
+    def was_autocompleted(self):
+        """Отметился сам и человек этого ещё не подтвердил."""
+        return self.status == LessonStatus.COMPLETED and self.completed_by_id is None
+
+    def is_correctable_by(self, user):
+        """Журнал открыт несколько дней. Дальше правит только владелица —
+        иначе закрытый месяц можно переписать задним числом."""
+        if self.status == LessonStatus.CANCELLED:
+            return False
+        if getattr(user, "is_owner", False):
+            return True
+        days = getattr(settings, "LESSON_CORRECTION_DAYS", 7)
+        return self.starts_at >= timezone.now() - timedelta(days=days)
 
 
 class ParticipantStatus(models.TextChoices):

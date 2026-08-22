@@ -83,7 +83,13 @@ def _month_start(offset=0):
 
 @manager_required
 def crm_home(request):
-    """The one screen that answers «как идут дела»."""
+    """Один экран на две работы сразу.
+
+    Владелица школы работает и администратором, поэтому здесь и «что делать
+    сейчас» — окна, заявки, звонки, — и «как идут дела»: деньги и люди.
+    Разводить это по двум кабинетам значит заставлять её прыгать между ними
+    посреди телефонного разговора.
+    """
     today = timezone.localdate()
     month_start = _month_start()
     prev_start = _month_start(1)
@@ -119,8 +125,37 @@ def crm_home(request):
     total_debt = sum(row["balance"] for row in debtors)
 
     week_start, week_end = as_datetime_range(today, today + timedelta(days=7))
+
+    # --- Операционная половина: то, что нужно, когда звонит телефон -------
+    teachers = User.objects.filter(
+        role__in=[Role.TEACHER, Role.OWNER], is_active=True
+    ).select_related("teacher_profile").order_by("first_name")
+    today_rows = [_teacher_week(teacher, today, days=1) for teacher in teachers]
+    today_start, today_end = as_datetime_range(today, today + timedelta(days=1))
+
+    running_out = [
+        row for row in (_student_snapshot(s) for s in User.objects.filter(
+            role=Role.STUDENT, is_active=True, student_profile__status=StudentStatus.ACTIVE
+        ).select_related("student_profile"))
+        if row["lessons_left"] <= 2
+    ]
+    running_out.sort(key=lambda row: row["lessons_left"])
+
     return render(request, "cabinet/owner/dashboard.html", cabinet_context(
         request,
+        today=today,
+        today_rows=today_rows,
+        lessons_today=Lesson.objects.filter(
+            starts_at__gte=today_start, starts_at__lt=today_end
+        ).exclude(status=LessonStatus.CANCELLED).count(),
+        free_today=sum(len(day["free"]) for row in today_rows for day in row["days"]),
+        running_out=running_out[:6],
+        running_out_count=len(running_out),
+        # Заявки в наборе: администратору звонят «а когда старт», и ответ
+        # должен быть под рукой, а не в другом разделе.
+        upcoming_groups=Group.objects.filter(
+            is_active=True, starts_on__gte=today
+        ).select_related("course", "teacher").order_by("starts_on")[:3],
         revenue_month=revenue_month,
         revenue_prev=revenue_prev,
         revenue_delta=delta,
@@ -390,6 +425,15 @@ def student_update(request, pk):
         profile.status = request.POST["status"]
     profile.internal_notes = request.POST.get("internal_notes", profile.internal_notes)
     profile.level = request.POST.get("level", profile.level)
+    # Родительские контакты: по ним уходят напоминания об оплате. Ребёнку
+    # такое сообщение бесполезно — платит не он.
+    profile.parent_name = request.POST.get("parent_name", profile.parent_name).strip()
+    profile.parent_phone = normalize_phone(request.POST.get("parent_phone", profile.parent_phone))
+    profile.parent_email = request.POST.get("parent_email", profile.parent_email).strip()
+    profile.parent_telegram_chat_id = request.POST.get(
+        "parent_telegram_chat_id", profile.parent_telegram_chat_id
+    ).strip()
+    profile.notify_parent = request.POST.get("notify_parent") == "1"
     profile.save()
     return json_ok("Карточка обновлена.")
 

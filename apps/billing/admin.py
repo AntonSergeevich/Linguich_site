@@ -5,8 +5,9 @@ from .models import LessonCharge, Package, Payment, Tariff
 
 @admin.register(Tariff)
 class TariffAdmin(admin.ModelAdmin):
-    list_display = ["name", "lessons_count", "price", "price_per_lesson", "validity_days", "is_active", "is_public"]
-    list_editable = ["is_active", "is_public"]
+    list_display = ["name", "lessons_count", "price", "price_per_lesson", "validity_days",
+                    "is_active", "is_public", "is_featured"]
+    list_editable = ["is_active", "is_public", "is_featured"]
 
 
 @admin.register(Package)

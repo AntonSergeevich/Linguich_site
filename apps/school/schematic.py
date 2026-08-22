@@ -6,7 +6,7 @@
 """
 
 from django.db.models import F, Q
-from django.utils import timezone
+from django.utils import formats, timezone
 
 from apps.accounts.models import CEFR
 from apps.scheduling.models import Group
@@ -75,8 +75,12 @@ def _marks(groups, span, index_by_age=None):
         if not seats:
             continue
         schedule = group.schedule_summary or "расписание уточняется"
+        # Дата старта — половина ответа: «осталось два места» двигает сильнее,
+        # когда видно, к какому числу. Нет даты — не выдумываем.
+        starts = formats.date_format(group.starts_on, "j E") if group.starts_on else ""
         marks.append({
             "index": index,
+            "starts": starts,
             "schedule": schedule,
             "seats": seats,
             "seats_word": plural_ru(seats, "место", "места", "мест"),
@@ -179,11 +183,16 @@ def build_schematic(today=None):
         if not courses:
             continue
         span = _span(courses)
-        if not span:
-            continue
-        low, high = span
+        if span:
+            low, high = span
+            label = ALL_LEVELS[low] if low == high else f"{ALL_LEVELS[low]} → {ALL_LEVELS[high]}"
+        else:
+            # Уровни у курсов не заполнены. Выкинуть язык со схемы нельзя:
+            # вместе с ним пропадёт и открытый набор. Ставим одну станцию
+            # и говорим прямо, что диапазон ещё не задан.
+            low = high = 0
+            label = "уровень уточняется"
         top = max(top, high)
-        label = ALL_LEVELS[low] if low == high else f"{ALL_LEVELS[low]} → {ALL_LEVELS[high]}"
         lines.append({
             "id": language.slug,
             "name": language.name,
@@ -193,8 +202,8 @@ def build_schematic(today=None):
             "from_index": low,
             "to_index": high,
             "levels_label": label,
-            "branch": _exam_branch(courses, span),
-            "marks": _marks(groups_by_language.get(language.id, []), span),
+            "branch": _exam_branch(courses, (low, high)),
+            "marks": _marks(groups_by_language.get(language.id, []), (low, high)),
         })
 
     levels = ALL_LEVELS[: top + 1]

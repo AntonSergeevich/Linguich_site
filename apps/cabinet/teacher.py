@@ -1,6 +1,7 @@
 import json
 from datetime import datetime, timedelta
 
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db.models import Count, Prefetch, Q
 from django.shortcuts import get_object_or_404, redirect, render
@@ -49,9 +50,14 @@ def dashboard(request):
         starts_at__gte=today_start, starts_at__lt=today_end
     ).exclude(status=LessonStatus.CANCELLED).select_related("group", "course", "location").order_by("starts_at")
 
-    unmarked = user.lessons_taught.filter(
-        status=LessonStatus.SCHEDULED, starts_at__lt=now
-    ).select_related("group").order_by("starts_at")[:8]
+    # Уроки в отсрочке: закончились, но ещё не списались. Только на них
+    # и нужно смотреть — остальное закроется само.
+    unmarked = [
+        lesson for lesson in user.lessons_taught.filter(
+            status=LessonStatus.SCHEDULED, starts_at__lt=now
+        ).select_related("group").order_by("starts_at")[:8]
+        if lesson.is_awaiting_autocomplete
+    ]
 
     to_review = (
         Submission.objects.filter(assignment__teacher=user, status=SubmissionStatus.SUBMITTED)
@@ -95,6 +101,11 @@ def schedule(request):
         .prefetch_related("participants")
         .order_by("starts_at")
     )
+    for lesson in lessons:
+        # Шаблон не умеет вызывать методы с аргументами, а право на правку
+        # зависит от того, кто смотрит: считаем здесь.
+        lesson.can_correct = lesson.is_correctable_by(request.user)
+
     days = []
     for index in range(7):
         day = monday + timedelta(days=index)
@@ -112,10 +123,72 @@ def schedule(request):
         week_offset=offset,
         monday=monday,
         sunday=sunday - timedelta(days=1),
-        pending=request.user.lessons_taught.filter(
-            status=LessonStatus.SCHEDULED, starts_at__lt=timezone.now()
-        ).order_by("starts_at"),
+        # Уроки, которые отметились сами и человек этого ещё не подтвердил.
+        # Ради этой плашки автоотметка и остаётся заметной: занятия уже
+        # списаны, и увидеть ошибку надо сегодня, а не в конце месяца.
+        autocompleted=request.user.lessons_taught.filter(
+            status=LessonStatus.COMPLETED, completed_by__isnull=True,
+            completed_at__gte=timezone.now() - timedelta(days=correction_days()),
+        ).select_related("group").order_by("-starts_at"),
+        autocomplete_minutes=getattr(settings, "LESSON_AUTOCOMPLETE_MINUTES", 45),
+        correction_days=correction_days(),
     ))
+
+
+def correction_days():
+    return getattr(settings, "LESSON_CORRECTION_DAYS", 7)
+
+
+def _own_lesson(request, pk):
+    """Урок преподавателя — или любой, если смотрит владелица."""
+    lesson = get_object_or_404(Lesson, pk=pk)
+    if lesson.teacher_id != request.user.pk and not request.user.is_owner:
+        return None
+    return lesson
+
+
+@teacher_required
+@require_POST
+def lesson_complete(request, pk):
+    """«Провести сейчас» — не дожидаясь, пока сработает отсрочка."""
+    lesson = _own_lesson(request, pk)
+    if lesson is None:
+        return json_error("Это не ваш урок.", status=403)
+    if lesson.status == LessonStatus.COMPLETED:
+        sched.confirm_completion(lesson, request.user)
+        return json_ok("Отметка подтверждена.")
+    sched.complete_lesson(lesson, request.user)
+    return json_ok("Урок проведён, занятия списаны.")
+
+
+@teacher_required
+@require_POST
+def lesson_reopen(request, pk):
+    """«Урок не состоялся»: снимаем списания, ученикам возвращаем занятия."""
+    lesson = _own_lesson(request, pk)
+    if lesson is None:
+        return json_error("Это не ваш урок.", status=403)
+    if not lesson.is_correctable_by(request.user):
+        return json_error(
+            f"Журнал за этот урок закрыт — прошло больше {correction_days()} дней. "
+            "Поправить может владелица.", status=403,
+        )
+    data = json.loads(request.body or "{}")
+    sched.reopen_lesson(lesson, request.user, data.get("reason", ""))
+    return json_ok("Урок помечен несостоявшимся, занятия возвращены.")
+
+
+@teacher_required
+@require_POST
+def lessons_confirm(request):
+    """«Всё верно» одним нажатием на все автоотметки разом."""
+    confirmed = 0
+    for lesson in request.user.lessons_taught.filter(
+        status=LessonStatus.COMPLETED, completed_by__isnull=True
+    ):
+        sched.confirm_completion(lesson, request.user)
+        confirmed += 1
+    return json_ok(f"Подтверждено уроков: {confirmed}.")
 
 
 @teacher_required
@@ -139,6 +212,7 @@ def lesson_detail(request, pk):
         statuses=ParticipantStatus.choices,
         program_units=program_units,
         assignments=lesson.assignments.prefetch_related("submissions"),
+        can_correct=lesson.is_correctable_by(request.user),
         teacher_programs=Program.objects.filter(is_active=True).filter(
             Q(author=request.user) | Q(is_shared=True)
         ),

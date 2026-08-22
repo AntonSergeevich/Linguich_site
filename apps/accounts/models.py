@@ -234,8 +234,20 @@ class StudentProfile(models.Model):
     level = models.CharField(_("Уровень"), max_length=2, choices=CEFR.choices, blank=True)
     birth_date = models.DateField(_("Дата рождения"), null=True, blank=True)
     goal = models.TextField(_("Цель обучения"), blank=True)
+    # Кабинет у ученика и родителя один — заводить второй аккаунт значит
+    # удвоить логины ради тех же самых экранов. Но деньги — родительская
+    # забота, и напоминания об оплате должны приходить родителю.
     parent_name = models.CharField(_("Родитель / контактное лицо"), max_length=120, blank=True)
     parent_phone = models.CharField(_("Телефон родителя"), max_length=20, blank=True)
+    parent_email = models.EmailField(_("Почта родителя"), blank=True)
+    parent_telegram_chat_id = models.CharField(
+        _("Telegram ID родителя"), max_length=32, blank=True,
+        help_text=_("Числовой ID чата. Родитель узнаёт его у @userinfobot."),
+    )
+    notify_parent = models.BooleanField(
+        _("Слать родителю про оплату"), default=True,
+        help_text=_("Оплата и «заканчивается абонемент» уходят родителю, учёба — ученику."),
+    )
     source = models.CharField(_("Откуда узнал"), max_length=120, blank=True)
     internal_notes = models.TextField(_("Заметки администратора"), blank=True)
     started_at = models.DateField(_("Начало обучения"), null=True, blank=True)

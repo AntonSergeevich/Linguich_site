@@ -15,6 +15,10 @@ PY=/srv/linguich/.venv/bin/python
 # Каждые 15 минут ставим напоминания об уроках на ближайшие дни.
 */15 * * * * cd $APP && $PY manage.py schedule_reminders >> $APP/logs/cron.log 2>&1
 
+# Каждые 15 минут проводим уроки, у которых вышла отсрочка после конца.
+# Преподаватель отмечает только исключения, остальное закрывается само.
+*/15 * * * * cd $APP && $PY manage.py autocomplete_lessons >> $APP/logs/cron.log 2>&1
+
 # Ночью материализуем занятия групп на 6 недель вперёд.
 0 3 * * * cd $APP && $PY manage.py generate_lessons --weeks 6 >> $APP/logs/cron.log 2>&1
 

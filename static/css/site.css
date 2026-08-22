@@ -527,3 +527,88 @@
 
 }
 
+/* --- Полоса доверия ----------------------------------------------------
+   Локальную школу выбирают по чужому опыту. Оценка с площадки — самый
+   сильный довод, какой у школы есть, поэтому она идёт сразу под героем,
+   до всякого рассказа о курсах. */
+.trust {
+  border-block: 1px solid var(--line-soft);
+  background: var(--surface);
+}
+.trust__row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 1px;
+  background: var(--line-soft);
+}
+.trust__item {
+  display: flex; align-items: center; gap: var(--s-3);
+  padding: var(--s-5) var(--s-4);
+  background: var(--surface);
+  color: var(--ink);
+}
+a.trust__item:hover { background: var(--surface-2); color: var(--ink); }
+.trust__item .icon { color: var(--brand-500); flex: none; }
+.trust__item strong {
+  display: block; font-size: var(--step-1); font-weight: 700;
+  letter-spacing: -0.02em; line-height: 1.15;
+}
+.trust__item span span, .trust__item > span > span:last-child {
+  display: block; font-size: var(--step--2); color: var(--muted); margin-top: 2px;
+}
+.trust__item .trust__star { color: #F5A623; }
+
+/* --- Тарифы на главной -------------------------------------------------- */
+.tier {
+  background: var(--surface);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-lg);
+  padding: var(--s-6);
+  box-shadow: var(--sh-1);
+  display: flex; flex-direction: column;
+}
+.tier--best { border-color: var(--brand-300); box-shadow: 0 0 0 3px var(--brand-50), var(--sh-2); }
+.tier__head {
+  display: flex; flex-wrap: wrap; gap: var(--s-2);
+  /* Одинаковая высота шапки: иначе плашка «чаще всего выбирают» переносится
+     и цены в трёх карточках встают на разной высоте. */
+  min-height: 56px; align-items: flex-start;
+}
+.tier__price {
+  font-size: var(--step-4); font-weight: 800;
+  letter-spacing: -0.04em; line-height: 1;
+  margin: var(--s-4) 0 var(--s-1);
+}
+.tier .btn { margin-top: auto; }
+
+/* --- Источник отзыва ---------------------------------------------------- */
+.review__src {
+  display: inline-flex; align-items: center; gap: 5px;
+  margin-left: auto; flex: none;
+  padding: 0.25em 0.7em;
+  border-radius: var(--r-full);
+  background: var(--surface-2);
+  font-size: var(--step--2); font-weight: 600; color: var(--muted);
+}
+a.review__src:hover { background: var(--brand-50); color: var(--brand-600); }
+.review__src .icon { color: #F5A623; }
+
+/* --- Липкая полоса записи на телефоне ----------------------------------
+   Появляется только на узком экране: на десктопе кнопка записи и так
+   стоит в шапке, и полоса поверх контента была бы просто помехой. */
+.sticky-cta { display: none; }
+@media (max-width: 720px) {
+  .sticky-cta {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 500;
+    display: flex; gap: var(--s-2);
+    padding: var(--s-3) var(--s-4) calc(var(--s-3) + env(safe-area-inset-bottom));
+    background: color-mix(in srgb, var(--paper) 92%, transparent);
+    backdrop-filter: blur(12px);
+    border-top: 1px solid var(--line);
+  }
+  .sticky-cta .btn:first-child { flex: 1; min-width: 0; }
+  .sticky-cta .btn--icon { width: 52px; flex: none; background: var(--surface); }
+  /* Полоса перекрывает низ страницы — освобождаем ей место, иначе под ней
+     навсегда прячется последняя строка подвала. */
+  body { padding-bottom: 76px; }
+}

@@ -80,6 +80,15 @@
 
   function open(url) { window.location.href = url; }
 
+  // Одна подпись набора на все три места, где она показывается.
+  function markText(mark) {
+    var parts = [];
+    if (mark.starts) parts.push("с " + mark.starts);
+    if (mark.schedule) parts.push(mark.schedule);
+    parts.push("осталось " + mark.seats + " " + mark.seats_word);
+    return parts.join(" · ");
+  }
+
   function buildMap() {
     var height = lane(SLOT_COUNT - 1) + 92;
     var svg = node("svg", {
@@ -166,7 +175,7 @@
 
       line.marks.forEach(function (mark) {
         var x = along(mark.index);
-        var text = mark.schedule + " · " + mark.seats + " " + mark.seats_word;
+        var text = markText(mark);
         var width = text.length * 8.2 + 26;
         // Выноска у станции с веткой уходит вниз: сверху её перекрыл бы поворот.
         var below = !!(line.branch && mark.index === line.branch.from_index);
@@ -218,7 +227,7 @@
         '<span class="rt-rail__mark"><span class="rt-rail__dot"></span></span>' +
         '<span class="rt-rail__body">' +
           '<span class="rt-rail__lvl">' + LABELS[index] + (last ? " · конечная" : "") + "</span>" +
-          (mark ? '<span class="rt-rail__flag">' + mark.schedule + " · " + mark.seats + " " + mark.seats_word + "</span>" : "") +
+          (mark ? '<span class="rt-rail__flag">' + markText(mark) + "</span>" : "") +
         "</span>";
       (function (url) {
         item.addEventListener("click", function () { open(url); });

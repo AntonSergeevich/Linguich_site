@@ -265,3 +265,121 @@ class OpenLessonTests(SchedulingTestCase):
         again = services.join_lesson(self.student, lesson)
         self.assertEqual(participant.pk, again.pk)
         self.assertEqual(lesson.participants.filter(student=self.student).count(), 1)
+
+
+class AutoCompletionTests(SchedulingTestCase):
+    """Урок проводится сам, преподаватель правит только исключения.
+
+    Здесь сторожим три вещи, на которых держатся деньги школы: отсрочку,
+    возврат списанного и то, что повторный запуск ничего не удваивает.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.tariff = Tariff.objects.create(name="8 занятий", lessons_count=8, price=8000)
+        Package.objects.create(
+            student=self.student, tariff=self.tariff, lessons_total=8, price=8000
+        )
+
+    def lesson(self, ended_minutes_ago):
+        started = timezone.now() - timedelta(minutes=ended_minutes_ago + 60)
+        lesson = Lesson.objects.create(
+            teacher=self.teacher, course=self.course, starts_at=started,
+            duration_minutes=60, capacity=5,
+        )
+        LessonParticipant.objects.create(lesson=lesson, student=self.student)
+        return lesson
+
+    def test_lesson_completes_itself_once_the_grace_window_passes(self):
+        lesson = self.lesson(ended_minutes_ago=60)
+        self.assertEqual(services.autocomplete_lessons(), 1)
+        lesson.refresh_from_db()
+        self.assertEqual(lesson.status, LessonStatus.COMPLETED)
+        self.assertIsNone(lesson.completed_by, "автоотметка не должна выглядеть как ручная")
+        self.assertEqual(StudentAccount(self.student).lessons_used, 1)
+
+    def test_the_grace_window_holds_the_lesson_back(self):
+        """Отсрочка — единственное окно, чтобы сказать «урок не состоялся»
+        до списания. Без неё автоотметка бьёт в спину."""
+        lesson = self.lesson(ended_minutes_ago=10)
+        self.assertEqual(services.autocomplete_lessons(), 0)
+        lesson.refresh_from_db()
+        self.assertEqual(lesson.status, LessonStatus.SCHEDULED)
+        self.assertTrue(lesson.is_awaiting_autocomplete)
+        self.assertEqual(StudentAccount(self.student).lessons_used, 0)
+
+    def test_running_twice_does_not_charge_twice(self):
+        self.lesson(ended_minutes_ago=60)
+        services.autocomplete_lessons()
+        self.assertEqual(services.autocomplete_lessons(), 0)
+        self.assertEqual(StudentAccount(self.student).lessons_used, 1)
+
+    def test_a_cancelled_booking_is_never_charged_by_the_robot(self):
+        lesson = self.lesson(ended_minutes_ago=60)
+        lesson.participants.update(status=ParticipantStatus.CANCELLED)
+        services.autocomplete_lessons()
+        self.assertEqual(StudentAccount(self.student).lessons_used, 0)
+
+    def test_reopening_returns_the_lesson_to_the_package(self):
+        """«Урок не состоялся» после автоотметки: занятие должно вернуться,
+        иначе ученик заплатил за то, чего не было."""
+        lesson = self.lesson(ended_minutes_ago=60)
+        services.autocomplete_lessons()
+        self.assertEqual(StudentAccount(self.student).lessons_used, 1)
+
+        services.reopen_lesson(lesson, self.teacher, "преподаватель заболел")
+        self.assertEqual(StudentAccount(self.student).lessons_used, 0)
+        self.assertEqual(StudentAccount(self.student).lessons_left, 8)
+        lesson.refresh_from_db()
+        self.assertEqual(lesson.status, LessonStatus.CANCELLED)
+
+    def test_marking_an_absence_after_the_robot_keeps_the_charge(self):
+        """«Не пришёл» — тоже списание: место держали. Меняется только
+        отметка, деньги остаются."""
+        lesson = self.lesson(ended_minutes_ago=60)
+        services.autocomplete_lessons()
+        participant = lesson.participants.get()
+        services.save_attendance(
+            lesson, {str(participant.pk): ParticipantStatus.ABSENT}, self.teacher
+        )
+        self.assertEqual(StudentAccount(self.student).lessons_used, 1)
+        participant.refresh_from_db()
+        self.assertEqual(participant.status, ParticipantStatus.ABSENT)
+
+    def test_correcting_to_an_early_cancellation_gives_the_lesson_back(self):
+        lesson = self.lesson(ended_minutes_ago=60)
+        services.autocomplete_lessons()
+        participant = lesson.participants.get()
+        services.save_attendance(
+            lesson, {str(participant.pk): ParticipantStatus.EXCUSED}, self.teacher
+        )
+        self.assertEqual(StudentAccount(self.student).lessons_used, 0)
+
+    def test_confirming_takes_the_auto_mark_off_the_banner(self):
+        lesson = self.lesson(ended_minutes_ago=60)
+        services.autocomplete_lessons()
+        lesson.refresh_from_db()
+        self.assertTrue(lesson.was_autocompleted)
+
+        services.confirm_completion(lesson, self.teacher)
+        lesson.refresh_from_db()
+        self.assertFalse(lesson.was_autocompleted)
+        self.assertEqual(lesson.completed_by, self.teacher)
+        self.assertEqual(StudentAccount(self.student).lessons_used, 1, "подтверждение не должно списывать второй раз")
+
+    def test_a_future_lesson_is_not_in_the_grace_window(self):
+        """Регрессия: окно отсрочки открывалось у ещё не начавшихся уроков,
+        и кабинет предлагал «провести» завтрашнее занятие."""
+        lesson = Lesson.objects.create(
+            teacher=self.teacher, course=self.course,
+            starts_at=timezone.now() + timedelta(hours=3), duration_minutes=60, capacity=5,
+        )
+        self.assertFalse(lesson.is_awaiting_autocomplete)
+
+    def test_old_lessons_are_closed_for_the_teacher_but_not_for_the_owner(self):
+        lesson = self.lesson(ended_minutes_ago=60)
+        lesson.starts_at = timezone.now() - timedelta(days=30)
+        lesson.save(update_fields=["starts_at"])
+        owner = User.objects.create_user(email="o@x.ru", first_name="Евгения", role=Role.OWNER)
+        self.assertFalse(lesson.is_correctable_by(self.teacher))
+        self.assertTrue(lesson.is_correctable_by(owner))

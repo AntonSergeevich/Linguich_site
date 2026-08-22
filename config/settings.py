@@ -240,6 +240,13 @@ LEAD_ANTISPAM_ENABLED = env_bool("LEAD_ANTISPAM_ENABLED", True)
 # на руки. Свободная регистрация выключена, чтобы в кабинете не заводились
 # люди, которых никто не звал.
 PUBLIC_REGISTRATION_ENABLED = env_bool("PUBLIC_REGISTRATION_ENABLED", False)
+# Прошедший урок сам становится проведённым, когда после его конца прошло
+# столько минут. Отсрочка нужна, чтобы успеть сказать «урок не состоялся»
+# до того, как занятие спишется с абонемента.
+LESSON_AUTOCOMPLETE_MINUTES = int(env("LESSON_AUTOCOMPLETE_MINUTES", "45"))
+# Сколько дней преподаватель может править журнал задним числом. Дальше
+# правит только владелица: месяц закрыт, деньги посчитаны.
+LESSON_CORRECTION_DAYS = int(env("LESSON_CORRECTION_DAYS", "7"))
 
 # --- Security (production) -------------------------------------------------
 if not DEBUG:

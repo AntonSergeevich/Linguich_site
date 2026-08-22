@@ -68,6 +68,37 @@
   </div>
 </div>
 
+{% if profile.parent_name or profile.parent_phone %}
+  {% comment %}
+    Родитель заходит сюда под тем же логином, что и ученик — отдельный
+    кабинет показывал бы ровно те же расписание, домашку и оплату. Разное
+    только одно: кому уходят напоминания про деньги. Об этом и говорим,
+    чтобы никто не гадал, почему смс пришла не ему.
+  {% endcomment %}
+  <div class="card card--accent">
+    <div class="card-head">
+      <h3>Для родителя</h3>
+      <a class="btn btn--quiet btn--sm" href="{% url 'cabinet:payments' %}">Оплата</a>
+    </div>
+    <p class="tiny muted">
+      Напоминания об оплате и о том, что занятия заканчиваются, приходят
+      {% if profile.parent_name %}{{ profile.parent_name }}{% else %}родителю{% endif %}{% if profile.parent_phone %},
+      {{ profile.parent_phone }}{% endif %}. Кабинет общий — родитель заходит под этим же логином.
+    </p>
+    <div class="row row--between mt-4">
+      <div>
+        <strong>Осталось занятий: {{ account.lessons_left }}</strong>
+        <div class="tiny muted">
+          {% if account.balance > 0 %}
+            долг {{ account.balance|floatformat:0|intcomma }} ₽
+          {% else %}абонемент оплачен{% endif %}
+        </div>
+      </div>
+      <a class="btn btn--sm btn--accent" href="{% url 'cabinet:payments' %}">Продлить</a>
+    </div>
+  </div>
+{% endif %}
+
 <div class="grid grid-2">
   <div class="card">
     <div class="card-head">
