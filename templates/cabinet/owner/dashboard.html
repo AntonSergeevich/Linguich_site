@@ -1,13 +1,148 @@
 {% extends 'cabinet/base.html' %}
 {% load humanize %}
-{% block page_title %}Сводка по школе{% endblock %}
-{% block page_sub %}<p class="cab-top__sub">Деньги, ученики и заявки на одном экране</p>{% endblock %}
+{% block page_title %}Сегодня в школе{% endblock %}
+{% block page_sub %}
+  <p class="cab-top__sub">{{ today|date:"l, d E" }} · {{ lessons_today }} занятий · свободных окон {{ free_today }}</p>
+{% endblock %}
 {% block page_actions %}
   <a class="btn btn--ghost btn--sm" href="{% url 'cabinet:crm_payments' %}">Внести платёж</a>
   <a class="btn btn--sm" href="{% url 'cabinet:crm_leads' %}">Заявки</a>
 {% endblock %}
 
 {% block cabinet %}
+
+{% comment %}
+  Владелица ведёт школу и работает администратором одновременно, поэтому
+  экран один. Сверху то, что нужно, когда звонит телефон: найти ученика,
+  увидеть окна, записать. Ниже — как идут дела: деньги, долги, заявки.
+{% endcomment %}
+
+<form class="crm-search" method="get" action="{% url 'cabinet:crm_students' %}">
+  <svg class="icon"><use href="#i-search"/></svg>
+  <input type="search" name="q" placeholder="Найти ученика по фамилии, телефону или почте" aria-label="Поиск ученика">
+  <button class="btn btn--sm" type="submit">Найти</button>
+</form>
+
+<div class="quick-row">
+  <a class="quick" href="{% url 'cabinet:crm_students' %}">
+    <span class="quick__ico" style="background:var(--accent-50);color:var(--accent-600)">
+      <svg class="icon icon--sm"><use href="#i-plus"/></svg></span>
+    Новый ученик
+  </a>
+  <a class="quick" href="{% url 'cabinet:crm_payments' %}">
+    <span class="quick__ico" style="background:var(--ok-bg);color:var(--ok)">
+      <svg class="icon icon--sm"><use href="#i-card"/></svg></span>
+    Внести оплату
+  </a>
+  <a class="quick" href="{% url 'cabinet:crm_schedule' %}">
+    <span class="quick__ico" style="background:var(--brand-50);color:var(--brand-600)">
+      <svg class="icon icon--sm"><use href="#i-calendar"/></svg></span>
+    Записать на урок
+  </a>
+  <a class="quick" href="{% url 'cabinet:crm_leads' %}">
+    <span class="quick__ico" style="background:var(--info-bg);color:var(--info)">
+      <svg class="icon icon--sm"><use href="#i-inbox"/></svg></span>
+    Разобрать заявки
+  </a>
+</div>
+
+<div class="grid grid-main" style="align-items:start">
+  <div class="card">
+    <div class="card-head">
+      <h3>Занятость на сегодня</h3>
+      <a class="btn btn--quiet btn--sm" href="{% url 'cabinet:crm_schedule' %}">Вся неделя</a>
+    </div>
+    {% comment %}
+      Свободные клетки — ссылки на запись с уже подставленным преподавателем
+      и временем: по телефону нужен ответ «можно в 17:00 к Ирине», а не
+      переход в другой раздел и поиск того же самого заново.
+    {% endcomment %}
+    <div class="scroll-x">
+      <div class="today-grid" style="grid-template-columns:repeat({{ today_rows|length }}, minmax(150px, 1fr))">
+        {% for row in today_rows %}
+          <div class="today-col">
+            <div class="today-col__head">
+              <span class="avatar avatar--sm">{{ row.teacher.initials }}</span>
+              <span>{{ row.teacher.short_name }}</span>
+            </div>
+            {% for day in row.days %}
+              {% for lesson in day.lessons %}
+                <a class="today-slot today-slot--busy" href="{% url 'cabinet:teacher_lesson' lesson.pk %}">
+                  <strong>{{ lesson.starts_at|date:"H:i" }}</strong>
+                  <span>{{ lesson.title|truncatechars:18 }}</span>
+                </a>
+              {% endfor %}
+              {% for slot in day.free %}
+                <a class="today-slot today-slot--free"
+                   href="{% url 'cabinet:crm_schedule' %}?teacher={{ row.teacher.pk }}">
+                  <strong>{{ slot.start|date:"H:i" }}</strong>
+                  <span>свободно</span>
+                </a>
+              {% endfor %}
+              {% if not day.lessons and not day.free %}
+                <span class="tiny muted text-center">выходной</span>
+              {% endif %}
+            {% endfor %}
+          </div>
+        {% empty %}
+          <div class="empty"><h4>Преподавателей ещё нет</h4></div>
+        {% endfor %}
+      </div>
+    </div>
+    {% if not free_today %}
+      <p class="tiny muted mt-3">
+        Свободных окон на сегодня нет. Окна берутся из раздела «Окна для записи» у каждого
+        преподавателя — если там пусто, записывать будет некуда.
+      </p>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h3>Что горит</h3>
+    <div class="mt-3">
+      <a class="hot-row" href="{% url 'cabinet:crm_leads' %}">
+        <span class="hot-row__ico" style="background:var(--accent-50);color:var(--accent-600)">
+          <svg class="icon icon--sm"><use href="#i-inbox"/></svg></span>
+        <span style="flex:1;min-width:0">
+          <strong>Новых заявок: {{ new_leads }}</strong>
+          <span class="tiny muted">{{ leads_month }} за месяц</span>
+        </span>
+        <svg class="icon icon--sm muted"><use href="#i-arrow"/></svg>
+      </a>
+      <a class="hot-row" href="{% url 'cabinet:crm_students' %}?debt=1">
+        <span class="hot-row__ico" style="background:var(--err-bg);color:var(--err)">
+          <svg class="icon icon--sm"><use href="#i-alert"/></svg></span>
+        <span style="flex:1;min-width:0">
+          <strong>Должников: {{ debtor_count }}</strong>
+          <span class="tiny muted">на {{ total_debt|floatformat:0|intcomma }} ₽</span>
+        </span>
+        <svg class="icon icon--sm muted"><use href="#i-arrow"/></svg>
+      </a>
+      <a class="hot-row" href="{% url 'cabinet:crm_students' %}">
+        <span class="hot-row__ico" style="background:var(--warn-bg);color:var(--warn)">
+          <svg class="icon icon--sm"><use href="#i-clock"/></svg></span>
+        <span style="flex:1;min-width:0">
+          <strong>Заканчиваются абонементы: {{ running_out_count }}</strong>
+          <span class="tiny muted">
+            {% for row in running_out %}{{ row.student.short_name }} — {{ row.lessons_left }}{% if not forloop.last %}, {% endif %}{% empty %}все с запасом{% endfor %}
+          </span>
+        </span>
+        <svg class="icon icon--sm muted"><use href="#i-arrow"/></svg>
+      </a>
+      {% for group in upcoming_groups %}
+        <a class="hot-row" href="{% url 'cabinet:crm_group' group.pk %}">
+          <span class="hot-row__ico" style="background:var(--info-bg);color:var(--info)">
+            <svg class="icon icon--sm"><use href="#i-users"/></svg></span>
+          <span style="flex:1;min-width:0">
+            <strong>Набор: {{ group.name }}</strong>
+            <span class="tiny muted">старт {{ group.starts_on|date:"d.m" }} · {{ group.teacher.short_name }}</span>
+          </span>
+          <svg class="icon icon--sm muted"><use href="#i-arrow"/></svg>
+        </a>
+      {% endfor %}
+    </div>
+  </div>
+</div>
 
 <div class="grid grid-4">
   <div class="stat">
