@@ -715,17 +715,21 @@ class HomeIdentityTests(TestCase):
         dark = tokens.split(':root[data-theme="dark"]')[1]
         self.assertIn("--plate:", dark, "в тёмной теме плита должна переопределяться")
 
-    def test_the_map_has_no_hardcoded_colours(self):
-        """Любой хардкод цвета в схеме — это место, которое не переключится
-        вместе с темой."""
+    def test_the_plate_has_no_hardcoded_colours(self):
+        """Хардкод цвета в правилах плиты — место, которое не переключится
+        вместе с темой. Ровно так направляющие и остались бы тёмными.
+
+        Белый в бликах знака под это не подпадает: блик белый в любой теме,
+        он не цвет поверхности, а свет на ней.
+        """
         import re
 
         from django.conf import settings
 
         css = (settings.BASE_DIR / "static" / "css" / "home.css").read_text(encoding="utf-8")
-        # Цвета линий приходят из базы инлайном, в самом файле их быть не должно.
-        hexes = re.findall(r"#[0-9a-fA-F]{3,8}\b", css)
-        self.assertFalse(hexes, f"жёстко заданные цвета в схеме: {hexes}")
+        plate_rules = [line for line in css.splitlines() if ".rt__map" in line or ".rt-rail" in line]
+        hexes = [h for line in plate_rules for h in re.findall(r"#[0-9a-fA-F]{3,8}\b", line)]
+        self.assertFalse(hexes, f"жёстко заданные цвета в плите схемы: {hexes}")
 
     def test_the_footer_line_has_a_station_per_language(self):
         Language.objects.create(name="Немецкий", slug="de", glyph="Ä")
@@ -778,15 +782,23 @@ class MobileHeaderTests(TestCase):
         between = html[toggle:group]
         self.assertIn("</button>", between)
 
-    def test_the_mark_is_paint_and_not_an_outline(self):
-        """Размытие на самом замаскированном блоке оставляет край силуэта
-        резким: фильтр применяется к содержимому раньше маски. Заливка
-        обязана жить в потомке, а blur — на родителе."""
+    def test_the_mark_is_built_from_masked_layers(self):
+        """Объём знака собран слоями, и порядок здесь не украшательство.
+
+        Фильтр применяется к содержимому раньше маски: любой фильтр прямо на
+        замаскированном элементе работает с необрезанной картинкой, а край
+        силуэта остаётся резким. Поэтому маска живёт на потомках, а фильтр —
+        на родителе, который видит их уже обрезанными.
+        """
         css = self.source("static", "css", "home.css")
         block = css.split(".rt__watermark {")[1].split("}")[0]
-        self.assertIn("filter: blur", block)
-        self.assertNotIn("mask:", block, "маска на блоке с фильтром снова даст резкий контур")
+        self.assertIn("filter:", block, "тень и свет знака ставит родитель")
+        self.assertNotIn(
+            "mask:", block,
+            "маска на блоке с фильтром снова даст прямоугольную тень и резкий контур",
+        )
 
-        inner = css.split(".rt__watermark::before {")[1].split("}")[0]
-        self.assertIn("mask:", inner)
-        self.assertIn("transparent", inner, "краска должна перетекать в прозрачное")
+        layers = css.split(".rt__watermark::before,")[1].split("}")[0]
+        self.assertIn("mask:", layers)
+        self.assertIn("::after", layers)
+        self.assertIn(".rt__watermark i", layers)
