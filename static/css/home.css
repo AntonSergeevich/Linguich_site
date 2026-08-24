@@ -50,24 +50,20 @@
 }
 .rt__hint { max-width: 34ch; color: var(--muted); font-size: var(--step--1); }
 
-/* --- Знак школы глянцевым стеклом ------------------------------------------
+/* --- Знак школы краской ----------------------------------------------------
 
    Знак отвечает на вопрос «куда я попал» раньше, чем посетитель начнёт
-   разбираться в линиях.
+   разбираться в линиях. Но он фон, а не элемент.
 
-   Прошлые попытки промахнулись в разные стороны: контурное стекло читалось
-   как обводка, размытая краска — как пятно. Здесь объём: тело со световым
-   градиентом, крупный блик в верхней половине, отражённый подсвет снизу и
-   тень под фигурой. То самое «аква»-стекло, тяжёлое и выпуклое.
+   Первая попытка сделала из него стекло с кромкой — контур получился жёстче
+   всего остального на экране и читался как обводка, а не как фактура.
+   Теперь это краска: тот же приём, что у кляксы справа, — перетекание от
+   прозрачного к брендовому и никакой резкой границы.
 
-   Четыре слоя одной маски, потому что одним фоном объём не собрать:
-     ::before — тело, вертикальный градиент от светлого к насыщенному;
-     i        — донный подсвет, отражение стола снизу;
-     ::after  — блик, эллипс белого в верхней части;
-     сам блок — тень, drop-shadow по силуэту маски.
-
-   Порядок важен: drop-shadow на родителе применяется к уже замаскированным
-   потомкам, поэтому тень повторяет фигуру, а не прямоугольник.
+   Заливка живёт в ::before, а размытие — на самом блоке. Порядок важен:
+   фильтр применяется к содержимому раньше маски, поэтому blur прямо на
+   замаскированном элементе размывает заливку внутри, а край силуэта
+   оставляет бритвенно резким. Размывать надо уже обрезанный результат.
 
    Цвет тянется за выбранной линией: --line-color на секции ставит скрипт
    схемы. Знак не кликается и не читается скринридером.  */
@@ -80,101 +76,60 @@
      под ней и уходит вправо под подзаголовок. */
   left: 8%;
   top: 40%;
-  width: clamp(19rem, 31vw, 36rem);
+  width: clamp(20rem, 33vw, 38rem);
   aspect-ratio: 505 / 424;
   transform: translateY(-50%);
   pointer-events: none;
   z-index: 0;
-  opacity: 0.42;
-  /* Тень по силуэту, а не по коробке: фильтр родителя видит уже обрезанных
-     потомков. */
-  filter:
-    drop-shadow(0 14px 22px color-mix(in srgb, var(--line-color, var(--brand-500)) 26%, transparent))
-    drop-shadow(0 2px 3px rgba(12, 26, 38, 0.16));
-  animation: rt-float 20s ease-in-out infinite;
+  /* Размывается уже замаскированная заливка — силуэт перестаёт быть
+     контуром и становится разливом. */
+  filter: blur(22px);
+  opacity: 0.34;
+  animation: rt-paint 24s ease-in-out infinite;
 }
 
-.rt__watermark::before,
-.rt__watermark::after,
-.rt__watermark i {
+.rt__watermark::before {
   content: "";
   position: absolute;
   inset: 0;
-  display: block;
   -webkit-mask: var(--wm-src) center / contain no-repeat;
   mask: var(--wm-src) center / contain no-repeat;
-}
-
-/* Тело. Сверху почти белое, книзу набирает цвет — так стекло и выглядит:
-   свет падает сверху, низ остаётся в собственном тоне. */
-.rt__watermark::before {
-  background: linear-gradient(
-    to bottom,
-    color-mix(in srgb, var(--line-color, var(--brand-500)) 8%, #ffffff) 0%,
-    color-mix(in srgb, var(--line-color, var(--brand-500)) 34%, #ffffff) 26%,
-    color-mix(in srgb, var(--line-color, var(--brand-500)) 72%, #ffffff) 62%,
-    color-mix(in srgb, var(--line-color, var(--brand-500)) 96%, #ffffff) 88%,
-    color-mix(in srgb, var(--line-color, var(--brand-500)) 70%, #ffffff) 100%
-  );
+  /* Перетекание от прозрачного к брендовому. Три остановки вместо двух:
+     с двумя переход выглядит линейкой, а не разливом. */
+  background:
+    radial-gradient(120% 100% at 24% 20%,
+      color-mix(in srgb, var(--line-color, var(--brand-500)) 85%, transparent) 0%,
+      color-mix(in srgb, var(--line-color, var(--brand-500)) 38%, transparent) 42%,
+      transparent 80%),
+    linear-gradient(155deg,
+      transparent 6%,
+      color-mix(in srgb, var(--line-color, var(--brand-500)) 46%, transparent) 60%,
+      transparent 97%);
   transition: background var(--t-slow) var(--ease);
 }
 
-/* Донный подсвет: свет, отражённый снизу от поверхности. Без него нижний
-   край выглядит просто тёмным, а не прозрачным. */
-.rt__watermark i {
-  background: radial-gradient(
-    88% 52% at 50% 104%,
-    rgba(255, 255, 255, 0.85) 0%,
-    rgba(255, 255, 255, 0.34) 34%,
-    transparent 68%
-  );
-}
-
-/* Блик. Эллипс, выходящий за верхний край: нижняя дуга остаётся в фигуре и
-   даёт ту самую выпуклую «каплю» сверху. */
-.rt__watermark::after {
-  background: radial-gradient(
-    116% 74% at 50% -14%,
-    rgba(255, 255, 255, 0.95) 0%,
-    rgba(255, 255, 255, 0.78) 42%,
-    rgba(255, 255, 255, 0.18) 66%,
-    transparent 74%
-  );
-  animation: rt-gloss 20s ease-in-out infinite;
-}
-
-/* В тёмной теме белый блик превращает стекло в плотное серое пятно, и текст
-   поверх читается хуже. Гасим сам блик, а не всю фигуру: объём должен
-   остаться, тяжесть — уйти. */
-:root[data-theme="dark"] .rt__watermark { opacity: 0.4; }
-:root[data-theme="dark"] .rt__watermark::after { opacity: 0.45; }
-:root[data-theme="dark"] .rt__watermark i { opacity: 0.5; }
+/* На тёмном фоне краски почти не видно — поднимаем плотность. */
+:root[data-theme="dark"] .rt__watermark { opacity: 0.5; }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .rt__watermark { opacity: 0.4; }
-  :root:not([data-theme="light"]) .rt__watermark::after { opacity: 0.45; }
-  :root:not([data-theme="light"]) .rt__watermark i { opacity: 0.5; }
+  :root:not([data-theme="light"]) .rt__watermark { opacity: 0.5; }
 }
 
-/* Знак чуть покачивается, блик по нему медленно смещается. Предмет, а не
-   застывшая картинка, но и не аттракцион: одно движение за двадцать секунд. */
-@keyframes rt-float {
-  0%, 100% { transform: translateY(-50%) scale(1) rotate(0deg); }
-  50%      { transform: translateY(-53%) scale(1.025) rotate(-1.2deg); }
-}
-@keyframes rt-gloss {
-  0%, 100% { background-position: 0% 0%; opacity: 1; }
-  50%      { background-position: 0% 8%; opacity: 0.82; }
+/* Медленный разлив: пятно чуть дышит и смещается, как краска по воде. */
+@keyframes rt-paint {
+  0%, 100% { transform: translateY(-50%) scale(1) rotate(0deg); filter: blur(22px); }
+  33%      { transform: translateY(-53%) scale(1.06) rotate(2deg); filter: blur(28px); }
+  66%      { transform: translateY(-47%) scale(1.03) rotate(-1.5deg); filter: blur(19px); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .rt__watermark, .rt__watermark::after { animation: none; }
+  .rt__watermark { animation: none; }
 }
 
 @media (max-width: 900px) {
-  /* Колонка одна, знак садится под сам заголовок: поднимаем к первым
-     строкам, уменьшаем и гасим — читать текст поверх стекла тяжелее. */
-  .rt__watermark { left: 4%; width: 70vw; top: 27%; opacity: 0.3; }
-  :root[data-theme="dark"] .rt__watermark { opacity: 0.32; }
+  /* Колонка одна, и знак во всю ширину перетягивает на себя весь экран.
+     Оставляем пятно поменьше, под первыми строками заголовка. */
+  .rt__watermark { left: 2%; width: 74vw; top: 26%; opacity: 0.26; }
+  :root[data-theme="dark"] .rt__watermark { opacity: 0.4; }
 }
 
 /* Содержимое поверх знака: без этого заголовок оказывается под ним. */

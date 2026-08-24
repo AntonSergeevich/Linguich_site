@@ -782,23 +782,20 @@ class MobileHeaderTests(TestCase):
         between = html[toggle:group]
         self.assertIn("</button>", between)
 
-    def test_the_mark_is_built_from_masked_layers(self):
-        """Объём знака собран слоями, и порядок здесь не украшательство.
+    def test_the_mark_is_paint_and_not_an_outline(self):
+        """Размытие на самом замаскированном блоке оставляет край силуэта
+        резким: фильтр применяется к содержимому раньше маски. Заливка
+        обязана жить в потомке, а blur — на родителе.
 
-        Фильтр применяется к содержимому раньше маски: любой фильтр прямо на
-        замаскированном элементе работает с необрезанной картинкой, а край
-        силуэта остаётся резким. Поэтому маска живёт на потомках, а фильтр —
-        на родителе, который видит их уже обрезанными.
+        Стеклянный вариант со световым градиентом и бликом пробовали —
+        знак получился слишком заметным и спорил с заголовком. Вернулись
+        к размытой краске.
         """
         css = self.source("static", "css", "home.css")
         block = css.split(".rt__watermark {")[1].split("}")[0]
-        self.assertIn("filter:", block, "тень и свет знака ставит родитель")
-        self.assertNotIn(
-            "mask:", block,
-            "маска на блоке с фильтром снова даст прямоугольную тень и резкий контур",
-        )
+        self.assertIn("filter: blur", block)
+        self.assertNotIn("mask:", block, "маска на блоке с фильтром снова даст резкий контур")
 
-        layers = css.split(".rt__watermark::before,")[1].split("}")[0]
-        self.assertIn("mask:", layers)
-        self.assertIn("::after", layers)
-        self.assertIn(".rt__watermark i", layers)
+        inner = css.split(".rt__watermark::before {")[1].split("}")[0]
+        self.assertIn("mask:", inner)
+        self.assertIn("transparent", inner, "краска должна перетекать в прозрачное")
