@@ -669,3 +669,48 @@ class HomepageSellingBlocksTests(TestCase):
         )
         self.client.force_login(student)
         self.assertNotContains(self.client.get(reverse("cabinet:home")), "sticky-cta")
+
+
+class HomeIdentityTests(TestCase):
+    """Кто мы такие — раньше первый экран этого не говорил.
+
+    Заголовок «Выберите язык — увидите весь путь» и схема маршрутов сами по
+    себе могут принадлежать чему угодно: транспорту, курсам программирования,
+    туризму. Название и род занятий должны стоять до всякой схемы.
+    """
+
+    def setUp(self):
+        Language.objects.create(name="Английский", slug="en", glyph="A", line_color="#008CD2")
+
+    def test_the_first_screen_says_what_this_is(self):
+        html = self.client.get(reverse("school:home")).content.decode()
+        self.assertIn("школа иностранных языков", html)
+        self.assertIn("rt__who", html)
+
+    def test_the_mark_is_behind_the_headline_and_not_clickable(self):
+        html = self.client.get(reverse("school:home")).content.decode()
+        self.assertIn("rt__watermark", html)
+        self.assertIn('class="rt__watermark" aria-hidden="true"', html)
+
+        from django.conf import settings
+
+        css = (settings.BASE_DIR / "static" / "css" / "home.css").read_text(encoding="utf-8")
+        block = css.split(".rt__watermark {")[1].split("}")[0]
+        self.assertIn("pointer-events: none", block)
+        self.assertIn("z-index: 0", block)
+
+    def test_the_footer_line_has_a_station_per_language(self):
+        Language.objects.create(name="Немецкий", slug="de", glyph="Ä")
+        html = self.client.get(reverse("school:home")).content.decode()
+        self.assertEqual(html.count('class="fline__stop"'), 2)
+
+    def test_the_developer_credit_appears_only_when_filled(self):
+        self.assertNotContains(self.client.get(reverse("school:home")), "site-footer__by")
+
+        site = SiteSettings.load()
+        site.developer_name = "Система Порядок"
+        site.developer_url = "https://example.com"
+        site.save()
+        response = self.client.get(reverse("school:home"))
+        self.assertContains(response, "Система Порядок")
+        self.assertContains(response, "https://example.com")

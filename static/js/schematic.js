@@ -397,6 +397,10 @@
     line._path.parentNode.appendChild(line._path); // активная линия поверх остальных
     drawLine(line);
     buildRail();
+    // Водяной знак школы под заголовком красится тем же цветом, что линия и
+    // клякса: три вещи на экране должны менять цвет одним движением, иначе
+    // это выглядит как три не связанных между собой украшения.
+    root.style.setProperty("--line-color", line.color);
     washGlyph.textContent = line.glyph;
     washName.textContent = line.name.toLowerCase();
     if (washCtx) { buildSheet(); renderWash(); }

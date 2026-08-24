@@ -62,6 +62,17 @@ class SiteSettings(models.Model):
     )
     since_year = models.PositiveSmallIntegerField(_("Работаем с"), default=2011)
 
+    # Подпись разработчика в подвале. В настройках, а не в вёрстке: подрядчик
+    # может смениться, и лезть за этим в код никто не должен.
+    developer_name = models.CharField(
+        _("Разработчик: подпись"), max_length=80, blank=True,
+        help_text=_("Пусто — строка в подвале не показывается."),
+    )
+    developer_url = models.URLField(_("Разработчик: ссылка"), blank=True)
+    developer_note = models.CharField(
+        _("Разработчик: что сделано"), max_length=60, blank=True, default="Сайт и система",
+    )
+
     class Meta:
         verbose_name = _("Настройки сайта")
         verbose_name_plural = _("Настройки сайта")
@@ -142,6 +153,15 @@ class Language(models.Model):
     def color(self, fallback_index=0):
         """Цвет линии: свой или следующий из палитры, чтобы схема не осталась без цвета."""
         return self.line_color or LINE_PALETTE[fallback_index % len(LINE_PALETTE)]
+
+    @property
+    def color_display(self):
+        """Цвет для мест, где нет порядкового номера линии — например в подвале.
+
+        Шаблон не умеет звать color() с аргументом, а язык без цвета не должен
+        оказаться бесцветным: берём палитру по ключу, это стабильно.
+        """
+        return self.line_color or LINE_PALETTE[(self.pk or 0) % len(LINE_PALETTE)]
 
     @property
     def glyph_display(self):

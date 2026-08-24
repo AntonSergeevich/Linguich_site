@@ -50,6 +50,67 @@
 }
 .rt__hint { max-width: 34ch; color: var(--muted); font-size: var(--step--1); }
 
+/* --- Знак школы водяным знаком --------------------------------------------
+
+   Первый экран говорил «выберите язык», но не говорил, куда человек попал:
+   схема маршрутов сама по себе может быть чем угодно. Знак отвечает на это
+   раньше, чем посетитель начнёт разбираться в линиях, а строка над
+   заголовком договаривает словами.
+
+   Цвет тянется за выбранной линией: --line-color на секции ставит тот же
+   скрипт схемы, что красит кляксу справа. Знак не кликается и не читается
+   скринридером — это фактура, а не элемент.  */
+
+.rt { position: relative; overflow: hidden; }
+
+.rt__watermark {
+  position: absolute;
+  left: clamp(-14rem, -8vw, -6rem);
+  top: 50%;
+  width: clamp(26rem, 46vw, 52rem);
+  aspect-ratio: 505 / 424;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.08;
+  /* Знак берётся маской, а не картинкой: файл общий с шапкой и подвалом,
+     и перекрашивать его копию ради фона — лишний файл и лишний повод
+     разъехаться. Маска красится точным цветом выбранной линии. */
+  background: var(--line-color, var(--brand-500));
+  -webkit-mask: var(--wm-src) center / contain no-repeat;
+  mask: var(--wm-src) center / contain no-repeat;
+  transform-origin: 50% 50%;
+  animation: rt-wave 26s ease-in-out infinite;
+  transition: background-color var(--t-slow) var(--ease);
+}
+:root[data-theme="dark"] .rt__watermark { opacity: 0.12; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .rt__watermark { opacity: 0.12; }
+}
+
+/* Волна, а не вращение: знак должен дышать на краю зрения и не отвлекать
+   от заголовка, поверх которого он лежит. */
+@keyframes rt-wave {
+  0%   { transform: translate(0, -50%) rotate(-3deg) scale(1); }
+  25%  { transform: translate(1.5%, -53%) rotate(1deg) scale(1.04); }
+  50%  { transform: translate(0, -47%) rotate(4deg) scale(1.02); }
+  75%  { transform: translate(-1.5%, -52%) rotate(1deg) scale(1.05); }
+  100% { transform: translate(0, -50%) rotate(-3deg) scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rt__watermark { animation: none; transform: translate(0, -50%); }
+}
+
+/* Содержимое поверх знака: без этого заголовок оказывается под ним. */
+.rt__head, .rt__modes, .rt__map, .rt__rail, .rt__list { position: relative; z-index: 1; }
+
+.rt__who {
+  margin: 0 0 var(--s-3);
+  font-size: var(--step--1);
+  color: var(--muted);
+  letter-spacing: 0.01em;
+}
+.rt__who b { color: var(--ink-2); font-weight: 700; }
+
 /* --- Клякса-алфавит -------------------------------------------------------- */
 
 .rt__wash {
