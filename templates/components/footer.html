@@ -1,6 +1,8 @@
 {% load static %}
 <footer class="site-footer">
   <div class="container">
+    {% include 'components/footer_line.html' %}
+
     <div class="site-footer__grid">
       <div>
         <a class="brand brand--invert" href="{% url 'school:home' %}">
@@ -55,6 +57,18 @@
     <div class="site-footer__bottom">
       <span>© {% now "Y" %} Лингвич. Все права защищены.</span>
       <span><a href="{% url 'school:privacy' %}">Политика конфиденциальности</a></span>
+      {% if site.developer_name %}
+        {% comment %}
+          Подпись разработчика. Заполняется в настройках сайта, а не в
+          вёрстке: подрядчик может смениться, лезть за этим в код незачем.
+        {% endcomment %}
+        <span class="site-footer__by">
+          {{ site.developer_note|default:"Сайт и система" }} —
+          {% if site.developer_url %}
+            <a href="{{ site.developer_url }}" target="_blank" rel="noopener">{{ site.developer_name }}</a>
+          {% else %}{{ site.developer_name }}{% endif %}
+        </span>
+      {% endif %}
     </div>
   </div>
 </footer>

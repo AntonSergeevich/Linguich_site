@@ -1,0 +1,40 @@
+{% comment %}
+Финальная станция.
+
+Первый экран говорит «выберите язык — увидите весь путь» и рисует школу как
+схему маршрутов. Подвал закрывает ту же мысль: по линии едет вагончик и
+проходит станции — по одной на каждый язык школы, в его цвете и с его
+буквой. Не украшение сбоку, а конец того же маршрута.
+
+Станции берутся из каталога: школа завела язык — на линии появилась станция,
+убрала — исчезла. Ни одной картинки, только CSS; при «уменьшить движение»
+вагончик просто стоит на конечной.
+{% endcomment %}
+{% if nav_languages %}
+  <div class="fline" aria-hidden="true">
+    <div class="fline__rail" style="--stops: {{ nav_languages|length }}">
+      <span class="fline__track"></span>
+      <span class="fline__stops">
+        {% for language in nav_languages %}
+          <span class="fline__stop"
+                style="--line-color: {{ language.color_display }}; --stop-index: {{ forloop.counter0 }}">
+            <b class="fline__glyph">{{ language.glyph_display }}</b>
+            <i class="fline__dot"></i>
+          </span>
+        {% endfor %}
+      </span>
+      <span class="fline__car">
+        <svg viewBox="0 0 64 26" width="64" height="26" role="img" aria-hidden="true">
+          <rect x="1" y="3" width="54" height="17" rx="6" fill="currentColor"/>
+          <path d="M55 8h4l4 5v4a2 2 0 0 1-2 2h-6z" fill="currentColor" opacity=".75"/>
+          <rect x="6" y="7" width="9" height="7" rx="2" fill="#fff" opacity=".85"/>
+          <rect x="19" y="7" width="9" height="7" rx="2" fill="#fff" opacity=".85"/>
+          <rect x="32" y="7" width="9" height="7" rx="2" fill="#fff" opacity=".85"/>
+          <circle cx="14" cy="22" r="3.4" fill="currentColor"/>
+          <circle cx="46" cy="22" r="3.4" fill="currentColor"/>
+        </svg>
+      </span>
+    </div>
+    <p class="fline__say">Конечная — там, где вы наконец заговорите.</p>
+  </div>
+{% endif %}
