@@ -35,7 +35,9 @@ def next_question(session):
 
     queryset = Question.objects.filter(level=level, is_active=True).exclude(pk__in=asked_ids)
     if session.language_id:
-        # Вопросы без языка — общие, они годятся для любого теста.
+        # Вопрос без языка — намеренно общий и годится любому тесту. Раньше
+        # языка не было ни у одного вопроса, поэтому «общими» оказывались
+        # английские: тест по китайскому спрашивал по-английски.
         queryset = queryset.filter(Q(language=session.language) | Q(language__isnull=True))
     pool = list(queryset)
     if not pool:
@@ -115,3 +117,38 @@ def final_level(session):
         if total and correct == total:
             return "C2"
     return best
+
+
+def bank_levels(language):
+    """Уровни, по которым у языка вообще есть вопросы, снизу вверх."""
+    levels = set(
+        Question.objects.filter(is_active=True)
+        .filter(Q(language=language) | Q(language__isnull=True))
+        .values_list("level", flat=True)
+    )
+    return [level for level in LEVEL_LADDER if level in levels]
+
+
+def bank_ceiling(language):
+    """Верхняя ступень банка. Ниже C1 — тест не может измерить точнее.
+
+    Это надо говорить вслух: человеку, который читает B2, нельзя показать
+    «ваш уровень A2» и промолчать о том, что выше просто не спрашивали.
+    """
+    levels = bank_levels(language)
+    return levels[-1] if levels else ""
+
+
+def languages_with_bank():
+    """Языки, по которым тест реально можно пройти.
+
+    Предлагать тест по языку без вопросов — обещание, которое сайт не
+    выполнит: человек нажмёт и упрётся в «банк пуст».
+    """
+    from apps.school.models import Language
+
+    ready = set(
+        Question.objects.filter(is_active=True, language__isnull=False)
+        .values_list("language_id", flat=True)
+    )
+    return list(Language.objects.filter(pk__in=ready, is_active=True).order_by("sort_order", "name"))

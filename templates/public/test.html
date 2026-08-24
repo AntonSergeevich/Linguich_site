@@ -1,19 +1,24 @@
 {% extends 'base.html' %}
 {% load static %}
-{% block title %}Тест уровня английского — Лингвич{% endblock %}
-{% block description %}Бесплатный адаптивный тест уровня английского по шкале CEFR: 20 вопросов, результат сразу, разбор по навыкам.{% endblock %}
+{% block title %}Тест уровня — Лингвич{% endblock %}
+{% block description %}Бесплатный адаптивный тест уровня по шкале CEFR: выберите язык, 20 вопросов, результат сразу и разбор по навыкам.{% endblock %}
 
 {% block content %}
 <section class="section section--tight">
   <div class="container">
     <div class="section-head section-head--center">
       <div class="eyebrow" style="justify-content:center">Бесплатно · без регистрации</div>
-      <h1>Тест уровня английского</h1>
-      <p class="lead">Адаптивный: чем увереннее вы отвечаете, тем сложнее становятся задания.
+      <h1>Тест уровня</h1>
+      <p class="lead">Выберите язык — дальше вопросы подстраиваются под ваши ответы.
         В конце — уровень по CEFR и разбор по навыкам.</p>
     </div>
 
     <div class="quiz">
+      {% comment %}
+        Языки отдаём через json_script, а не через data-атрибут: Django сам
+        экранирует содержимое, и названия с кавычками не ломают разметку.
+      {% endcomment %}
+      {{ languages|json_script:"quiz-languages" }}
       <div id="quiz"
            data-start-url="{% url 'placement:start' %}"
            data-answer-url="{% url 'placement:answer' %}"
@@ -31,6 +36,18 @@
         Тест оценивает грамматику, лексику, чтение и понимание речевых ситуаций.
         Точный уровень преподаватель подтвердит на бесплатном пробном уроке.
       </p>
+
+      {% if missing %}
+        {% comment %}
+          Честно про языки без банка: обещать тест и упереться в «вопросов
+          нет» хуже, чем сразу позвать на пробный урок.
+        {% endcomment %}
+        <p class="tiny muted text-center mt-3">
+          По направлениям {% for language in missing %}{{ language.name|lower }}{% if not forloop.last %}, {% endif %}{% endfor %}
+          тест ещё готовим — уровень определим на бесплатном занятии.
+          <a href="{% url 'school:signup' %}">Записаться</a>.
+        </p>
+      {% endif %}
     </div>
   </div>
 </section>

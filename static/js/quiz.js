@@ -16,7 +16,15 @@
     lead: root.dataset.leadUrl,
   };
 
-  const state = { session: null, question: null, askedAt: 0, locked: false, answered: 0, total: 20 };
+  // Языки, по которым банк вопросов есть. Приходят из разметки: решать,
+  // какой язык можно проверить, должна база, а не скрипт.
+  const langNode = document.getElementById("quiz-languages");
+  const LANGUAGES = langNode ? JSON.parse(langNode.textContent) : [];
+
+  const state = {
+    session: null, question: null, askedAt: 0, locked: false, answered: 0,
+    total: 20, language: LANGUAGES.length === 1 ? LANGUAGES[0] : null,
+  };
 
   const shell = root.querySelector(".quiz__shell");
 
@@ -36,21 +44,46 @@
 
   // --- Screens -----------------------------------------------------------
   function renderIntro() {
+    // Школа учит семи языкам, а тест спрашивал по-английски каждого — язык
+    // сессии просто никогда не выставлялся. Теперь выбор языка и есть вход.
+    const picked = state.language;
+    const chips = LANGUAGES.map(function (language) {
+      return (
+        '<button class="quiz-lang' + (picked && picked.id === language.id ? " is-on" : "") +
+        '" type="button" data-lang="' + language.id + '">' +
+          '<span class="quiz-lang__flag">' + language.flag + "</span>" +
+          "<span>" + esc(language.name) + "</span>" +
+        "</button>"
+      );
+    }).join("");
+
+    const ceiling = picked && picked.ceiling && picked.ceiling !== "C1"
+      ? '<p class="tiny muted">По этому языку тест пока доходит до ' + esc(picked.ceiling) +
+        ". Уровень выше подтвердит преподаватель на бесплатном уроке.</p>"
+      : "";
+
     render(
       '<div class="stack text-center" style="margin:auto">' +
         '<div class="eyebrow" style="justify-content:center">Бесплатно · 5 минут</div>' +
-        "<h2>Узнайте свой уровень английского</h2>" +
-        '<p class="lead">20 вопросов, которые подстраиваются под ваши ответы: ' +
-        "чем увереннее отвечаете, тем сложнее становится. В конце — уровень по шкале CEFR, " +
-        "разбор по навыкам и подходящая программа.</p>" +
-        '<div class="chip-row" style="justify-content:center">' +
-          '<span class="chip">Грамматика</span><span class="chip">Лексика</span>' +
-          '<span class="chip">Чтение</span><span class="chip">Речевые ситуации</span>' +
-        "</div>" +
-        '<div><button class="btn btn--lg" id="quiz-start">Начать тест</button></div>' +
+        "<h2>Узнайте свой уровень</h2>" +
+        '<p class="lead">Вопросы подстраиваются под ваши ответы: чем увереннее отвечаете, ' +
+        "тем сложнее становится. В конце — уровень по шкале CEFR и разбор по навыкам.</p>" +
+        '<div class="quiz-langs">' + chips + "</div>" +
+        ceiling +
+        '<div><button class="btn btn--lg" id="quiz-start"' + (picked ? "" : " disabled") + ">" +
+          (picked ? "Начать тест" : "Выберите язык") + "</button></div>" +
         '<p class="tiny muted">Регистрация не нужна. Результат покажем сразу.</p>' +
       "</div>"
     );
+
+    shell.querySelectorAll(".quiz-lang").forEach(function (button) {
+      button.addEventListener("click", function () {
+        state.language = LANGUAGES.filter(function (l) {
+          return String(l.id) === button.dataset.lang;
+        })[0];
+        renderIntro();
+      });
+    });
     shell.querySelector("#quiz-start").addEventListener("click", start);
   }
 
@@ -96,10 +129,21 @@
       })
       .join("");
 
+    // Потолок банка. Показать «ваш уровень A2» тому, кто читает B2, и
+    // промолчать о том, что выше просто не спрашивали, — это соврать.
+    const capped =
+      result.ceiling && result.ceiling !== "C1" && result.level === result.ceiling
+        ? '<p class="tiny muted">Выше ' + esc(result.ceiling) +
+          " тест по этому языку пока не спрашивает — точный уровень преподаватель " +
+          "определит на бесплатном уроке.</p>"
+        : "";
+
     render(
       '<div class="stack text-center">' +
-        '<div class="eyebrow" style="justify-content:center">Ваш уровень</div>' +
+        '<div class="eyebrow" style="justify-content:center">Ваш уровень' +
+          (result.language ? " · " + esc(result.language) : "") + "</div>" +
         '<div class="quiz-result__level">' + esc(result.level) + "</div>" +
+        capped +
         "<h3>" + esc(result.title) + "</h3>" +
         '<p class="lead">' + esc(result.message) + "</p>" +
         '<div class="row" style="justify-content:center;gap:2rem">' +
@@ -135,7 +179,11 @@
   // --- Flow --------------------------------------------------------------
   async function start() {
     try {
-      const data = await api(urls.start, { method: "POST", json: {} });
+      if (!state.language) return;
+      const data = await api(urls.start, {
+        method: "POST",
+        json: { language: state.language.id },
+      });
       state.session = data.session;
       state.total = data.total;
       state.answered = 0;

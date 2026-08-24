@@ -2,20 +2,46 @@ import json
 
 from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
+from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_POST
 
 from apps.accounts.models import Role, User
 from apps.notifications.models import NotificationKind
 from apps.notifications.services import notify_many
-from apps.school.models import Course, Lead, LeadSource
+from apps.school.models import Course, Language, Lead, LeadSource
 from apps.utils import json_error, json_ok
 
 from . import engine
 from .models import LEVEL_COPY, Question, TestSession
 
 
+@ensure_csrf_cookie
 def test_page(request):
-    return render(request, "public/test.html", {})
+    """Страница теста. Язык выбирает человек — до сих пор его не выбирал никто.
+
+    ensure_csrf_cookie обязателен: на странице нет ни одной формы, а значит
+    Django не поставит cookie. Кто заходил на тест напрямую — из поиска или
+    по ссылке — получал 403 на «Начать тест». У тех, кто шёл с главной,
+    cookie уже была от формы заявки, поэтому баг и не попадался.
+
+    Языки, по которым банка нет, в список не попадают: предложить тест и
+    упереться в «вопросов нет» хуже, чем честно позвать на пробный урок.
+    """
+    languages = engine.languages_with_bank()
+    return render(request, "public/test.html", {
+        "languages": [
+            {
+                "id": language.pk,
+                "name": language.name,
+                "flag": language.flag_emoji,
+                "ceiling": engine.bank_ceiling(language),
+            }
+            for language in languages
+        ],
+        "missing": Language.objects.filter(is_active=True)
+                   .exclude(pk__in=[l.pk for l in languages])
+                   .order_by("sort_order", "name"),
+    })
 
 
 def _payload(question):
@@ -44,16 +70,36 @@ def start(request):
     if not request.session.session_key:
         request.session.create()
 
+    try:
+        data = json.loads(request.body or "{}")
+    except json.JSONDecodeError:
+        data = {}
+
+    # Язык обязателен. Без него движок берёт вопросы вперемешку по всем
+    # языкам сразу — ровно то, из-за чего тест и выглядел «только английским».
+    language = Language.objects.filter(pk=data.get("language"), is_active=True).first()
+    if language is None:
+        return json_error("Выберите язык, по которому проходите тест.")
+
     session = TestSession.objects.create(
         user=request.user if request.user.is_authenticated else None,
         session_key=request.session.session_key,
+        language=language,
         current_level="A2",
     )
     question = engine.next_question(session)
     if question is None:
-        return json_error("Банк вопросов пока пуст. Мы уже чиним это.", status=503)
+        return json_error(
+            f"Вопросы по языку «{language.name}» ещё готовятся. "
+            "Уровень определит преподаватель на бесплатном уроке.", status=503,
+        )
 
-    return json_ok(session=session.pk, total=engine.MAX_QUESTIONS, question=_payload(question))
+    return json_ok(
+        session=session.pk,
+        total=engine.MAX_QUESTIONS,
+        language=language.name,
+        question=_payload(question),
+    )
 
 
 @require_POST
@@ -95,6 +141,10 @@ def answer(request):
             "total": session.total_count,
             "minutes": session.duration_minutes,
             "skills": session.skill_breakdown(),
+            # Потолок банка: если по языку заведены только A1–A2, показать
+            # «ваш уровень A2» и промолчать — значит соврать сильному ученику.
+            "ceiling": engine.bank_ceiling(session.language) if session.language_id else "",
+            "language": session.language.name if session.language_id else "",
         }
         if request.user.is_authenticated and request.user.is_student:
             profile = getattr(request.user, "student_profile", None)

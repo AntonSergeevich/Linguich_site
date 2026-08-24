@@ -7,7 +7,9 @@
 
 from django.core.management.base import BaseCommand
 
+from apps.placement.banks import BANKS
 from apps.placement.models import Question, Skill
+from apps.school.models import Language
 
 G, V, R, U = Skill.GRAMMAR, Skill.VOCABULARY, Skill.READING, Skill.USAGE
 
@@ -105,12 +107,31 @@ QUESTIONS = [
 
 
 class Command(BaseCommand):
-    help = "Загружает банк вопросов теста уровня английского."
+    help = "Загружает банки вопросов теста уровня по всем языкам школы."
 
     def handle(self, *args, **options):
+        # Английский — исторический банк из этого файла, остальные лежат в
+        # banks.py. Ключ поиска обязательно вместе с языком: один и тот же
+        # вопрос «Число «три»» есть в нескольких языках.
+        report = []
+        report.append(self.load("english", QUESTIONS))
+        for slug, bank in BANKS.items():
+            report.append(self.load(slug, bank))
+
+        if options.get("verbosity", 1):
+            for line in report:
+                if line:
+                    self.stdout.write(line)
+
+    def load(self, slug, bank):
+        language = Language.objects.filter(slug=slug).first()
+        if language is None:
+            return self.style.WARNING(f"{slug}: языка нет в каталоге, банк пропущен")
+
         created = updated = 0
-        for level, skill, prompt, hint, options_list, correct, explanation in QUESTIONS:
-            obj, was_created = Question.objects.update_or_create(
+        for level, skill, prompt, hint, options_list, correct, explanation in bank:
+            _obj, was_created = Question.objects.update_or_create(
+                language=language,
                 prompt=prompt,
                 defaults={
                     "level": level,
@@ -124,4 +145,6 @@ class Command(BaseCommand):
             )
             created += was_created
             updated += not was_created
-        self.stdout.write(self.style.SUCCESS(f"вопросов добавлено {created}, обновлено {updated}"))
+        return self.style.SUCCESS(
+            f"{language.name}: добавлено {created}, обновлено {updated}"
+        )
