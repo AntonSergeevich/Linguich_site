@@ -699,6 +699,34 @@ class HomeIdentityTests(TestCase):
         self.assertIn("pointer-events: none", block)
         self.assertIn("z-index: 0", block)
 
+    def test_the_route_plate_follows_the_theme(self):
+        """Регрессия: плита схемы была зашита тёмной в обе темы. На светлой
+        странице чёрный прямоугольник во всю ширину читается как
+        незагрузившийся блок, а не как замысел."""
+        from django.conf import settings
+
+        tokens = (settings.BASE_DIR / "static" / "css" / "tokens.css").read_text(encoding="utf-8")
+        light = tokens.split(":root {")[1].split("@media")[0]
+        self.assertIn("--plate:", light)
+        # Светлая плита — светлая. Ключевая ошибка была именно в этом значении.
+        plate = light.split("--plate:")[1].split(";")[0].strip()
+        self.assertIn(plate.upper(), {"#FFFFFF", "#FFF"}, f"плита в светлой теме тёмная: {plate}")
+        self.assertIn('data-theme="dark"', tokens)
+        dark = tokens.split(':root[data-theme="dark"]')[1]
+        self.assertIn("--plate:", dark, "в тёмной теме плита должна переопределяться")
+
+    def test_the_map_has_no_hardcoded_colours(self):
+        """Любой хардкод цвета в схеме — это место, которое не переключится
+        вместе с темой."""
+        import re
+
+        from django.conf import settings
+
+        css = (settings.BASE_DIR / "static" / "css" / "home.css").read_text(encoding="utf-8")
+        # Цвета линий приходят из базы инлайном, в самом файле их быть не должно.
+        hexes = re.findall(r"#[0-9a-fA-F]{3,8}\b", css)
+        self.assertFalse(hexes, f"жёстко заданные цвета в схеме: {hexes}")
+
     def test_the_footer_line_has_a_station_per_language(self):
         Language.objects.create(name="Немецкий", slug="de", glyph="Ä")
         html = self.client.get(reverse("school:home")).content.decode()

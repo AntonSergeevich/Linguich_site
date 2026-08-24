@@ -50,54 +50,136 @@
 }
 .rt__hint { max-width: 34ch; color: var(--muted); font-size: var(--step--1); }
 
-/* --- Знак школы водяным знаком --------------------------------------------
+/* Без регистрации браузер не умеет плавно менять пользовательское свойство
+   в анимации: значение просто перескочит на середине. Регистрируем тип —
+   и кромка дышит, а не дёргается. */
+@property --wm-inner {
+  syntax: "<percentage>";
+  inherits: false;
+  initial-value: 97%;
+}
 
-   Первый экран говорил «выберите язык», но не говорил, куда человек попал:
-   схема маршрутов сама по себе может быть чем угодно. Знак отвечает на это
-   раньше, чем посетитель начнёт разбираться в линиях, а строка над
-   заголовком договаривает словами.
+/* --- Знак школы стеклом ----------------------------------------------------
 
-   Цвет тянется за выбранной линией: --line-color на секции ставит тот же
-   скрипт схемы, что красит кляксу справа. Знак не кликается и не читается
-   скринридером — это фактура, а не элемент.  */
+   Знак отвечает на вопрос «куда я попал» раньше, чем посетитель начнёт
+   разбираться в линиях. Но он фон, а не элемент: заливка в цвет линии
+   лежала прямо под заголовком и спорила с текстом.
 
-.rt { position: relative; overflow: hidden; }
+   Теперь это стекло. Сама фигура почти прозрачная — видно преломление,
+   блик и кромку, как у матового стекла на стекле. Блик медленно ползёт,
+   кромка дышит: то шире, то уже, как плёнка воды по краю.
+
+   Стекло собрано из трёх слоёв одной и той же маски:
+     ::before — тело, размытый фон под ним + едва заметная заливка;
+     сам блок — кромка: две маски вычитанием дают контур, он и «дышит»;
+     ::after  — блик, диагональный градиент, который ползёт по фигуре.
+
+   Знак не кликается и не читается скринридером — это фактура.  */
+
+.rt { position: relative; overflow: hidden; isolation: isolate; }
 
 .rt__watermark {
   position: absolute;
-  left: clamp(-14rem, -8vw, -6rem);
-  top: 50%;
-  width: clamp(26rem, 46vw, 52rem);
+  /* Ушёл влево за колонку текста: заголовок начинается от контейнера, а знак
+     висит на поле слева и заходит под него только краем. */
+  /* Знак лежит под заголовком — там, где взгляд и так останавливается.
+     Стекло почти прозрачное, поэтому текст поверх него читается: спорить
+     с заголовком нечему, видно только преломление, блик и кромку. */
+  left: 5%;
+  top: 36%;
+  width: clamp(22rem, 36vw, 42rem);
   aspect-ratio: 505 / 424;
   pointer-events: none;
   z-index: 0;
-  opacity: 0.08;
-  /* Знак берётся маской, а не картинкой: файл общий с шапкой и подвалом,
-     и перекрашивать его копию ради фона — лишний файл и лишний повод
-     разъехаться. Маска красится точным цветом выбранной линии. */
-  background: var(--line-color, var(--brand-500));
-  -webkit-mask: var(--wm-src) center / contain no-repeat;
-  mask: var(--wm-src) center / contain no-repeat;
-  transform-origin: 50% 50%;
-  animation: rt-wave 26s ease-in-out infinite;
-  transition: background-color var(--t-slow) var(--ease);
-}
-:root[data-theme="dark"] .rt__watermark { opacity: 0.12; }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .rt__watermark { opacity: 0.12; }
+  transform: translateY(-50%);
 }
 
-/* Волна, а не вращение: знак должен дышать на краю зрения и не отвлекать
-   от заголовка, поверх которого он лежит. */
-@keyframes rt-wave {
-  0%   { transform: translate(0, -50%) rotate(-3deg) scale(1); }
-  25%  { transform: translate(1.5%, -53%) rotate(1deg) scale(1.04); }
-  50%  { transform: translate(0, -47%) rotate(4deg) scale(1.02); }
-  75%  { transform: translate(-1.5%, -52%) rotate(1deg) scale(1.05); }
-  100% { transform: translate(0, -50%) rotate(-3deg) scale(1); }
+/* Тело стекла. backdrop-filter преломляет то, что под ним, — на пустом фоне
+   эффекта не видно, поэтому под маской ещё и собственный слабый градиент. */
+.rt__watermark::before,
+.rt__watermark::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  -webkit-mask: var(--wm-src) center / contain no-repeat;
+  mask: var(--wm-src) center / contain no-repeat;
 }
+.rt__watermark::before {
+  background:
+    linear-gradient(150deg,
+      color-mix(in srgb, var(--line-color, var(--brand-500)) 16%, transparent),
+      color-mix(in srgb, var(--line-color, var(--brand-500)) 4%, transparent) 45%,
+      transparent 70%);
+  backdrop-filter: blur(9px) saturate(1.25);
+  -webkit-backdrop-filter: blur(9px) saturate(1.25);
+  animation: rt-glass-breathe 13s ease-in-out infinite;
+  transition: background var(--t-slow) var(--ease);
+}
+
+/* Блик. Узкая светлая полоса под углом, которая проходит по фигуре и
+   пропадает — как отсвет на мокром стекле. */
+.rt__watermark::after {
+  background: linear-gradient(115deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.5) 46%,
+    rgba(255, 255, 255, 0.08) 52%,
+    transparent 66%);
+  background-size: 260% 260%;
+  animation: rt-glass-sheen 17s ease-in-out infinite;
+  mix-blend-mode: screen;
+}
+
+/* Кромка. Две маски: своя минус она же, ужатая, — остаётся контур. Он и
+   расширяется, будто по краю набегает вода. */
+.rt__watermark {
+  -webkit-mask:
+    var(--wm-src) center / contain no-repeat,
+    var(--wm-src) center / var(--wm-inner, 97%) no-repeat;
+  mask:
+    var(--wm-src) center / contain no-repeat,
+    var(--wm-src) center / var(--wm-inner, 97%) no-repeat;
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  background: color-mix(in srgb, var(--line-color, var(--brand-500)) 34%, transparent);
+  animation: rt-glass-rim 13s ease-in-out infinite;
+}
+
+@keyframes rt-glass-rim {
+  0%, 100% { --wm-inner: 97.5%; opacity: 0.34; }
+  50%      { --wm-inner: 94.5%; opacity: 0.6; }
+}
+@keyframes rt-glass-breathe {
+  0%, 100% { opacity: 0.9; transform: scale(1); }
+  50%      { opacity: 1; transform: scale(1.012); }
+}
+@keyframes rt-glass-sheen {
+  0%, 100% { background-position: 120% 0%; opacity: 0; }
+  18%      { opacity: 0.5; }
+  50%      { background-position: -40% 100%; opacity: 0.28; }
+  72%      { opacity: 0; }
+}
+
+/* На тёмном фоне стекло должно быть плотнее — иначе от него не остаётся
+   ничего, кроме еле различимой кромки. */
+:root[data-theme="dark"] .rt__watermark::before { backdrop-filter: blur(11px) saturate(1.4); }
+:root[data-theme="dark"] .rt__watermark { background: color-mix(in srgb, var(--line-color, var(--brand-500)) 46%, transparent); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .rt__watermark::before { backdrop-filter: blur(11px) saturate(1.4); }
+  :root:not([data-theme="light"]) .rt__watermark { background: color-mix(in srgb, var(--line-color, var(--brand-500)) 46%, transparent); }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .rt__watermark { animation: none; transform: translate(0, -50%); }
+  /* Дыхание и блик выключены — стекло остаётся стеклом, просто неподвижным. */
+  .rt__watermark,
+  .rt__watermark::before,
+  .rt__watermark::after { animation: none; }
+  .rt__watermark::after { opacity: 0.22; }
+}
+
+@media (max-width: 900px) {
+  /* На телефоне колонка одна, знак садится под сам заголовок — сдвигаем его
+     выше, к первым строкам, и оставляем поменьше. */
+  .rt__watermark { left: -6%; width: 92vw; top: 26%; }
 }
 
 /* Содержимое поверх знака: без этого заголовок оказывается под ним. */
@@ -234,11 +316,11 @@
      (stroke-dashoffset в schematic.js), а не плавное утолщение. */
   transition: opacity var(--t-slow) var(--ease);
 }
-.rt__map .rt-track.is-dim { opacity: 0.22; }
+.rt__map .rt-track.is-dim { opacity: var(--track-dim, 0.22); }
 .rt__map .rt-scale { fill: var(--plate-dim); font-size: 19px; letter-spacing: 2.5px; }
-.rt__map .rt-guide { stroke: #22303c; stroke-width: 1.5; stroke-dasharray: 2 7; }
+.rt__map .rt-guide { stroke: var(--plate-line); stroke-width: 1.5; stroke-dasharray: 2 7; }
 .rt__map .rt-name { font-size: 17px; letter-spacing: 2px; font-weight: 500; transition: opacity var(--t-slow) var(--ease); }
-.rt__map .rt-name.is-dim { opacity: 0.45; }
+.rt__map .rt-name.is-dim { opacity: calc(var(--track-dim, 0.22) + 0.3); }
 .rt__map .rt-leader { stroke: var(--plate-ink); stroke-width: 2; }
 .rt__map .rt-flagbox { fill: var(--plate-ink); }
 .rt__map .rt-flagtext { fill: var(--plate); font-size: 15px; letter-spacing: 1px; }
