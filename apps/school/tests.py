@@ -782,20 +782,30 @@ class MobileHeaderTests(TestCase):
         between = html[toggle:group]
         self.assertIn("</button>", between)
 
-    def test_the_mark_is_paint_and_not_an_outline(self):
-        """Размытие на самом замаскированном блоке оставляет край силуэта
-        резким: фильтр применяется к содержимому раньше маски. Заливка
-        обязана жить в потомке, а blur — на родителе.
+    def test_the_mark_speaks_the_same_language_as_the_map(self):
+        """Знак набран тем же штрихом, что направляющие на плите.
 
-        Стеклянный вариант со световым градиентом и бликом пробовали —
-        знак получился слишком заметным и спорил с заголовком. Вернулись
-        к размытой краске.
+        До этого пробовали две крайности и обе мимо: размытая краска на
+        blur(22px) — диапазон расфокуса, форма потеряна, шум остался, и знак
+        читался пятном; объёмное стекло с бликом, наоборот, стало предметом и
+        начало спорить с заголовком.
         """
         css = self.source("static", "css", "home.css")
         block = css.split(".rt__watermark {")[1].split("}")[0]
-        self.assertIn("filter: blur", block)
-        self.assertNotIn("mask:", block, "маска на блоке с фильтром снова даст резкий контур")
+        self.assertIn("repeating-linear-gradient", block, "вес знака держит пунктир, а не заливка")
+        self.assertNotIn("filter: blur", block, "расфокус превращает знак в пятно")
 
-        inner = css.split(".rt__watermark::before {")[1].split("}")[0]
-        self.assertIn("mask:", inner)
-        self.assertIn("transparent", inner, "краска должна перетекать в прозрачное")
+    def test_the_mark_dissolves_instead_of_being_cut_out(self):
+        """Одна маска обрывает штрих по контуру резко, и знак превращается в
+        вырезанную наклейку. Вторая, градиентная, гасит его к краям."""
+        css = self.source("static", "css", "home.css")
+        block = css.split(".rt__watermark {")[1].split("}")[0]
+        self.assertIn("radial-gradient", block)
+        self.assertIn("mask-composite: intersect", block)
+        self.assertIn("-webkit-mask-composite: source-in", block, "без префикса Safari покажет только одну маску")
+
+    def test_the_mark_stays_behind_and_ignores_clicks(self):
+        css = self.source("static", "css", "home.css")
+        block = css.split(".rt__watermark {")[1].split("}")[0]
+        self.assertIn("pointer-events: none", block)
+        self.assertIn("z-index: 0", block)

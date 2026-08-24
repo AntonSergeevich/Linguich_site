@@ -50,20 +50,23 @@
 }
 .rt__hint { max-width: 34ch; color: var(--muted); font-size: var(--step--1); }
 
-/* --- Знак школы краской ----------------------------------------------------
+/* --- Знак школы пунктиром ---------------------------------------------------
 
-   Знак отвечает на вопрос «куда я попал» раньше, чем посетитель начнёт
-   разбираться в линиях. Но он фон, а не элемент.
+   Знак отвечает на «куда я попал» раньше, чем посетитель разберётся в линиях,
+   но остаётся фоном.
 
-   Первая попытка сделала из него стекло с кромкой — контур получился жёстче
-   всего остального на экране и читался как обводка, а не как фактура.
-   Теперь это краска: тот же приём, что у кляксы справа, — перетекание от
-   прозрачного к брендовому и никакой резкой границы.
+   До этого пробовали две крайности и обе мимо. Размытая краска на blur(22px) —
+   диапазон расфокуса: форма уже потеряна, цветной шум остался, и знак читался
+   грязным пятном. Объёмное стекло с бликом — наоборот, стало предметом и
+   начало спорить с заголовком.
 
-   Заливка живёт в ::before, а размытие — на самом блоке. Порядок важен:
-   фильтр применяется к содержимому раньше маски, поэтому blur прямо на
-   замаскированном элементе размывает заливку внутри, а край силуэта
-   оставляет бритвенно резким. Размывать надо уже обрезанный результат.
+   Теперь знак набран тем же штрихом, что направляющие на плите (.rt-guide):
+   заливки нет вовсе, вес держит плотность пунктира. Первый экран собран одним
+   языком — линии, точки, пунктир, — а не тремя разными.
+
+   Маска двойная. Силуэт задаёт форму, радиальный градиент гасит её к краям:
+   без него штрих обрывается по контуру резко, и знак снова превращается в
+   вырезанную наклейку. Пересечение двух масок даёт растворение.
 
    Цвет тянется за выбранной линией: --line-color на секции ставит скрипт
    схемы. Знак не кликается и не читается скринридером.  */
@@ -72,64 +75,53 @@
 
 .rt__watermark {
   position: absolute;
-  /* Внутри текста: колонка заголовка начинается от контейнера, знак лежит
-     под ней и уходит вправо под подзаголовок. */
-  left: 8%;
-  top: 40%;
-  width: clamp(20rem, 33vw, 38rem);
+  left: 2%;
+  top: 50%;
+  width: 88%;
   aspect-ratio: 505 / 424;
   transform: translateY(-50%);
   pointer-events: none;
   z-index: 0;
-  /* Размывается уже замаскированная заливка — силуэт перестаёт быть
-     контуром и становится разливом. */
-  filter: blur(22px);
-  opacity: 0.34;
-  animation: rt-paint 24s ease-in-out infinite;
-}
+  /* Штрих горизонтальный: вертикальный рвёт силуэт на «дождь» и знак не
+     узнаётся, горизонтальный ложится по форме.
 
-.rt__watermark::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  -webkit-mask: var(--wm-src) center / contain no-repeat;
-  mask: var(--wm-src) center / contain no-repeat;
-  /* Перетекание от прозрачного к брендовому. Три остановки вместо двух:
-     с двумя переход выглядит линейкой, а не разливом. */
-  background:
-    radial-gradient(120% 100% at 24% 20%,
-      color-mix(in srgb, var(--line-color, var(--brand-500)) 85%, transparent) 0%,
-      color-mix(in srgb, var(--line-color, var(--brand-500)) 38%, transparent) 42%,
-      transparent 80%),
-    linear-gradient(155deg,
-      transparent 6%,
-      color-mix(in srgb, var(--line-color, var(--brand-500)) 46%, transparent) 60%,
-      transparent 97%);
+     Период 18px вместо 14: на 14 полосы попадали в шаг строк абзаца и
+     начинали с ним переливаться. */
+  background: repeating-linear-gradient(180deg,
+    var(--line-color, var(--brand-500)) 0 2px,
+    transparent 2px 18px);
+  opacity: 0.11;
+  -webkit-mask:
+    var(--wm-src) center / contain no-repeat,
+    radial-gradient(closest-side, #000 34%, rgba(0, 0, 0, 0.35) 72%, transparent 100%);
+  mask:
+    var(--wm-src) center / contain no-repeat,
+    radial-gradient(closest-side, #000 34%, rgba(0, 0, 0, 0.35) 72%, transparent 100%);
+  -webkit-mask-composite: source-in;
+  mask-composite: intersect;
+  /* Дрейф вместо «дыхания»: штрих едет на один период за 40s, размер и
+     положение силуэта не меняются — знак не мигает на периферии зрения. */
+  animation: rt-drift 40s linear infinite;
   transition: background var(--t-slow) var(--ease);
 }
 
-/* На тёмном фоне краски почти не видно — поднимаем плотность. */
-:root[data-theme="dark"] .rt__watermark { opacity: 0.5; }
+/* На тёмном фоне тот же процент почти не виден. */
+:root[data-theme="dark"] .rt__watermark { opacity: 0.2; }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .rt__watermark { opacity: 0.5; }
+  :root:not([data-theme="light"]) .rt__watermark { opacity: 0.2; }
 }
 
-/* Медленный разлив: пятно чуть дышит и смещается, как краска по воде. */
-@keyframes rt-paint {
-  0%, 100% { transform: translateY(-50%) scale(1) rotate(0deg); filter: blur(22px); }
-  33%      { transform: translateY(-53%) scale(1.06) rotate(2deg); filter: blur(28px); }
-  66%      { transform: translateY(-47%) scale(1.03) rotate(-1.5deg); filter: blur(19px); }
-}
+@keyframes rt-drift { to { background-position: 0 18px; } }
 
 @media (prefers-reduced-motion: reduce) {
   .rt__watermark { animation: none; }
 }
 
 @media (max-width: 900px) {
-  /* Колонка одна, и знак во всю ширину перетягивает на себя весь экран.
-     Оставляем пятно поменьше, под первыми строками заголовка. */
-  .rt__watermark { left: 2%; width: 74vw; top: 26%; opacity: 0.26; }
-  :root[data-theme="dark"] .rt__watermark { opacity: 0.4; }
+  /* Одна колонка: знак во всю ширину перетягивает на себя экран, и текст
+     идёт прямо по штриху — гасим сильнее, чем на десктопе. */
+  .rt__watermark { left: 4%; width: 82vw; top: 30%; opacity: 0.07; }
+  :root[data-theme="dark"] .rt__watermark { opacity: 0.14; }
 }
 
 /* Содержимое поверх знака: без этого заголовок оказывается под ним. */
