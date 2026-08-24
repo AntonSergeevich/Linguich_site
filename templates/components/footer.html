@@ -63,10 +63,12 @@
           вёрстке: подрядчик может смениться, лезть за этим в код незачем.
         {% endcomment %}
         <span class="site-footer__by">
-          {{ site.developer_note|default:"Сайт и система" }} —
+          {{ site.developer_note }} —
           {% if site.developer_url %}
-            <a href="{{ site.developer_url }}" target="_blank" rel="noopener">{{ site.developer_name }}</a>
-          {% else %}{{ site.developer_name }}{% endif %}
+            <a class="site-footer__dev" href="{{ site.developer_url }}" target="_blank" rel="noopener">{{ site.developer_name }}</a>
+          {% else %}
+            <b class="site-footer__dev">{{ site.developer_name }}</b>
+          {% endif %}{% if site.developer_tagline %}: {{ site.developer_tagline }}{% endif %}
         </span>
       {% endif %}
     </div>

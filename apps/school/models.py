@@ -70,7 +70,13 @@ class SiteSettings(models.Model):
     )
     developer_url = models.URLField(_("Разработчик: ссылка"), blank=True)
     developer_note = models.CharField(
-        _("Разработчик: что сделано"), max_length=60, blank=True, default="Сайт и система",
+        _("Разработчик: что сделано"), max_length=60, blank=True,
+        default="Сайт и система работы",
+    )
+    developer_tagline = models.CharField(
+        _("Разработчик: чем занимается"), max_length=120, blank=True,
+        default="разбор процессов и рабочие системы для бизнеса",
+        help_text=_("Идёт после двоеточия, мелким шрифтом."),
     )
 
     class Meta:

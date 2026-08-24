@@ -223,16 +223,35 @@
     const burger = document.querySelector("[data-burger]");
     const menu = document.querySelector(".mobile-menu");
     if (burger && menu) {
+      // Прокрутку запирает корневой элемент, а не body.
+      //
+      // Регрессия: overflow: hidden на body делал сам body полосой прокрутки —
+      // у html стоит overflow-x: clip, поэтому наружу к окну свойство больше
+      // не всплывает. Липкая шапка начинала липнуть к прокрученному боксу
+      // body и мгновенно уезжала вверх вместе с бургером.
+      function lock(on) {
+        document.documentElement.classList.toggle("is-locked", on);
+      }
       burger.addEventListener("click", function () {
         const open = menu.classList.toggle("is-open");
         burger.setAttribute("aria-expanded", String(open));
-        document.body.style.overflow = open ? "hidden" : "";
+        lock(open);
       });
       menu.querySelectorAll("a").forEach(function (link) {
         link.addEventListener("click", function () {
           menu.classList.remove("is-open");
-          document.body.style.overflow = "";
+          burger.setAttribute("aria-expanded", "false");
+          lock(false);
         });
+      });
+      // Escape закрывает меню: открытое на весь экран, оно иначе ловит
+      // человека без единого пути назад, кроме бургера.
+      document.addEventListener("keydown", function (event) {
+        if (event.key === "Escape" && menu.classList.contains("is-open")) {
+          menu.classList.remove("is-open");
+          burger.setAttribute("aria-expanded", "false");
+          lock(false);
+        }
       });
     }
 

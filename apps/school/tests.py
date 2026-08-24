@@ -742,3 +742,51 @@ class HomeIdentityTests(TestCase):
         response = self.client.get(reverse("school:home"))
         self.assertContains(response, "Система Порядок")
         self.assertContains(response, "https://example.com")
+
+
+class MobileHeaderTests(TestCase):
+    """Шапка на телефоне: два бага, из-за которых ей нельзя было пользоваться."""
+
+    def source(self, *parts):
+        from django.conf import settings
+
+        return (settings.BASE_DIR.joinpath(*parts)).read_text(encoding="utf-8")
+
+    def test_the_menu_locks_the_root_and_not_the_body(self):
+        """Регрессия: overflow: hidden на body делал сам body полосой
+        прокрутки — у html стоит overflow-x: clip, и свойство больше не
+        всплывает наружу к окну. Липкая шапка начинала липнуть к
+        прокрученному боксу body и мгновенно уезжала вверх с бургером."""
+        js = self.source("static", "js", "app.js")
+        burger = js.split("[data-burger]")[1].split("data-cab-burger")[0]
+        self.assertNotIn(
+            "body.style.overflow", burger,
+            "прокрутку при открытом меню запирает корень, а не body",
+        )
+        self.assertIn("documentElement.classList.toggle(\"is-locked\"", burger)
+        self.assertIn("html.is-locked", self.source("static", "css", "base.css"))
+
+    def test_the_theme_toggle_survives_a_narrow_screen(self):
+        """Переключатель лежал в группе действий шапки, а она на узком
+        экране скрывается целиком — вместе со сменой темы."""
+        html = self.source("templates", "components", "header.html")
+        toggle = html.index("header-theme")
+        group = html.index("header-actions__desktop")
+        self.assertLess(toggle, group, "переключатель должен стоять до скрываемой группы")
+
+        # И он не внутри неё: проверяем, что между ними закрылся тег кнопки.
+        between = html[toggle:group]
+        self.assertIn("</button>", between)
+
+    def test_the_mark_is_paint_and_not_an_outline(self):
+        """Размытие на самом замаскированном блоке оставляет край силуэта
+        резким: фильтр применяется к содержимому раньше маски. Заливка
+        обязана жить в потомке, а blur — на родителе."""
+        css = self.source("static", "css", "home.css")
+        block = css.split(".rt__watermark {")[1].split("}")[0]
+        self.assertIn("filter: blur", block)
+        self.assertNotIn("mask:", block, "маска на блоке с фильтром снова даст резкий контур")
+
+        inner = css.split(".rt__watermark::before {")[1].split("}")[0]
+        self.assertIn("mask:", inner)
+        self.assertIn("transparent", inner, "краска должна перетекать в прозрачное")

@@ -218,3 +218,11 @@ code, kbd { font-family: var(--font-mono); font-size: 0.9em; }
   transition: opacity var(--t-slow) var(--ease-out), transform var(--t-slow) var(--ease-out);
 }
 .js .reveal.is-visible { opacity: 1; transform: none; }
+
+/* Запертая прокрутка при открытом мобильном меню.
+
+   Запирать надо корень, а не body: у html стоит overflow-x: clip, поэтому
+   overflow с body наружу к окну не всплывает — body просто сам становится
+   полосой прокрутки. Липкая шапка начинала липнуть к прокрученному боксу
+   body и уезжала вверх вместе с бургером. */
+html.is-locked { overflow: hidden; }

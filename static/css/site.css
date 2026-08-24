@@ -98,6 +98,10 @@
    переключаемся на бургер, иначе шапка выдавливает страницу вбок. */
 @media (max-width: 1240px) {
   .nav--main, .header-actions__desktop { display: none; }
+  /* Переключатель темы остаётся видимым и прижимается к бургеру: без этого
+     он уезжал бы к логотипу, потому что меню и действия рядом скрыты. */
+  .header-theme { margin-left: auto; }
+  .header-theme + .burger { margin-left: var(--s-2); }
   .burger {
     display: inline-flex; align-items: center; justify-content: center;
     width: 44px; height: 44px; border-radius: var(--r-md);
@@ -415,7 +419,15 @@
 }
 
 .site-footer__by { color: #8AA9B6; }
-.site-footer__by a { font-size: inherit; }
+/* Имя подрядчика выделено, остальное — обычный мелкий текст подвала:
+   подпись должна читаться, но не спорить с контактами школы. */
+.site-footer__dev {
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: #D8E6EC;
+  font-size: inherit;
+}
+a.site-footer__dev:hover { color: #fff; }
 
 .site-footer__grid {
   display: grid;

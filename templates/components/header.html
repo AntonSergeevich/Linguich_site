@@ -29,11 +29,17 @@
       <a href="{% url 'school:contacts' %}">Контакты</a>
     </nav>
 
+    {% comment %}
+      Переключатель темы живёт отдельно от остальных действий шапки: та группа
+      прячется на узком экране целиком, и вместе с ней пропадала смена темы —
+      на телефоне её было не найти. Здесь он виден на любой ширине.
+    {% endcomment %}
+    <button class="theme-toggle header-theme" data-theme-toggle type="button" aria-label="Сменить тему">
+      <svg class="icon theme-toggle__sun"><use href="#i-sun"/></svg>
+      <svg class="icon theme-toggle__moon"><use href="#i-moon"/></svg>
+    </button>
+
     <div class="row row--nowrap header-actions__desktop" style="gap:var(--s-2)">
-      <button class="theme-toggle" data-theme-toggle type="button" aria-label="Сменить тему">
-        <svg class="icon theme-toggle__sun"><use href="#i-sun"/></svg>
-        <svg class="icon theme-toggle__moon"><use href="#i-moon"/></svg>
-      </button>
       <a class="btn btn--ghost btn--sm header-phone" href="tel:{{ site.phone }}" title="{{ site.phone }}">
         <svg class="icon icon--sm"><use href="#i-phone"/></svg>
         <span class="header-phone__text">{{ site.phone }}</span>
@@ -71,11 +77,10 @@
       Кнопка темы в шапке живёт в блоке, который на телефоне скрыт, —
       без этой копии сменить тему с мобильного было нельзя вообще.
     {% endcomment %}
-    <button class="btn btn--quiet btn--block mobile-menu__theme" data-theme-toggle type="button">
-      <svg class="icon theme-toggle__sun"><use href="#i-sun"/></svg>
-      <svg class="icon theme-toggle__moon"><use href="#i-moon"/></svg>
-      <span class="theme-toggle__label--light">Светлая тема</span>
-      <span class="theme-toggle__label--dark">Тёмная тема</span>
-    </button>
+{% comment %}
+      Переключателя темы здесь больше нет: он переехал в шапку, где виден
+      всегда, а не только с открытым меню. Два одинаковых органа управления —
+      лишний выбор на ровном месте.
+    {% endcomment %}
   </div>
 </div>
