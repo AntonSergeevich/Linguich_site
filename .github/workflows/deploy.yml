@@ -1,0 +1,92 @@
+# Тесты на каждый пуш в master и выкатка, если они прошли.
+#
+# Сервер не доверяет GitHub ничего, кроме одного действия. Ключ выкатки на
+# сервере прописан с restrict и command="…/deploy.sh": что бы ни прислал
+# раннер, по этому ключу выполнится ровно скрипт выкатки — ни шелла, ни
+# проброса портов. Утечёт ключ — худшее, что с ним сделают, это выкатят
+# текущий master ещё раз.
+#
+# Настройка секретов — в deploy/AUTODEPLOY.md.
+
+name: Тесты и выкатка
+
+on:
+  push:
+    branches: [master]
+  # Кнопка «Run workflow» во вкладке Actions: выкатить заново, ничего не пуша.
+  workflow_dispatch:
+
+# Два пуша подряд не должны выкатываться одновременно: второй дождётся
+# первого. Отменять начатую выкатку нельзя — она могла остановиться между
+# миграцией и перезапуском.
+concurrency:
+  group: production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Тесты
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      # Та же ветка Python, что на сервере: Ubuntu 24.04 ставит 3.12.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Зависимости
+        run: pip install -r requirements.txt
+
+      - name: Проверка проекта
+        run: python manage.py check
+
+      # Забытая миграция — самая частая причина упавшей выкатки: код ждёт
+      # поле, которого в базе нет. Ловим до сервера, а не на нём.
+      - name: Миграции не забыты
+        run: python manage.py makemigrations --check --dry-run
+
+      - name: Тесты
+        run: python manage.py test --parallel
+
+  deploy:
+    name: Выкатка
+    needs: test
+    runs-on: ubuntu-24.04
+    environment:
+      name: production
+      url: https://linguich.ru/
+    steps:
+      - name: Ключ выкатки и отпечаток сервера
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy
+          chmod 600 ~/.ssh/deploy
+          # Отпечаток сервера заранее известен: без него раннер подключился
+          # бы к кому угодно, кто ответит по этому адресу.
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+      - name: Выкатка на сервер
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        # Команда после адреса не нужна: сервер по этому ключу сам запускает
+        # deploy.sh и игнорирует всё, что пришлёт клиент. Вывод скрипта
+        # идёт прямо в лог этого шага, код выхода — в статус выкатки.
+        run: |
+          ssh -i ~/.ssh/deploy \
+              -o BatchMode=yes \
+              -o StrictHostKeyChecking=yes \
+              -o ServerAliveInterval=30 \
+              "$DEPLOY_USER@$DEPLOY_HOST"
+
+      - name: Убрать ключ с раннера
+        if: always()
+        run: rm -f ~/.ssh/deploy

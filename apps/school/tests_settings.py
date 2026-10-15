@@ -138,3 +138,42 @@ class SpacingUtilitiesTests(SimpleTestCase):
             missing,
             f"в разметке есть классы отступов, которых нет в CSS: {', '.join(missing)}",
         )
+
+
+class AutoDeployTests(SimpleTestCase):
+    """Автовыкатка держится на трёх свойствах, и каждое легко потерять
+    одной правкой YAML, не заметив: выкатка только после тестов, сервер
+    опознаётся по заранее известному отпечатку, и две выкатки не идут разом.
+
+    Читаем файл как текст, а не разбираем YAML: тащить PyYAML в зависимости
+    сайта ради одного теста незачем.
+    """
+
+    def workflow(self):
+        from django.conf import settings
+
+        path = settings.BASE_DIR / ".github" / "workflows" / "deploy.yml"
+        return path.read_text(encoding="utf-8")
+
+    def deploy_job(self):
+        return self.workflow().split("\n  deploy:")[1]
+
+    def test_deploy_waits_for_green_tests(self):
+        self.assertIn("needs: test", self.deploy_job(), "красные тесты не должны доходить до сервера")
+
+    def test_the_server_is_recognised_by_a_pinned_key(self):
+        """StrictHostKeyChecking=no подключил бы раннер к любому, кто ответит
+        по этому адресу, и отдал бы ему ключ выкатки."""
+        job = self.deploy_job()
+        self.assertIn("StrictHostKeyChecking=yes", job)
+        self.assertNotIn("StrictHostKeyChecking=no", job)
+        self.assertIn("DEPLOY_KNOWN_HOSTS", job)
+
+    def test_a_running_deploy_is_never_cancelled(self):
+        """Отменённая выкатка может остановиться между миграцией и
+        перезапуском — база уже новая, код ещё старый."""
+        self.assertIn("cancel-in-progress: false", self.workflow())
+
+    def test_missing_migrations_are_caught_before_the_server(self):
+        test_job = self.workflow().split("\n  test:")[1].split("\n  deploy:")[0]
+        self.assertIn("makemigrations --check", test_job)
