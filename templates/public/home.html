@@ -24,7 +24,12 @@
           <h3>{{ language.name }}</h3>
           <p>{{ language.short_pitch }}</p>
           <span class="lang-card__more">
-            {{ language.course_count }} {{ language.course_count|plural:"курс,курса,курсов" }}
+            {% if language.course_count %}
+              {{ language.course_count }} {{ language.course_count|plural:"курс,курса,курсов" }}
+            {% else %}
+              {# «0 курсов» звучит как «здесь ничего нет», хотя группу соберут под запрос. #}
+              Соберём группу
+            {% endif %}
             <svg class="icon icon--sm"><use href="#i-arrow"/></svg>
           </span>
         </a>
@@ -44,7 +49,7 @@
       <a class="btn btn--ghost" href="{% url 'school:courses' %}">Все курсы</a>
     </div>
 
-    <div class="grid grid-3">
+    <div class="grid grid-3 swipe-row" data-swipe-row>
       {% for course in featured_courses %}
         <a class="course-card reveal" href="{{ course.get_absolute_url }}">
           <div class="course-card__top">
@@ -83,7 +88,7 @@
       <p class="lead">Первое занятие бесплатное на любом тарифе.</p>
     </div>
 
-    <div class="grid grid-3">
+    <div class="grid grid-3 swipe-row" data-swipe-row>
       {% for tariff in tariffs %}
         {% comment %}
           Выделенный тариф отмечает школа в админке. Подсвечивать среднюю
@@ -184,7 +189,7 @@
       <div class="eyebrow" style="justify-content:center">Команда</div>
       <h2>Преподаватели, к которым возвращаются</h2>
     </div>
-    <div class="grid grid-tiles">
+    <div class="grid grid-tiles swipe-row" data-swipe-row>
       {% for teacher in teachers %}
         <div class="card teacher-card reveal">
           {% if teacher.avatar %}
@@ -253,7 +258,7 @@
       <div class="eyebrow" style="justify-content:center">Отзывы</div>
       <h2>Что говорят ученики</h2>
     </div>
-    <div class="grid grid-3">
+    <div class="grid grid-3 swipe-row" data-swipe-row>
       {% for review in reviews %}
         <div class="review reveal">
           <div class="review__stars">{% for _ in "12345"|make_list %}{% if forloop.counter <= review.rating %}★{% else %}☆{% endif %}{% endfor %}</div>

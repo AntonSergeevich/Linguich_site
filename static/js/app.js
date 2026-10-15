@@ -700,6 +700,42 @@
     });
   }
 
+  // --- Карусели на телефоне ----------------------------------------------
+  // Точки под лентой карточек: сколько их и где ты сейчас. Ширина ленты
+  // меняется при повороте телефона, поэтому считаем по ходу, а не один раз.
+  function initSwipeRows() {
+    document.querySelectorAll("[data-swipe-row]").forEach(function (row) {
+      const cards = Array.from(row.children);
+      if (cards.length < 2) return;
+      const dots = document.createElement("div");
+      dots.className = "swipe-dots";
+      dots.setAttribute("aria-hidden", "true");
+      cards.forEach(function () { dots.appendChild(document.createElement("span")); });
+      row.after(dots);
+
+      let frame = 0;
+      function update() {
+        frame = 0;
+        const left = row.getBoundingClientRect().left;
+        let current = 0;
+        let best = Infinity;
+        cards.forEach(function (card, index) {
+          const distance = Math.abs(card.getBoundingClientRect().left - left);
+          if (distance < best) { best = distance; current = index; }
+        });
+        // Дошли до конца — последняя карточка, даже если она не у левого края.
+        if (row.scrollLeft + row.clientWidth >= row.scrollWidth - 4) current = cards.length - 1;
+        Array.from(dots.children).forEach(function (dot, index) {
+          dot.classList.toggle("is-active", index === current);
+        });
+      }
+      row.addEventListener("scroll", function () {
+        if (!frame) frame = requestAnimationFrame(update);
+      }, { passive: true });
+      update();
+    });
+  }
+
   // --- Лента дней в расписании -------------------------------------------
   // Клик по дню оставляет в списке только его занятия, лента тянется мышью
   // и крутится колесом. Стрелки недели остаются — они про другую неделю.
@@ -980,6 +1016,7 @@
     initDayStrip();
     initCredentials();
     initWeekSwipe();
+    initSwipeRows();
     bindAsyncForms(document);
     bindActions(document);
   }

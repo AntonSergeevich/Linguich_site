@@ -39,7 +39,7 @@ def home(request):
         "teachers": _teachers()[:4],
         "reviews": Review.objects.filter(is_published=True)[:3],
         "faqs": FAQ.objects.filter(is_published=True)[:6],
-        "promos": Promo.objects.filter(is_active=True)[:2],
+        "promos": Promo.current()[:2],
         "starting_soon": starting_soon,
         "schematic": build_schematic(),
         # «Сколько стоит» — первый вопрос посетителя. Пока за ответом нужно
@@ -107,12 +107,7 @@ def prices(request):
 
 
 def promos(request):
-    today = timezone.localdate()
-    return render(request, "public/promos.html", {
-        "promos": Promo.objects.filter(is_active=True).filter(
-            Q(ends_at__isnull=True) | Q(ends_at__gte=today)
-        ),
-    })
+    return render(request, "public/promos.html", {"promos": Promo.current()})
 
 
 def contacts(request):

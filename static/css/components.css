@@ -506,3 +506,42 @@ a.stat--link:active { transform: scale(0.98); }
   .alert { flex-wrap: wrap; }
   .alert > .btn { margin-left: auto; }
 }
+
+/* --- Карусель на телефоне ----------------------------------------------
+   Сетка карточек на узком экране встаёт лентой со свайпом. Следующая
+   карточка выглядывает справа — без подсказки ясно, что можно листать.
+   Шесть курсов столбиком занимали три экрана; лентой — один. */
+.swipe-dots { display: none; }
+@media (max-width: 640px) {
+  .swipe-row {
+    display: flex;
+    gap: var(--s-3);
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x mandatory;
+    scroll-padding-inline: 1.25rem;
+    margin-inline: calc(-1 * 1.25rem);
+    padding: var(--s-1) 1.25rem var(--s-3);
+    scrollbar-width: none;
+  }
+  .swipe-row::-webkit-scrollbar { display: none; }
+  .swipe-row > * {
+    flex: 0 0 84%;
+    scroll-snap-align: start;
+    margin: 0;
+  }
+  /* Появление при прокрутке страницы карточкам ленты не подходит: ушедшие
+     вбок не пересекаются с экраном и так и оставались бы прозрачными. */
+  .js .swipe-row > .reveal { opacity: 1; transform: none; }
+
+  .swipe-dots {
+    display: flex; justify-content: center; gap: 6px;
+    margin-top: var(--s-2);
+  }
+  .swipe-dots span {
+    width: 6px; height: 6px; border-radius: 999px;
+    background: var(--line);
+    transition: width var(--t-fast) var(--ease), background var(--t-fast) var(--ease);
+  }
+  .swipe-dots span.is-active { width: 18px; background: var(--brand-500); }
+}

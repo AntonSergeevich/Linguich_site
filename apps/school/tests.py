@@ -126,6 +126,27 @@ class PublicPagesTests(TestCase):
         ]:
             self.assertEqual(self.client.get(url).status_code, 200, url)
 
+    def test_expired_promo_is_gone_from_every_page(self):
+        from datetime import timedelta
+        from django.utils import timezone
+
+        Promo.objects.create(title="Ранняя запись", slug="early",
+                             ends_at=timezone.localdate() - timedelta(days=1))
+        for name in ("school:home", "school:promos"):
+            html = self.client.get(reverse(name)).content.decode()
+            self.assertIn("Приведи друга", html)
+            self.assertNotIn("Ранняя запись", html, name)
+
+    def test_language_without_courses_invites_instead_of_saying_zero(self):
+        Language.objects.create(name="Чешский", slug="cz")
+        html = self.client.get(reverse("school:home")).content.decode()
+        self.assertNotIn("0 курсов", html)
+        self.assertIn("Соберём группу", html)
+
+    def test_long_lists_on_the_home_page_swipe_on_a_phone(self):
+        html = self.client.get(reverse("school:home")).content.decode()
+        self.assertGreaterEqual(html.count("data-swipe-row"), 3)
+
     def test_no_template_syntax_leaks_into_the_page(self):
         """Регрессия: многострочный {# … #} Django не считает комментарием
         и выводит его текст прямо на страницу."""

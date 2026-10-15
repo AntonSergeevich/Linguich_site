@@ -254,6 +254,21 @@ class Promo(models.Model):
     def __str__(self):
         return self.title
 
+    @classmethod
+    def current(cls):
+        """Акции, которые можно показывать сегодня: включены и не кончились.
+
+        Одно место на весь сайт. Главная раньше брала просто включённые —
+        и в октябре обещала «цену до 31 августа», хотя страница акций ту же
+        акцию уже прятала."""
+        from django.db.models import Q
+        from django.utils import timezone
+
+        today = timezone.localdate()
+        return cls.objects.filter(is_active=True).filter(
+            Q(ends_at__isnull=True) | Q(ends_at__gte=today)
+        ).filter(Q(starts_at__isnull=True) | Q(starts_at__lte=today))
+
 
 class Review(models.Model):
     author_name = models.CharField(_("Имя"), max_length=120)
