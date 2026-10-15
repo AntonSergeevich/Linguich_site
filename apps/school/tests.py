@@ -767,7 +767,10 @@ class MobileHeaderTests(TestCase):
             "body.style.overflow", burger,
             "прокрутку при открытом меню запирает корень, а не body",
         )
-        self.assertIn("documentElement.classList.toggle(\"is-locked\"", burger)
+        self.assertIn("lockScroll", burger)
+        lock = js.split("function lockScroll")[1].split("\n  }")[0]
+        self.assertIn("documentElement.classList.toggle(\"is-locked\"", lock)
+        self.assertNotIn("body.style.overflow", js, "модальные окна запирают корень так же")
         self.assertIn("html.is-locked", self.source("static", "css", "base.css"))
 
     def test_the_theme_toggle_survives_a_narrow_screen(self):

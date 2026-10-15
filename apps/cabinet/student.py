@@ -333,9 +333,13 @@ def cancel_api(request, pk):
 @login_required
 def notifications(request):
     items = Notification.objects.filter(recipient=request.user, channel="inapp").order_by("-created_at")[:60]
-    Notification.objects.filter(recipient=request.user, channel="inapp", read_at__isnull=True).update(
-        read_at=timezone.now()
-    )
+    # Предзагрузка браузера — не просмотр. Страница исключена из правил
+    # предзагрузки, но заголовок проверяем всё равно: помечать прочитанным то,
+    # чего человек не видел, нельзя ни при каких настройках.
+    if not request.headers.get("Sec-Purpose", "").startswith("prefetch"):
+        Notification.objects.filter(recipient=request.user, channel="inapp", read_at__isnull=True).update(
+            read_at=timezone.now()
+        )
     return render(request, "cabinet/notifications.html", cabinet_context(request, items=items))
 
 

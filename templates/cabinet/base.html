@@ -40,9 +40,16 @@
         <svg class="icon icon--sm theme-toggle__sun"><use href="#i-sun"/></svg>
         <svg class="icon icon--sm theme-toggle__moon"><use href="#i-moon"/></svg>
       </button>
-      <a class="btn btn--quiet btn--icon btn--sm" href="{% url 'accounts:logout' %}" title="Выйти">
-        <svg class="icon icon--sm"><use href="#i-logout"/></svg>
-      </a>
+      {% comment %}
+        Выход — форма, а не ссылка: по GET его вызывала бы любая чужая
+        страница, а предзагрузка — простое наведение мыши.
+      {% endcomment %}
+      <form method="post" action="{% url 'accounts:logout' %}" class="inline-form">
+        {% csrf_token %}
+        <button class="btn btn--quiet btn--icon btn--sm" type="submit" title="Выйти" aria-label="Выйти">
+          <svg class="icon icon--sm"><use href="#i-logout"/></svg>
+        </button>
+      </form>
     </div>
   </aside>
 

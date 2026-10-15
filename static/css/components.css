@@ -481,3 +481,15 @@ input[type="file"] { max-width: 100%; }
 .icon { width: 1.25em; height: 1.25em; flex: none; stroke-width: 1.75; }
 .icon--sm { width: 1em; height: 1em; }
 .icon--lg { width: 1.6em; height: 1.6em; }
+
+/* Форма-однокнопка, которая встаёт в строку как обычная ссылка или иконка.
+   Нужна для действий вроде «Выйти»: по смыслу ссылка, по безопасности —
+   только POST. */
+.inline-form { display: inline; margin: 0; }
+.link-button {
+  background: none; border: 0; padding: 0;
+  font: inherit; color: var(--brand-600);
+  text-decoration: underline; text-underline-offset: 0.18em;
+  cursor: pointer;
+}
+.link-button:hover { color: var(--brand-700); }

@@ -71,7 +71,14 @@ def register_view(request):
     return render(request, "registration/register.html", {"form": form})
 
 
+@require_POST
 def logout_view(request):
+    """Выход только POST-ом.
+
+    По GET выход срабатывал от любой ссылки: чужой сайт мог разлогинить
+    человека картинкой, а предзагрузка страниц по наведению разлогинивала
+    бы просто от того, что мышь прошла над кнопкой «Выйти».
+    """
     auth_logout(request)
     return redirect("school:home")
 

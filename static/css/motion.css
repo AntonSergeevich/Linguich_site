@@ -1,0 +1,119 @@
+/* ==========================================================================
+   Движение между страницами.
+
+   Сайт обычный, многостраничный, но переходы выглядят как в приложении:
+   браузер сам сшивает старую и новую страницу, шапка и боковое меню стоят
+   на месте, меняется только содержимое. Ни строчки JS на сам переход —
+   там, где браузер этого не умеет, страница просто открывается как раньше.
+   ========================================================================== */
+
+@view-transition {
+  navigation: auto;
+}
+
+/* Шапка сайта и меню кабинета одинаковы на всех страницах. Даём им имя —
+   браузер переносит их без анимации, а не гоняет вместе с содержимым.
+   Имя на странице должно быть единственным, поэтому только у этих двух. */
+.site-header { view-transition-name: site-header; }
+.cab-side    { view-transition-name: cab-side; }
+.cab-top     { view-transition-name: cab-top; }
+
+::view-transition-group(site-header),
+::view-transition-group(cab-side),
+::view-transition-group(cab-top) {
+  animation: none;
+}
+
+/* Само содержимое: старое уходит быстро, новое приходит чуть дольше и
+   снизу. Короткий уход важнее красивого прихода — иначе клик ощущается
+   задержкой, а не переходом. */
+::view-transition-old(root) {
+  animation: vt-leave 160ms var(--ease) both;
+}
+::view-transition-new(root) {
+  animation: vt-enter 280ms var(--ease-out) both;
+}
+
+@keyframes vt-leave {
+  to { opacity: 0; transform: translateY(-4px); }
+}
+@keyframes vt-enter {
+  from { opacity: 0; transform: translateY(10px); }
+}
+
+/* Пролистывание недели свайпом — сдвиг вбок по направлению жеста.
+   Тип перехода ставит скрипт перед переходом. */
+html:active-view-transition-type(week-next)::view-transition-old(root) {
+  animation: vt-out-left 200ms var(--ease) both;
+}
+html:active-view-transition-type(week-next)::view-transition-new(root) {
+  animation: vt-in-right 280ms var(--ease-out) both;
+}
+html:active-view-transition-type(week-prev)::view-transition-old(root) {
+  animation: vt-out-right 200ms var(--ease) both;
+}
+html:active-view-transition-type(week-prev)::view-transition-new(root) {
+  animation: vt-in-left 280ms var(--ease-out) both;
+}
+@keyframes vt-out-left  { to   { opacity: 0; transform: translateX(-28px); } }
+@keyframes vt-in-right  { from { opacity: 0; transform: translateX(28px); } }
+@keyframes vt-out-right { to   { opacity: 0; transform: translateX(28px); } }
+@keyframes vt-in-left   { from { opacity: 0; transform: translateX(-28px); } }
+
+/* Движение выключено системой — страницы просто сменяются. */
+@media (prefers-reduced-motion: reduce) {
+  @view-transition { navigation: none; }
+}
+
+/* --- Жесты ---------------------------------------------------------------
+
+   Пока палец ведёт панель, её переход отключён — она едет ровно за пальцем.
+   Отпустили — переход возвращается и докатывает панель до конца. */
+.is-dragging { transition: none !important; }
+
+/* Горизонтальный жест по панелям отдаём скрипту, вертикальную прокрутку
+   оставляем браузеру. Без этого браузер забирал горизонтальное движение
+   себе — под системный свайп «назад» — и посреди жеста присылал отмену:
+   меню доезжало до середины и откатывалось обратно. */
+.cab-side,
+.cab-side__scrim,
+.mobile-menu { touch-action: pan-y; }
+
+/* Тонкая полоска у левого края на телефоне: подсказывает, что меню кабинета
+   выдвигается свайпом, и даёт пальцу, за что зацепиться. */
+@media (max-width: 1024px) {
+  .cab-edge {
+    position: fixed; left: 0; top: 0; bottom: 0; width: 18px;
+    z-index: 650;
+    touch-action: pan-y;
+  }
+}
+@media (min-width: 1025px) {
+  .cab-edge { display: none; }
+}
+
+/* Ручка шторки. На телефоне модальные окна выезжают снизу и закрываются
+   свайпом вниз — за ручку и заголовок.
+
+   Тянуть за всю шторку нельзя: её содержимое само прокручивается, и
+   браузер не может одновременно листать список и отдавать то же движение
+   скрипту. Поэтому зона жеста — только верх, там прокрутки нет. */
+.sheet-grip { display: none; }
+@media (max-width: 640px) {
+  .sheet-grip {
+    display: block;
+    height: 22px;
+    margin: -12px -12px 4px;
+    touch-action: none;
+    cursor: grab;
+  }
+  .sheet-grip::before {
+    content: "";
+    display: block;
+    width: 40px; height: 4px;
+    margin: 9px auto 0;
+    border-radius: 999px;
+    background: var(--line);
+  }
+  .modal__panel > .card-head { touch-action: none; }
+}

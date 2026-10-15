@@ -3,9 +3,9 @@
 {% block page_sub %}<p class="cab-top__sub">{{ monday|date:"d.m" }} — {{ sunday|date:"d.m.Y" }}</p>{% endblock %}
 {% block page_actions %}
   <div class="segmented">
-    <a href="?week={{ week_offset|add:'-1' }}">←</a>
+    <a href="?week={{ week_offset|add:'-1' }}" data-week="prev" aria-label="Прошлая неделя">←</a>
     <a href="?week=0" class="{% if not week_offset %}is-active{% endif %}">Эта неделя</a>
-    <a href="?week={{ week_offset|add:'1' }}">→</a>
+    <a href="?week={{ week_offset|add:'1' }}" data-week="next" aria-label="Следующая неделя">→</a>
   </div>
 {% endblock %}
 

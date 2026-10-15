@@ -22,15 +22,40 @@
   <link rel="stylesheet" href="{% static 'css/base.css' %}">
   <link rel="stylesheet" href="{% static 'css/components.css' %}">
   <link rel="stylesheet" href="{% static 'css/site.css' %}">
+  <link rel="stylesheet" href="{% static 'css/motion.css' %}">
   {% block styles %}{% endblock %}
 
   {# Тему ставим до первой отрисовки, иначе будет вспышка светлого фона. #}
   <script>
     (function () {
-      var t = localStorage.getItem("linguich-theme");
-      if (t) document.documentElement.setAttribute("data-theme", t);
+      // В приватном окне Safari и при запрете хранилища localStorage
+      // бросает исключение. Без try оно обрывало скрипт до снятия no-js —
+      // и вся страница оставалась в режиме «без скриптов».
+      try {
+        var t = localStorage.getItem("linguich-theme");
+        if (t) document.documentElement.setAttribute("data-theme", t);
+      } catch (e) {}
       document.documentElement.classList.remove("no-js");
       document.documentElement.classList.add("js");
+
+      // Плавный переход между страницами. Слушатель обязан стоять здесь, в
+      // <head>: событие приходит до первой отрисовки, и отложенный скрипт его
+      // уже не застаёт.
+      window.addEventListener("pagereveal", function (event) {
+        if (!event.viewTransition) return;
+        try {
+          // Тип ставит свайп недели — страница въедет сбоку по жесту.
+          var type = sessionStorage.getItem("linguich-vt");
+          sessionStorage.removeItem("linguich-vt");
+          if (type) event.viewTransition.types.add(type);
+        } catch (e) {}
+        // «Назад» и «вперёд» телефон уже анимирует своим жестом. Второй
+        // переход поверх выглядел бы двойным, поэтому здесь его пропускаем.
+        var activation = window.navigation && window.navigation.activation;
+        if (activation && activation.navigationType === "traverse") {
+          event.viewTransition.skipTransition();
+        }
+      });
     })();
   </script>
 </head>
@@ -76,6 +101,34 @@
 {% endif %}
 
 <script src="{% static 'js/app.js' %}" defer></script>
+
+{% comment %}
+  Предзагрузка страниц по наведению. Пока человек ведёт мышь к ссылке или
+  касается её пальцем, браузер уже забирает следующую страницу — переход
+  срабатывает почти мгновенно. Только prefetch, без prerender: страница не
+  исполняется заранее, поэтому никаких побочных действий.
+
+  Служебные разделы исключены: админку незачем греть, а /accounts/ — это
+  вход, выход и пароли, их не трогаем вовсе.
+
+  Уведомления — тоже: открытие страницы помечает их прочитанными. Предзагрузка
+  по наведению «прочитала» бы всё за человека, и бейдж с числом новых гас бы
+  раньше, чем он что-то увидел.
+{% endcomment %}
+<script type="speculationrules">
+{
+  "prefetch": [{
+    "where": {
+      "and": [
+        { "href_matches": "/*" },
+        { "not": { "href_matches": ["/admin/*", "/accounts/*", "/media/*", "/static/*", "/cabinet/notifications/*"] } },
+        { "not": { "selector_matches": "[data-no-prefetch], [target=_blank], [download]" } }
+      ]
+    },
+    "eagerness": "moderate"
+  }]
+}
+</script>
 {% block scripts %}{% endblock %}
 </body>
 </html>

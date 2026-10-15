@@ -211,6 +211,22 @@
     nodes.forEach(function (n) { observer.observe(n); });
   }
 
+  // --- Блокировка прокрутки ---------------------------------------------
+  // Запирает корневой элемент, а не body.
+  //
+  // Регрессия: overflow: hidden на body делал сам body полосой прокрутки — у
+  // html стоит overflow-x: clip, поэтому наружу к окну свойство больше не
+  // всплывает. Липкая шапка начинала липнуть к прокрученному боксу body и
+  // уезжала вверх. Тот же баг сидел в модальных окнах кабинета.
+  //
+  // Счётчик, а не флаг: окно, открытое поверх меню, не должно при закрытии
+  // отпереть прокрутку под ещё открытым меню.
+  let scrollLocks = 0;
+  function lockScroll(on) {
+    scrollLocks = Math.max(0, scrollLocks + (on ? 1 : -1));
+    document.documentElement.classList.toggle("is-locked", scrollLocks > 0);
+  }
+
   // --- Header / menus ----------------------------------------------------
   function initChrome() {
     const header = document.querySelector(".site-header");
@@ -223,53 +239,213 @@
     const burger = document.querySelector("[data-burger]");
     const menu = document.querySelector(".mobile-menu");
     if (burger && menu) {
-      // Прокрутку запирает корневой элемент, а не body.
-      //
-      // Регрессия: overflow: hidden на body делал сам body полосой прокрутки —
-      // у html стоит overflow-x: clip, поэтому наружу к окну свойство больше
-      // не всплывает. Липкая шапка начинала липнуть к прокрученному боксу
-      // body и мгновенно уезжала вверх вместе с бургером.
-      function lock(on) {
-        document.documentElement.classList.toggle("is-locked", on);
-      }
-      burger.addEventListener("click", function () {
-        const open = menu.classList.toggle("is-open");
+      const lock = lockScroll;
+      function setMenu(open) {
+        if (menu.classList.contains("is-open") === open) return;
+        menu.classList.toggle("is-open", open);
         burger.setAttribute("aria-expanded", String(open));
         lock(open);
+      }
+      burger.addEventListener("click", function () {
+        setMenu(!menu.classList.contains("is-open"));
       });
       menu.querySelectorAll("a").forEach(function (link) {
-        link.addEventListener("click", function () {
-          menu.classList.remove("is-open");
-          burger.setAttribute("aria-expanded", "false");
-          lock(false);
-        });
+        link.addEventListener("click", function () { setMenu(false); });
       });
       // Escape закрывает меню: открытое на весь экран, оно иначе ловит
       // человека без единого пути назад, кроме бургера.
       document.addEventListener("keydown", function (event) {
-        if (event.key === "Escape" && menu.classList.contains("is-open")) {
-          menu.classList.remove("is-open");
-          burger.setAttribute("aria-expanded", "false");
-          lock(false);
-        }
+        if (event.key === "Escape") setMenu(false);
+      });
+      // Меню выезжает справа — и убирается свайпом вправо, за пальцем.
+      drag(menu, {
+        node: menu,
+        axis: "x",
+        sign: 1,
+        size: function () { return menu.offsetWidth; },
+        apply: function (offset) {
+          menu.style.transform = "translateX(" + Math.min(offset, menu.offsetWidth) + "px)";
+        },
+        release: function (done) {
+          menu.style.transform = "";
+          if (done) setMenu(false);
+        },
       });
     }
 
     const side = document.querySelector(".cab-side");
     const scrim = document.querySelector(".cab-side__scrim");
-    document.querySelectorAll("[data-cab-burger]").forEach(function (button) {
-      button.addEventListener("click", function () {
-        side.classList.toggle("is-open");
-        if (scrim) scrim.classList.toggle("is-open");
+    if (side) {
+      const narrow = function () { return window.matchMedia("(max-width: 1024px)").matches; };
+      function setSide(open) {
+        if (side.classList.contains("is-open") === open) return;
+        side.classList.toggle("is-open", open);
+        if (scrim) scrim.classList.toggle("is-open", open);
+        lockScroll(open);
+      }
+      document.querySelectorAll("[data-cab-burger]").forEach(function (button) {
+        button.addEventListener("click", function () { setSide(!side.classList.contains("is-open")); });
       });
-    });
-    if (scrim) {
-      scrim.addEventListener("click", function () {
-        side.classList.remove("is-open");
-        scrim.classList.remove("is-open");
+      if (scrim) scrim.addEventListener("click", function () { setSide(false); });
+      document.addEventListener("keydown", function (event) {
+        if (event.key === "Escape") setSide(false);
+      });
+
+      // Закрыть — свайп влево по открытому меню или по затемнению.
+      [side, scrim].forEach(function (surface) {
+        if (!surface) return;
+        drag(surface, {
+          node: side,
+          axis: "x",
+          sign: -1,
+          allow: function () { return narrow() && side.classList.contains("is-open"); },
+          size: function () { return side.offsetWidth; },
+          apply: function (offset) {
+            side.style.transform = "translateX(" + Math.max(offset, -side.offsetWidth) + "px)";
+          },
+          release: function (done) {
+            side.style.transform = "";
+            if (done) setSide(false);
+          },
+        });
+      });
+
+      // Открыть — потянуть от левого края экрана. Узкая полоса у края, а не
+      // весь экран: иначе любой горизонтальный жест на странице выдвигал бы
+      // меню вместо того, чтобы листать то, что под пальцем.
+      const edge = document.createElement("div");
+      edge.className = "cab-edge";
+      edge.setAttribute("aria-hidden", "true");
+      document.body.appendChild(edge);
+      drag(edge, {
+        node: side,
+        axis: "x",
+        sign: 1,
+        allow: function () { return narrow() && !side.classList.contains("is-open"); },
+        size: function () { return side.offsetWidth; },
+        // Меню едет из-за края: от −ширины к нулю по мере движения пальца.
+        apply: function (offset) {
+          const width = side.offsetWidth;
+          side.style.transform = "translateX(" + (Math.min(offset, width) - width) + "px)";
+        },
+        release: function (done) {
+          side.style.transform = "";
+          if (done) setSide(true);
+        },
       });
     }
   }
+
+  // --- Жесты -------------------------------------------------------------
+  // Панель едет за пальцем, а не просто реагирует на свайп: так жест
+  // ощущается физическим и его можно передумать на полпути, вернув палец.
+  //
+  // Только касание и перо. Мышью тянуть панели незачем, а на десктопе такой
+  // обработчик мешал бы выделять текст и перетаскивать карточки заявок.
+  function drag(el, opts) {
+    let start = null;
+
+    el.addEventListener("pointerdown", function (event) {
+      if (event.pointerType === "mouse") return;
+      if (opts.allow && !opts.allow()) return;
+      // Внутри полей ввода и лент с горизонтальной прокруткой жест принадлежит
+      // им: листать ленту дней и закрывать меню одним движением нельзя.
+      if (event.target.closest("input, textarea, select, [contenteditable], .scroll-x, [data-day-strip], .kanban")) return;
+      start = { x: event.clientX, y: event.clientY, t: event.timeStamp, id: event.pointerId, locked: null };
+    });
+
+    el.addEventListener("pointermove", function (event) {
+      if (!start || event.pointerId !== start.id) return;
+      const dx = event.clientX - start.x;
+      const dy = event.clientY - start.y;
+      // Направление решаем по первым десяти пикселям: так вертикальная
+      // прокрутка не превращается в свайп, если палец чуть вильнул вбок.
+      if (start.locked === null) {
+        if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
+        const along = opts.axis === "x" ? Math.abs(dx) > Math.abs(dy) : Math.abs(dy) > Math.abs(dx);
+        start.locked = along;
+        if (!along) { start = null; return; }
+        el.setPointerCapture(event.pointerId);
+        opts.node.classList.add("is-dragging");
+      }
+      const raw = opts.axis === "x" ? dx : dy;
+      // Тянуть в обратную сторону можно чуть-чуть и с сопротивлением —
+      // панель «упирается», а не улетает в пустоту.
+      const offset = raw * opts.sign >= 0 ? raw : raw * 0.18;
+      opts.apply(offset);
+    });
+
+    function finish(event) {
+      if (!start || event.pointerId !== start.id) return;
+      const wasDragging = start.locked;
+      const raw = opts.axis === "x" ? event.clientX - start.x : event.clientY - start.y;
+      const distance = raw * opts.sign;
+      const velocity = distance / Math.max(1, event.timeStamp - start.t);
+      start = null;
+      if (!wasDragging) return;
+      opts.node.classList.remove("is-dragging");
+      // Довести до конца — если протянули треть или резко смахнули.
+      const done = event.type !== "pointercancel" && (distance > opts.size() * 0.33 || velocity > 0.55);
+      opts.release(done);
+    }
+    el.addEventListener("pointerup", finish);
+    el.addEventListener("pointercancel", finish);
+  }
+
+  // --- Свайп недели ------------------------------------------------------
+  // В расписании свайп влево и вправо листает недели — как стрелки сверху,
+  // только без прицеливания в маленькую кнопку.
+  function initWeekSwipe() {
+    const next = document.querySelector("[data-week=next]");
+    const prev = document.querySelector("[data-week=prev]");
+    const area = document.querySelector(".cab-body");
+    if (!area || !next || !prev) return;
+
+    // Горизонтальный жест здесь наш, вертикальная прокрутка — браузера.
+    // Иначе браузер забирает движение под свайп «назад» и обрывает жест.
+    // Ленты с горизонтальной прокруткой внутри — сами себе прокрутка,
+    // это свойство на них не распространяется.
+    area.style.touchAction = "pan-y";
+
+    let start = null;
+    area.addEventListener("pointerdown", function (event) {
+      if (event.pointerType === "mouse") return;
+      // Ссылки и кнопки не исключаем: свайп, начатый на строке урока, —
+      // всё равно свайп. Тап по ссылке браузер отличит сам — сдвинутое
+      // касание кликом не считается.
+      if (event.target.closest("input, textarea, select, .scroll-x, [data-day-strip], .kanban, .modal, .cab-side")) return;
+      start = { x: event.clientX, y: event.clientY, t: event.timeStamp, id: event.pointerId };
+    });
+    area.addEventListener("pointerup", function (event) {
+      if (!start || event.pointerId !== start.id) return;
+      const dx = event.clientX - start.x;
+      const dy = event.clientY - start.y;
+      const quick = event.timeStamp - start.t < 600;
+      start = null;
+      // Только явный горизонтальный жест: вдвое больше по горизонтали, чем
+      // по вертикали, и не меньше 70 пикселей. Иначе листание вниз по
+      // расписанию случайно перекидывало бы неделю.
+      if (!quick || Math.abs(dx) < 70 || Math.abs(dx) < Math.abs(dy) * 2) return;
+      const link = dx < 0 ? next : prev;
+      go(link.getAttribute("href"), dx < 0 ? "week-next" : "week-prev");
+    });
+    area.addEventListener("pointercancel", function () { start = null; });
+  }
+
+  // Переход с типом: страница въедет сбоку по направлению жеста. Тип живёт
+  // до следующей страницы в sessionStorage — переход общий для старого и
+  // нового документа, а память у них разная.
+  function go(href, type) {
+    try { sessionStorage.setItem("linguich-vt", type); } catch (e) { /* без хранилища — просто без бокового сдвига */ }
+    window.location.href = href;
+  }
+  window.addEventListener("pageswap", function (event) {
+    if (!event.viewTransition) return;
+    let type = null;
+    try { type = sessionStorage.getItem("linguich-vt"); } catch (e) { /* нет хранилища — нет типа */ }
+    if (type) event.viewTransition.types.add(type);
+  });
+
 
   // --- Modals ------------------------------------------------------------
   function initModals() {
@@ -278,8 +454,8 @@
         event.preventDefault();
         const modal = document.querySelector(trigger.dataset.modalOpen);
         if (!modal) return;
+        if (!modal.hasAttribute("open")) lockScroll(true);
         modal.setAttribute("open", "");
-        document.body.style.overflow = "hidden";
         // Одна модалка на список: адрес формы приходит от кнопки строки,
         // иначе пришлось бы печатать её копию для каждого сотрудника.
         if (trigger.dataset.formAction) {
@@ -303,8 +479,9 @@
     });
 
     function close(modal) {
+      if (!modal.hasAttribute("open")) return;
       modal.removeAttribute("open");
-      document.body.style.overflow = "";
+      lockScroll(false);
     }
     document.querySelectorAll(".modal").forEach(function (modal) {
       // Окно с выданным паролем закрывается только явной кнопкой: пароль
@@ -314,6 +491,30 @@
         if (event.target.closest("[data-modal-close]")) return close(modal);
         if (event.target === modal && !sticky) close(modal);
       });
+      const panel = modal.querySelector(".modal__panel");
+      if (panel && !sticky) {
+        // Ручка — в самом верху шторки. Тянуть можно за неё и за заголовок:
+        // ниже содержимое прокручивается, и жест принадлежит прокрутке.
+        const grip = document.createElement("div");
+        grip.className = "sheet-grip";
+        grip.setAttribute("aria-hidden", "true");
+        panel.prepend(grip);
+        const handles = [grip, panel.querySelector(":scope > .card-head")].filter(Boolean);
+        handles.forEach(function (handle) {
+          drag(handle, {
+            node: panel,
+            axis: "y",
+            sign: 1,
+            allow: function () { return window.matchMedia("(max-width: 640px)").matches; },
+            size: function () { return panel.offsetHeight; },
+            apply: function (offset) { panel.style.transform = "translateY(" + offset + "px)"; },
+            release: function (done) {
+              panel.style.transform = "";
+              if (done) close(modal);
+            },
+          });
+        });
+      }
     });
     document.addEventListener("keydown", function (event) {
       if (event.key !== "Escape") return;
@@ -478,8 +679,11 @@
       modal.querySelectorAll("[data-copy]").forEach(function (button) {
         button.dataset.copyValue = data[button.dataset.copy] || "";
       });
+      // Тот же замок, что у остальных окон: закрывает его общий close().
+      // Раньше здесь запирался body — и после закрытия окна страница
+      // так и оставалась без прокрутки.
+      if (!modal.hasAttribute("open")) lockScroll(true);
       modal.setAttribute("open", "");
-      document.body.style.overflow = "hidden";
     }
 
     document.addEventListener("async:success", function (event) {
@@ -775,6 +979,7 @@
     initLeadBoard();
     initDayStrip();
     initCredentials();
+    initWeekSwipe();
     bindAsyncForms(document);
     bindActions(document);
   }

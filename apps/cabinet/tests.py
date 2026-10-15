@@ -1063,3 +1063,50 @@ class LessonMarkingTests(CabinetFixture):
         row = html.split(f'name="status-{self.participant.pk}"')
         self.assertIn('value="attended"', row[1][:60])
         self.assertIn("checked", row[1][:120], "по умолчанию должен стоять «был»")
+
+
+class PrefetchSafetyTests(CabinetFixture):
+    """Браузер заранее забирает страницы по наведению. Всё, что меняет данные
+    при простом открытии, должно это переживать."""
+
+    def test_logout_by_link_does_not_log_out(self):
+        # Предзагрузка ссылки «Выйти» разлогинивала бы человека при наведении.
+        self.client.force_login(self.student)
+        response = self.client.get(reverse("accounts:logout"))
+        self.assertEqual(response.status_code, 405)
+        self.assertEqual(self.client.get(reverse("cabinet:home")).status_code, 200)
+
+    def test_logout_by_form_logs_out(self):
+        self.client.force_login(self.student)
+        self.client.post(reverse("accounts:logout"))
+        response = self.client.get(reverse("cabinet:home"))
+        self.assertEqual(response.status_code, 302)
+
+    def test_prefetch_does_not_mark_notifications_read(self):
+        note = Notification.objects.create(recipient=self.student, body="Урок завтра")
+        self.client.force_login(self.student)
+        self.client.get(reverse("cabinet:notifications"), headers={"Sec-Purpose": "prefetch"})
+        note.refresh_from_db()
+        self.assertIsNone(note.read_at)
+
+        self.client.get(reverse("cabinet:notifications"))
+        note.refresh_from_db()
+        self.assertIsNotNone(note.read_at)
+
+    def test_logout_in_the_cabinet_is_a_form(self):
+        self.client.force_login(self.student)
+        html = self.client.get(reverse("cabinet:home")).content.decode()
+        logout = reverse("accounts:logout")
+        self.assertIn(f'<form method="post" action="{logout}"', html)
+        self.assertNotIn(f'<a href="{logout}"', html)
+
+
+class SpeculationRulesTests(SimpleTestCase):
+    def test_rules_skip_pages_with_side_effects(self):
+        html = (settings.BASE_DIR / "templates" / "base.html").read_text(encoding="utf-8")
+        rules = json.loads(re.search(r'<script type="speculationrules">(.*?)</script>', html, re.S).group(1))
+        rule = rules["prefetch"][0]
+        self.assertNotIn("prerender", rules, "prerender исполняет страницу заранее — только prefetch")
+        excluded = rule["where"]["and"][1]["not"]["href_matches"]
+        for path in ("/accounts/*", "/admin/*", "/cabinet/notifications/*"):
+            self.assertIn(path, excluded)
