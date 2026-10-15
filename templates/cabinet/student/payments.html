@@ -32,11 +32,14 @@
 {% if account.balance > 0 %}
   <div class="alert alert--warn">
     <svg class="icon icon--lg"><use href="#i-card"/></svg>
-    <div>
+    <div style="flex:1">
       <strong>К оплате {{ account.balance|floatformat:0|intcomma }} ₽</strong>
       Оплатить можно в школе или переводом — реквизиты подскажет администратор
-      по телефону {{ site.phone }}.
+      по телефону <a href="tel:{{ site.phone|cut:" "|cut:"("|cut:")"|cut:"-" }}">{{ site.phone }}</a>.
     </div>
+    <a class="btn btn--sm" href="tel:{{ site.phone|cut:" "|cut:"("|cut:")"|cut:"-" }}">
+      <svg class="icon icon--sm"><use href="#i-phone"/></svg> Позвонить
+    </a>
   </div>
 {% endif %}
 

@@ -1110,3 +1110,37 @@ class SpeculationRulesTests(SimpleTestCase):
         excluded = rule["where"]["and"][1]["not"]["href_matches"]
         for path in ("/accounts/*", "/admin/*", "/cabinet/notifications/*"):
             self.assertIn(path, excluded)
+
+
+class BottomTabsTests(CabinetFixture):
+    """Нижняя панель на телефоне: главные разделы роли одним касанием."""
+
+    def tabs(self, user, name, *args):
+        self.client.force_login(user)
+        response = self.client.get(reverse(name, args=args))
+        return response.context["tabs"], response.context["tabs_rest"]
+
+    def test_each_role_gets_its_own_sections(self):
+        student, _ = self.tabs(self.student, "cabinet:home")
+        self.assertEqual([t["url_name"] for t in student],
+                         ["cabinet:home", "cabinet:schedule", "cabinet:homework", "cabinet:payments"])
+        teacher, _ = self.tabs(self.teacher, "cabinet:teacher_home")
+        self.assertIn("cabinet:teacher_review", [t["url_name"] for t in teacher])
+        owner, _ = self.tabs(self.owner, "cabinet:crm_home")
+        self.assertIn("cabinet:crm_payments", [t["url_name"] for t in owner],
+                      "владелица ведёт школу — ей вкладки школы")
+
+    def test_exactly_one_tab_is_active(self):
+        tabs, _ = self.tabs(self.teacher, "cabinet:teacher_schedule")
+        active = [t["url_name"] for t in tabs if t["active"]]
+        self.assertEqual(active, ["cabinet:teacher_schedule"],
+                         "обзор — префикс расписания, но подсвечен должен быть самый точный раздел")
+
+    def test_student_home_does_not_light_up_on_every_page(self):
+        tabs, _ = self.tabs(self.student, "cabinet:program")
+        self.assertFalse(any(t["active"] for t in tabs))
+
+    def test_badges_outside_the_bar_add_up_on_the_menu_button(self):
+        Notification.objects.create(recipient=self.student, body="Новое")
+        _, rest = self.tabs(self.student, "cabinet:home")
+        self.assertEqual(rest, 1, "непрочитанное уведомление не должно потеряться за «Меню»")

@@ -112,6 +112,54 @@
 .cab-burger { display: none; }
 @media (max-width: 1024px) { .cab-burger { display: inline-grid; } }
 
+/* --- Нижняя панель (телефон) ------------------------------------------ */
+.cab-tabs { display: none; }
+@media (max-width: 760px) {
+  .cab-tabs {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 600;
+    display: grid; grid-template-columns: repeat(5, minmax(0, 1fr));
+    padding: 4px 4px calc(4px + env(safe-area-inset-bottom));
+    background: color-mix(in srgb, var(--surface) 92%, transparent);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-top: 1px solid var(--line-soft);
+  }
+  /* Место под панель, чтобы она не закрывала последнюю строку страницы. */
+  .cab-body { padding-bottom: calc(84px + env(safe-area-inset-bottom)); }
+  /* Бургер дублировал бы «Меню» внизу. */
+  .cab-top .cab-burger { display: none; }
+}
+.cab-tabs__item {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 2px; min-height: 52px; padding: 4px 2px;
+  border: 0; background: none; font: inherit;
+  font-size: 0.68rem; font-weight: 600; line-height: 1.1;
+  color: var(--muted); border-radius: var(--r-md);
+  text-align: center; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.cab-tabs__item > span:last-child {
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.cab-tabs__item.is-active { color: var(--brand-600); }
+.cab-tabs__item:active { background: var(--surface-2); }
+.cab-tabs__icon {
+  position: relative;
+  display: grid; place-items: center;
+  width: 44px; height: 26px; border-radius: var(--r-full);
+  transition: background var(--t-fast) var(--ease);
+}
+.cab-tabs__item.is-active .cab-tabs__icon { background: var(--brand-50); }
+.cab-tabs__count {
+  position: absolute; top: -4px; right: 2px;
+  min-width: 17px; height: 17px; padding: 0 4px;
+  display: grid; place-items: center;
+  border-radius: var(--r-full);
+  background: var(--accent-500); color: #fff;
+  font-size: 0.6rem; font-weight: 700;
+  box-shadow: 0 0 0 2px var(--surface);
+}
+
 /* --- Next lesson banner ------------------------------------------------ */
 .next-lesson {
   background: linear-gradient(135deg, var(--brand-700), var(--brand-500));
@@ -177,9 +225,26 @@
 .lesson-row__meta { font-size: var(--step--2); color: var(--muted); display: flex; gap: var(--s-3); flex-wrap: wrap; }
 .lesson-row__actions { display: flex; gap: var(--s-2); align-items: center; flex-wrap: wrap; justify-content: flex-end; }
 
+/* Строка с аватаром человека вместо времени урока. */
+.lesson-row--person { grid-template-columns: 44px minmax(0, 1fr) auto; }
+
 @media (max-width: 640px) {
   .lesson-row { grid-template-columns: 68px minmax(0, 1fr); }
+  .lesson-row--person { grid-template-columns: 32px minmax(0, 1fr) auto; }
   .lesson-row__actions { grid-column: 1 / -1; justify-content: flex-start; }
+  /* Строки сводки — сумма и стрелка: им хватает места справа, переносить
+     их отдельной строкой значит удваивать длину страницы. */
+  .lesson-row--compact { padding: var(--s-3); gap: var(--s-3); }
+  .lesson-row--compact .lesson-row__actions { grid-column: auto; justify-content: flex-end; flex-wrap: nowrap; }
+  .lesson-row--compact .lesson-row__title,
+  .lesson-row--compact .lesson-row__meta {
+    display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .lesson-row--compact .lesson-row__meta > span + span::before { content: " · "; }
+  .lesson-row--compact .lesson-row__meta .badge { display: none; }
+  .lesson-row--compact .avatar--sm { width: 32px; height: 32px; font-size: 0.7rem; }
+  /* На телефоне в списках-превью хватает трёх последних — остальные по «Все». */
+  .lesson-row.is-extra { display: none; }
 }
 
 /* --- Week grid --------------------------------------------------------- */
@@ -189,7 +254,18 @@
   gap: var(--s-2);
 }
 @media (max-width: 860px) { .week { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 520px) { .week { grid-template-columns: 1fr; } }
+@media (max-width: 520px) {
+  .week { grid-template-columns: 1fr; }
+  /* В столбик семь карточек высотой 130px — экран пустых прочерков.
+     Свободный день сжимается в одну строку, занятые остаются карточками. */
+  .week:not(.week--strip) .week__day.is-empty {
+    min-height: 0;
+    display: flex; align-items: center; gap: var(--s-3);
+    padding-block: var(--s-2);
+  }
+  .week:not(.week--strip) .week__day.is-empty h5 { flex: 1; margin: 0; }
+  .week:not(.week--strip) .week__day { min-height: 0; }
+}
 
 .week__day {
   background: var(--surface);
@@ -620,4 +696,26 @@
 .hot-row__ico {
   width: 34px; height: 34px; border-radius: 10px; flex: none;
   display: flex; align-items: center; justify-content: center;
+}
+
+/* --- Запись на урок: кнопка у большого пальца ------------------------- */
+@media (max-width: 760px) {
+  /* Слоты на телефоне ниже параметров. Выбрал время — кнопка «Записаться»
+     встаёт над нижней панелью, листать вверх к ней не нужно. */
+  #booking [data-book]:not(:disabled) {
+    position: fixed; z-index: 590;
+    left: 16px; right: 16px; width: auto;
+    bottom: calc(72px + env(safe-area-inset-bottom));
+    margin: 0;
+    box-shadow: var(--sh-4);
+    animation: book-up var(--t-mid) var(--ease-out);
+  }
+  #booking [data-book][data-when]:not(:disabled)::after {
+    content: " · " attr(data-when);
+    font-weight: 500;
+  }
+}
+@keyframes book-up { from { transform: translateY(16px); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  #booking [data-book] { animation: none !important; }
 }

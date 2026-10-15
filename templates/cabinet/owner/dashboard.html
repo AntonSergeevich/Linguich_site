@@ -204,7 +204,7 @@
       {% endif %}
     </div>
     {% for row in debtors %}
-      <div class="lesson-row" style="grid-template-columns:44px minmax(0,1fr) auto">
+      <div class="lesson-row lesson-row--compact lesson-row--person">
         <span class="avatar avatar--sm">{{ row.student.initials }}</span>
         <div style="min-width:0">
           <div class="lesson-row__title">{{ row.student.full_name }}</div>
@@ -232,7 +232,7 @@
       <a class="btn btn--quiet btn--sm" href="{% url 'cabinet:crm_payments' %}">Все</a>
     </div>
     {% for payment in recent_payments %}
-      <div class="lesson-row" style="grid-template-columns:44px minmax(0,1fr) auto">
+      <div class="lesson-row lesson-row--compact lesson-row--person{% if forloop.counter > 3 %} is-extra{% endif %}">
         <span class="avatar avatar--sm">{{ payment.student.initials }}</span>
         <div style="min-width:0">
           <div class="lesson-row__title">{{ payment.student.full_name }}</div>
@@ -267,7 +267,7 @@
       <a class="btn btn--quiet btn--sm" href="{% url 'cabinet:crm_leads' %}">Все</a>
     </div>
     {% for lead in recent_leads %}
-      <div class="lesson-row" style="grid-template-columns:minmax(0,1fr) auto">
+      <div class="lesson-row lesson-row--compact{% if forloop.counter > 3 %} is-extra{% endif %}" style="grid-template-columns:minmax(0,1fr) auto">
         <div style="min-width:0">
           <div class="lesson-row__title">{{ lead.name }}</div>
           <div class="lesson-row__meta">

@@ -493,3 +493,16 @@ input[type="file"] { max-width: 100%; }
   cursor: pointer;
 }
 .link-button:hover { color: var(--brand-700); }
+
+/* Карточка-цифра, за которой есть действие. */
+a.stat--link { color: inherit; text-decoration: none; transition: border-color var(--t-fast) var(--ease), transform var(--t-fast) var(--ease); }
+a.stat--link:active { transform: scale(0.98); }
+@media (hover: hover) and (pointer: fine) {
+  a.stat--link:hover { border-color: var(--brand-300); }
+}
+
+/* На телефоне кнопка плашки уходит под текст, а не сжимает его в столбик. */
+@media (max-width: 520px) {
+  .alert { flex-wrap: wrap; }
+  .alert > .btn { margin-left: auto; }
+}

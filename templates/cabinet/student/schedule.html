@@ -14,7 +14,7 @@
 
 <div class="week">
   {% for day in days %}
-    <div class="week__day {% if day.is_today %}is-today{% endif %}">
+    <div class="week__day {% if day.is_today %}is-today{% endif %} {% if not day.lessons %}is-empty{% endif %}">
       <h5><span>{{ day.short }}</span><span>{{ day.date|date:"d.m" }}</span></h5>
       {% for lesson in day.lessons %}
         <span class="week-chip {% if lesson.status == 'cancelled' %}is-cancelled{% elif lesson.status == 'completed' %}is-done{% endif %}">

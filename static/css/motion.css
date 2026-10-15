@@ -17,10 +17,12 @@
 .site-header { view-transition-name: site-header; }
 .cab-side    { view-transition-name: cab-side; }
 .cab-top     { view-transition-name: cab-top; }
+.cab-tabs    { view-transition-name: cab-tabs; }
 
 ::view-transition-group(site-header),
 ::view-transition-group(cab-side),
-::view-transition-group(cab-top) {
+::view-transition-group(cab-top),
+::view-transition-group(cab-tabs) {
   animation: none;
 }
 
@@ -87,6 +89,10 @@ html:active-view-transition-type(week-prev)::view-transition-new(root) {
     z-index: 650;
     touch-action: pan-y;
   }
+}
+/* Полоска не заходит на нижнюю панель — иначе съедала бы край «Главной». */
+@media (max-width: 760px) {
+  .cab-edge { bottom: calc(64px + env(safe-area-inset-bottom)); }
 }
 @media (min-width: 1025px) {
   .cab-edge { display: none; }

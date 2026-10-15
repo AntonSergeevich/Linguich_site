@@ -116,7 +116,13 @@
     } else {
       summary.hidden = true;
     }
-    if (submit) submit.disabled = !selected;
+    if (submit) {
+      submit.disabled = !selected;
+      // На телефоне кнопка выезжает внизу экрана и показывает выбранное
+      // время — подтверждать запись, не листая обратно к параметрам.
+      if (selected) submit.setAttribute("data-when", selected.label);
+      else submit.removeAttribute("data-when");
+    }
   }
 
   if (submit) {

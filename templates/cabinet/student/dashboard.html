@@ -51,21 +51,25 @@
     <div class="stat__value">{{ attended }}</div>
     <div class="stat__meta">занятий всего</div>
   </div>
-  <div class="stat">
+  {% comment %}
+    Карточки, за которыми есть дело, — ссылки: увидел «1 задание» или долг
+    и сразу перешёл туда, где с этим разбираются, а не искал раздел в меню.
+  {% endcomment %}
+  <a class="stat stat--link" href="{% url 'cabinet:homework' %}">
     <div class="stat__label">Домашних заданий</div>
     <div class="stat__value">{{ homework|length }}</div>
     <div class="stat__meta">ждут выполнения</div>
-  </div>
-  <div class="stat">
+  </a>
+  <a class="stat stat--link" href="{% url 'cabinet:payments' %}">
     <div class="stat__label">Баланс</div>
     {% if account.balance > 0 %}
       <div class="stat__value money-pos">−{{ account.balance|floatformat:0|intcomma }} ₽</div>
-      <div class="stat__meta stat__meta--down">есть задолженность</div>
+      <div class="stat__meta stat__meta--down">как оплатить →</div>
     {% else %}
       <div class="stat__value">0 ₽</div>
       <div class="stat__meta stat__meta--up">всё оплачено</div>
     {% endif %}
-  </div>
+  </a>
 </div>
 
 {% if profile.parent_name or profile.parent_phone %}

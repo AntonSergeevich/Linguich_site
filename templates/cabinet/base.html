@@ -70,5 +70,32 @@
       {% block cabinet %}{% endblock %}
     </div>
   </div>
+
+  {% if tabs %}
+    {% comment %}
+      Нижняя панель на телефоне — до главных разделов одним касанием
+      большого пальца. Бургер в шапке на телефоне прячется: его роль берёт
+      «Меню» здесь, внизу, куда палец дотягивается.
+    {% endcomment %}
+    <nav class="cab-tabs" aria-label="Главные разделы">
+      {% for tab in tabs %}
+        <a href="{{ tab.href }}" class="cab-tabs__item{% if tab.active %} is-active{% endif %}"
+           {% if tab.active %}aria-current="page"{% endif %}>
+          <span class="cab-tabs__icon">
+            <svg class="icon"><use href="#{{ tab.icon }}"/></svg>
+            {% if tab.count %}<span class="cab-tabs__count">{{ tab.count }}</span>{% endif %}
+          </span>
+          <span>{{ tab.label }}</span>
+        </a>
+      {% endfor %}
+      <button class="cab-tabs__item" type="button" data-cab-burger aria-label="Все разделы">
+        <span class="cab-tabs__icon">
+          <svg class="icon"><use href="#i-menu"/></svg>
+          {% if tabs_rest %}<span class="cab-tabs__count">{{ tabs_rest }}</span>{% endif %}
+        </span>
+        <span>Меню</span>
+      </button>
+    </nav>
+  {% endif %}
 </div>
 {% endblock %}

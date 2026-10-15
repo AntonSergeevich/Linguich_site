@@ -103,6 +103,62 @@ def owner_nav(user):
     ]
 
 
+# Нижняя панель на телефоне: четыре раздела, ради которых в кабинет
+# заходят каждый день, — без бургера и второго касания. Остальное — под
+# пятой кнопкой «Меню», которая открывает то же боковое меню.
+TABS = {
+    "student": [
+        ("cabinet:home", "Главная"),
+        ("cabinet:schedule", "Расписание"),
+        ("cabinet:homework", "Задания"),
+        ("cabinet:payments", "Оплата"),
+    ],
+    "teacher": [
+        ("cabinet:teacher_home", "Обзор"),
+        ("cabinet:teacher_schedule", "Журнал"),
+        ("cabinet:teacher_review", "Проверка"),
+        ("cabinet:teacher_students", "Ученики"),
+    ],
+    "school": [
+        ("cabinet:crm_home", "Сводка"),
+        ("cabinet:crm_leads", "Заявки"),
+        ("cabinet:crm_schedule", "Расписание"),
+        ("cabinet:crm_payments", "Оплаты"),
+    ],
+}
+
+
+def tabs_for(user, nav_groups, path):
+    """Вкладки нижней панели и сумма счётчиков всего, что в неё не попало.
+
+    Счётчики берём из уже собранного меню — второй раз в базу не ходим.
+    Активной считается вкладка с самым длинным адресом-префиксом текущей
+    страницы: карточка ученика подсвечивает «Ученики», а не «Главную»."""
+    from django.urls import reverse
+
+    if user.is_manager:
+        picks = TABS["school"]
+    elif user.is_teacher:
+        picks = TABS["teacher"]
+    else:
+        picks = TABS["student"]
+
+    items = {url_name: (icon, count) for _, group in nav_groups for url_name, _, icon, count in group}
+    tabs = []
+    for url_name, label in picks:
+        icon, count = items.get(url_name, ("i-home", 0))
+        tabs.append({"url_name": url_name, "href": reverse(url_name), "label": label,
+                     "icon": icon, "count": count, "active": False})
+
+    matches = [tab for tab in tabs if path == tab["href"] or (path.startswith(tab["href"]) and tab["href"].count("/") > 2)]
+    if matches:
+        max(matches, key=lambda tab: len(tab["href"]))["active"] = True
+
+    in_tabs = {tab["url_name"] for tab in tabs}
+    rest = sum(count for url_name, (_, count) in items.items() if url_name not in in_tabs)
+    return tabs, rest
+
+
 def nav_for(user):
     if user.is_owner:
         return owner_nav(user)
@@ -114,7 +170,10 @@ def nav_for(user):
 
 
 def cabinet_context(request, **extra):
-    context = {"nav_groups": nav_for(request.user), "unread": unread_count(request.user)}
+    nav_groups = nav_for(request.user)
+    tabs, tabs_rest = tabs_for(request.user, nav_groups, request.path)
+    context = {"nav_groups": nav_groups, "unread": unread_count(request.user),
+               "tabs": tabs, "tabs_rest": tabs_rest}
     context.update(extra)
     return context
 
