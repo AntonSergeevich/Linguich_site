@@ -65,8 +65,12 @@ jobs:
         env:
           DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
           DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
         run: |
           install -m 700 -d ~/.ssh
+          # Невидимый пробел или перевод строки в конце секрета ломает
+          # сравнение адреса с записью в known_hosts.
+          DEPLOY_HOST=$(printf '%s' "$DEPLOY_HOST" | tr -d '[:space:]')
           # Ключ, скопированный из окна консоли Windows, приходит с \r в
           # концах строк и пробелами, добитыми до ширины окна, — OpenSSH
           # такой файл не читает («error in libcrypto»). Чистим и то и другое.
@@ -92,8 +96,22 @@ jobs:
             exit 1
           fi
           # Отпечаток сервера заранее известен: без него раннер подключился
-          # бы к кому угодно, кто ответит по этому адресу.
-          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" | tr -d '\r' > ~/.ssh/known_hosts
+          # бы к кому угодно, кто ответит по этому адресу. Строку без адреса
+          # («ssh-ed25519 AAAA…») дополняем адресом сами.
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" | tr -d '\r' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//' \
+            | awk -v host="$DEPLOY_HOST" 'NF == 0 { next } /^(ssh-|ecdsa-)/ { print host " " $0; next } { print }' \
+            > ~/.ssh/known_hosts
+          if ! ssh-keygen -F "$DEPLOY_HOST" -f ~/.ssh/known_hosts > /dev/null; then
+            # Только форма: адрес и ключ сервера в журнал не выводим.
+            echo "Строк в DEPLOY_KNOWN_HOSTS: $(grep -c . ~/.ssh/known_hosts)"
+            echo "Типы ключей в нём: $(awk '{print $2}' ~/.ssh/known_hosts | sort -u | tr '\n' ' ')"
+            echo "::error::В DEPLOY_KNOWN_HOSTS нет записи для адреса из DEPLOY_HOST. Нужна строка «<адрес> ssh-ed25519 AAAA…» с сервера."
+            exit 1
+          fi
+          if ! awk '{print $2}' ~/.ssh/known_hosts | grep -qx 'ssh-ed25519'; then
+            echo "::error::В DEPLOY_KNOWN_HOSTS нет ключа ssh-ed25519 — сервер предъявляет именно его."
+            exit 1
+          fi
 
       - name: Выкатка на сервер
         env:
@@ -103,6 +121,8 @@ jobs:
         # deploy.sh и игнорирует всё, что пришлёт клиент. Вывод скрипта
         # идёт прямо в лог этого шага, код выхода — в статус выкатки.
         run: |
+          DEPLOY_HOST=$(printf '%s' "$DEPLOY_HOST" | tr -d '[:space:]')
+          DEPLOY_USER=$(printf '%s' "$DEPLOY_USER" | tr -d '[:space:]')
           ssh -i ~/.ssh/deploy \
               -o BatchMode=yes \
               -o StrictHostKeyChecking=yes \
