@@ -72,6 +72,15 @@ jobs:
           # такой файл не читает («error in libcrypto»). Чистим и то и другое.
           printf '%s\n' "$DEPLOY_SSH_KEY" | tr -d '\r' | sed 's/[[:space:]]*$//' > ~/.ssh/deploy
           chmod 600 ~/.ssh/deploy
+          # Ключ можно положить в секрет одной строкой base64 (`base64 -w0`):
+          # из консоли так копировать надёжнее, чем многострочный файл.
+          # Пробелы и переносы, которые добавит копирование, отбрасываем.
+          if ! grep -q -- '-----BEGIN' ~/.ssh/deploy; then
+            if tr -d ' \t\n' < ~/.ssh/deploy | base64 -d > ~/.ssh/deploy.dec 2> /dev/null; then
+              mv ~/.ssh/deploy.dec ~/.ssh/deploy
+              chmod 600 ~/.ssh/deploy
+            fi
+          fi
           if ! ssh-keygen -y -f ~/.ssh/deploy > /dev/null 2> ~/.ssh/deploy.err; then
             # Только форма, не содержимое: число строк и есть ли рамка ключа.
             echo "Строк в секрете: $(grep -c . ~/.ssh/deploy)"

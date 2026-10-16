@@ -27,34 +27,39 @@
 ssh linguich@62.217.180.50
 ```
 
-Создать отдельный ключ для GitHub и разрешить ему только выкатку:
+Все команды этого шага — **на сервере**, после `ssh`. В командной строке
+Windows их запускать бесполезно: там нет ни `cat`, ни `~/.ssh` сервера.
+
+Создать отдельный ключ для GitHub и разрешить ему только выкатку. Первая
+строка убирает старые ключи выкатки, если ключ делается повторно:
 
 ```
-ssh-keygen -t ed25519 -f ~/.ssh/github_deploy -N "" -C github-deploy
+rm -f ~/.ssh/github_deploy ~/.ssh/github_deploy.pub
+sed -i '/ github-deploy$/d' ~/.ssh/authorized_keys
+ssh-keygen -q -t ed25519 -f ~/.ssh/github_deploy -N "" -C github-deploy
 echo "restrict,command=\"/srv/linguich/deploy/deploy.sh\" $(cat ~/.ssh/github_deploy.pub)" >> ~/.ssh/authorized_keys
 ```
 
-Показать приватный ключ — он нужен для секрета `DEPLOY_SSH_KEY`:
+Ключ для секрета `DEPLOY_SSH_KEY` — одной строкой. Многострочный файл при
+копировании из консоли Windows ломается, а одну строку workflow развернёт
+сам, даже если копирование добавит пробелы или переносы:
 
 ```
-cat ~/.ssh/github_deploy
+base64 -w0 ~/.ssh/github_deploy; echo
 ```
 
-Скопировать **всё целиком**, включая строки `-----BEGIN…` и `-----END…`.
-
-Показать отпечаток сервера — для секрета `DEPLOY_KNOWN_HOSTS`:
+Отпечаток сервера для секрета `DEPLOY_KNOWN_HOSTS` — прямо из файла ключа
+сервера, без сети:
 
 ```
-ssh-keyscan 62.217.180.50 2>/dev/null
+echo "62.217.180.50 $(cut -d' ' -f1,2 /etc/ssh/ssh_host_ed25519_key.pub)"
 ```
-
-Скопировать все строки вывода.
 
 После того как секреты заведены, приватный ключ на сервере больше не
 нужен — удалить:
 
 ```
-rm ~/.ssh/github_deploy
+rm ~/.ssh/github_deploy ~/.ssh/github_deploy.pub
 ```
 
 ### 2. Секреты в GitHub
@@ -66,8 +71,8 @@ rm ~/.ssh/github_deploy
 |----------------------|---------------------------------------|
 | `DEPLOY_HOST`        | `62.217.180.50`                       |
 | `DEPLOY_USER`        | `linguich`                            |
-| `DEPLOY_SSH_KEY`     | вывод `cat ~/.ssh/github_deploy`      |
-| `DEPLOY_KNOWN_HOSTS` | вывод `ssh-keyscan 62.217.180.50`     |
+| `DEPLOY_SSH_KEY`     | строка из `base64 -w0 ~/.ssh/github_deploy` (или файл целиком, от BEGIN до END) |
+| `DEPLOY_KNOWN_HOSTS` | строка `62.217.180.50 ssh-ed25519 …`  |
 
 ### 3. Проверить
 
@@ -78,10 +83,14 @@ Actions → «Тесты и выкатка» → **Run workflow** → master. Ч
 
 Лог шага «Выкатка на сервер» — это вывод `deploy.sh` целиком. Частые причины:
 
-- **`Permission denied (publickey)`** — секрет `DEPLOY_SSH_KEY` скопирован не
-  полностью или строка в `authorized_keys` записана с ошибкой.
-- **`Host key verification failed`** — секрет `DEPLOY_KNOWN_HOSTS` пустой или
-  сервер переустановлен и сменил ключ. Взять отпечаток заново.
+- **`Секрет DEPLOY_SSH_KEY не читается как закрытый ключ`** — в секрет попало
+  не то. Шаг «Ключ выкатки» печатает число строк и есть ли рамка BEGIN/END —
+  по ним видно, что вставлено. Сделать ключ заново (шаг 1) и вставить строку
+  `base64`.
+- **`Permission denied (publickey)`** — ключ читается, но сервер его не знает:
+  строки с `github-deploy` нет в `~/.ssh/authorized_keys` пользователя linguich.
+- **`Host key verification failed`** — секрет `DEPLOY_KNOWN_HOSTS` пустой,
+  взят с Windows или сервер переустановлен. Взять отпечаток заново (шаг 1).
 - **`sudo: a password is required`** — у пользователя linguich нет права
   перезапускать службу без пароля. Файл `/etc/sudoers.d/linguich` должен
   содержать: `linguich ALL=(root) NOPASSWD: /usr/bin/systemctl restart linguich`.
