@@ -67,11 +67,18 @@ jobs:
           DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
         run: |
           install -m 700 -d ~/.ssh
-          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy
+          # Ключ, скопированный из окна консоли Windows, приходит с \r в
+          # концах строк и пробелами, добитыми до ширины окна, — OpenSSH
+          # такой файл не читает («error in libcrypto»). Чистим и то и другое.
+          printf '%s\n' "$DEPLOY_SSH_KEY" | tr -d '\r' | sed 's/[[:space:]]*$//' > ~/.ssh/deploy
           chmod 600 ~/.ssh/deploy
+          if ! ssh-keygen -y -f ~/.ssh/deploy > /dev/null 2>&1; then
+            echo "::error::Секрет DEPLOY_SSH_KEY не читается как закрытый ключ. Нужен файл github_deploy целиком — от строки BEGIN до строки END включительно, не .pub."
+            exit 1
+          fi
           # Отпечаток сервера заранее известен: без него раннер подключился
           # бы к кому угодно, кто ответит по этому адресу.
-          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" | tr -d '\r' > ~/.ssh/known_hosts
 
       - name: Выкатка на сервер
         env:
